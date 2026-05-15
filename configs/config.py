@@ -1,0 +1,31 @@
+#! /usr/bin/env python
+# -*- coding: utf-8 -*-
+
+PATH_TO_VIDEO =""#r"E:\Глуша\100GOPRO"  #"./"
+PATH_TO_EXTRA_LAYERS = r""
+VIDEOS = []
+
+FRAME_STEP = 5
+COUNT_PROCESSED_FRAMES = 0
+
+
+INDEX_OF_FRAME = 0
+
+INDEX_OF_VIDEO = 0
+INDEX_OF_All_FRAME = INDEX_OF_FRAME + (63600 * INDEX_OF_VIDEO)
+INDEX_OF_GPS = int(round(INDEX_OF_All_FRAME / 60, 0))
+
+INDEX_OF_SING = 0
+
+PATH_TO_GEOJSON = r""  #"./"
+PATH_TO_GPX = r""  #"./"#
+
+COUNT_FRAMES = 0
+
+ClASSIFIER = {}
+###63600
+FEATURES = []
+
+SECONDS_ALL_VIDEO = 0
+
+#print( 628161 // 63600)
