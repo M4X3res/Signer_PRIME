@@ -34,17 +34,21 @@ class ProcessingPage(QWidget):
         header.addLayout(titles)
         header.addStretch()
 
-        self.btn_pause = QPushButton("⏸  Пауза")
+        self.btn_pause = QPushButton("⏸   Пауза")
         self.btn_pause.setObjectName("BtnSecondary")
-        self.btn_pause.setFixedHeight(36)
-        self.btn_pause.setMinimumWidth(100)
+        self.btn_pause.setSizePolicy(
+            QSizePolicy.Policy.MinimumExpanding, QSizePolicy.Policy.Fixed
+        )
+        self.btn_pause.setMinimumHeight(36)
         self.btn_pause.setCursor(Qt.CursorShape.PointingHandCursor)
         self.btn_pause.setEnabled(False)
 
-        self.btn_finish = QPushButton("■  Завершить")
+        self.btn_finish = QPushButton("■   Завершить")
         self.btn_finish.setObjectName("BtnPrimary")
-        self.btn_finish.setFixedHeight(36)
-        self.btn_finish.setMinimumWidth(120)
+        self.btn_finish.setSizePolicy(
+            QSizePolicy.Policy.MinimumExpanding, QSizePolicy.Policy.Fixed
+        )
+        self.btn_finish.setMinimumHeight(36)
         self.btn_finish.setCursor(Qt.CursorShape.PointingHandCursor)
         self.btn_finish.setEnabled(False)
         self.btn_finish.clicked.connect(self.finish_requested)

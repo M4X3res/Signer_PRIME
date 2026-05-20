@@ -187,9 +187,10 @@ QMainWindow, QDialog, QWidget {{
     color: #ffffff;
     border: none;
     border-radius: 6px;
-    padding: 8px 20px;
+    padding: 8px 24px;
     font-size: 13px;
     font-weight: 500;
+    min-width: 140px;
 }}
 #BtnPrimary:hover {{
     background-color: {t['accent_hover']};
@@ -207,9 +208,10 @@ QMainWindow, QDialog, QWidget {{
     color: {t['text_primary']};
     border: 1px solid {t['border_default']};
     border-radius: 6px;
-    padding: 8px 20px;
+    padding: 8px 24px;
     font-size: 13px;
     font-weight: 400;
+    min-width: 140px;
 }}
 #BtnSecondary:hover {{
     background-color: {t['bg_hover']};

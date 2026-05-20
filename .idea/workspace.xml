@@ -5,7 +5,35 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="1e2dbbfb-1536-4a2d-9ae3-16c0324f12fa" name="Changes" comment="">
+      <change afterPath="$PROJECT_DIR$/configs/models.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/configs/sign_data.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/configs/sign_models.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/core/converter.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/core/coordinate_calculation.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/core/detector.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/core/final_handler.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/core/frame.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/core/gpx_handler.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/core/lane_detector.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/core/osm_snap.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/core/sign.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/core/sign_handler.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/core/turn.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/debug_crash.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/processing/detector_thread.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/processing/processing_controller.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/processing/video_reader.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/requirements.txt" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/misc.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/misc.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/configs/config.py" beforeDir="false" afterPath="$PROJECT_DIR$/configs/config.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/configs/sign_config.py" beforeDir="false" afterPath="$PROJECT_DIR$/configs/sign_config.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/ui/main_window.py" beforeDir="false" afterPath="$PROJECT_DIR$/ui/main_window.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/ui/themes/theme_manager.py" beforeDir="false" afterPath="$PROJECT_DIR$/ui/themes/theme_manager.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/ui/widgets/dashboard_page.py" beforeDir="false" afterPath="$PROJECT_DIR$/ui/widgets/dashboard_page.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/ui/widgets/error_editor_page.py" beforeDir="false" afterPath="$PROJECT_DIR$/ui/widgets/error_editor_page.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/ui/widgets/map_page.py" beforeDir="false" afterPath="$PROJECT_DIR$/ui/widgets/map_page.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/ui/widgets/processing_page.py" beforeDir="false" afterPath="$PROJECT_DIR$/ui/widgets/processing_page.py" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -22,18 +50,21 @@
   <component name="Git.Settings">
     <option name="RECENT_GIT_ROOT_PATH" value="$PROJECT_DIR$" />
   </component>
-  <component name="GitHubPullRequestSearchHistory"><![CDATA[{
-  "lastFilter": {
-    "state": "OPEN",
-    "assignee": "M4X3res"
+  <component name="GitHubPullRequestSearchHistory">{
+  &quot;lastFilter&quot;: {
+    &quot;state&quot;: &quot;OPEN&quot;,
+    &quot;assignee&quot;: &quot;M4X3res&quot;
   }
-}]]></component>
-  <component name="GithubPullRequestsUISettings"><![CDATA[{
-  "selectedUrlAndAccountId": {
-    "url": "https://github.com/M4X3res/Signer_PRIME.git",
-    "accountId": "0d26a3e2-a58d-4ca5-b047-018ef81ee5e3"
+}</component>
+  <component name="GithubPullRequestsUISettings">{
+  &quot;selectedUrlAndAccountId&quot;: {
+    &quot;url&quot;: &quot;https://github.com/M4X3res/Signer_PRIME.git&quot;,
+    &quot;accountId&quot;: &quot;0d26a3e2-a58d-4ca5-b047-018ef81ee5e3&quot;
   }
-}]]></component>
+}</component>
+  <component name="ProblemsViewState">
+    <option name="selectedTabId" value="CurrentFile" />
+  </component>
   <component name="ProjectColorInfo">{
   &quot;associatedIndex&quot;: 0
 }</component>
@@ -45,15 +76,18 @@
     <option name="hideEmptyMiddlePackages" value="true" />
     <option name="showLibraryContents" value="true" />
   </component>
-  <component name="PropertiesComponent">{
-  &quot;keyToString&quot;: {
-    &quot;Python.dashboard_page.executor&quot;: &quot;Run&quot;,
-    &quot;Python.main.executor&quot;: &quot;Run&quot;,
-    &quot;RunOnceActivity.ShowReadmeOnStart&quot;: &quot;true&quot;,
-    &quot;git-widget-placeholder&quot;: &quot;master&quot;,
-    &quot;settings.editor.selected.configurable&quot;: &quot;com.jetbrains.python.configuration.PyActiveSdkModuleConfigurable&quot;
+  <component name="PropertiesComponent"><![CDATA[{
+  "keyToString": {
+    "Python.dashboard_page.executor": "Run",
+    "Python.debug_crash.executor": "Run",
+    "Python.detector.executor": "Run",
+    "Python.main.executor": "Run",
+    "Python.turn.executor": "Run",
+    "RunOnceActivity.ShowReadmeOnStart": "true",
+    "git-widget-placeholder": "master",
+    "settings.editor.selected.configurable": "com.jetbrains.python.configuration.PyActiveSdkModuleConfigurable"
   }
-}</component>
+}]]></component>
   <component name="SharedIndexes">
     <attachedChunks>
       <set>

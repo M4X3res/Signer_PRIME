@@ -160,18 +160,22 @@ class DashboardPage(QWidget):
         header.addLayout(header_texts)
         header.addStretch()
 
-        self.btn_start = QPushButton("▷  Начать обработку")
+        self.btn_start = QPushButton("▷   Начать обработку")
         self.btn_start.setObjectName("BtnPrimary")
-        self.btn_start.setFixedHeight(38)
-        self.btn_start.setMinimumWidth(160)
+        self.btn_start.setSizePolicy(
+            QSizePolicy.Policy.MinimumExpanding, QSizePolicy.Policy.Fixed
+        )
+        self.btn_start.setMinimumHeight(38)
         self.btn_start.setCursor(Qt.CursorShape.PointingHandCursor)
         self.btn_start.setEnabled(False)
         self.btn_start.clicked.connect(self.start_requested)
 
-        self.btn_multi = QPushButton("⊞  Массовая обработка")
+        self.btn_multi = QPushButton("⊞   Массовая обработка")
         self.btn_multi.setObjectName("BtnSecondary")
-        self.btn_multi.setFixedHeight(38)
-        self.btn_multi.setMinimumWidth(160)
+        self.btn_multi.setSizePolicy(
+            QSizePolicy.Policy.MinimumExpanding, QSizePolicy.Policy.Fixed
+        )
+        self.btn_multi.setMinimumHeight(38)
         self.btn_multi.setCursor(Qt.CursorShape.PointingHandCursor)
         self.btn_multi.clicked.connect(self.multiple_requested)
 
