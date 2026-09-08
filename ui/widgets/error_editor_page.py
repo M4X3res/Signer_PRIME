@@ -493,7 +493,7 @@ class ErrorEditorPage(QWidget):
             QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed
         )
         # ЗАДАЧА 4: Используем min-height из QSS (36px), убираем конфликт
-        self._btn_load.setFixedWidth(180)  # ЗАДАЧА 4: Одинаковая ширина для пары
+        self._btn_load.setFixedWidth(220)  # Увеличено — "Загрузить GeoJSON" обрезался
         self._btn_load.setCursor(Qt.CursorShape.PointingHandCursor)
         self._btn_load.clicked.connect(self.load_geojson)
 
@@ -503,7 +503,7 @@ class ErrorEditorPage(QWidget):
             QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed
         )
         # ЗАДАЧА 4: Используем min-height из QSS (36px), убираем конфликт
-        self._btn_save.setFixedWidth(180)  # ЗАДАЧА 4: Одинаковая ширина для пары
+        self._btn_save.setFixedWidth(220)  # Увеличено — держим пару одинаковой ширины
         self._btn_save.setCursor(Qt.CursorShape.PointingHandCursor)
         self._btn_save.setEnabled(False)
         self._btn_save.clicked.connect(self.save_geojson)
@@ -548,8 +548,13 @@ class ErrorEditorPage(QWidget):
             f"border-right: 1px solid {t['border_subtle']};"
         )
         self._filter_combo.setStyleSheet(
-            f"color: {t['text_secondary']}; font-size: 11px; background: {t['bg_tertiary']};"
-            f"border: 1px solid {t['border_subtle']}; border-radius: 4px; padding: 4px 8px;"
+            f"QComboBox#FilterChipCombo {{"
+            f"  color: {t['text_secondary']}; font-size: 11px; background: {t['bg_tertiary']};"
+            f"  border: 1px solid {t['border_subtle']}; border-radius: 12px; padding: 5px 12px;"
+            f"}}"
+            f"QComboBox#FilterChipCombo:hover {{ border-color: {t['border_strong']}; }}"
+            f"QComboBox#FilterChipCombo::drop-down {{ width: 0px; border: none; }}"
+            f"QComboBox#FilterChipCombo::down-arrow {{ width: 0px; height: 0px; image: none; }}"
         )
 
     # ── Левая панель: список ──────────────────────────────────────
@@ -584,12 +589,18 @@ class ErrorEditorPage(QWidget):
         fb_lay.addWidget(self._search)
 
         self._filter_combo = QComboBox()
+        self._filter_combo.setObjectName("FilterChipCombo")
         self._filter_combo.addItems([
             "Все", "< 30%", "< 40%", "< 50%", "< 70%", ">= 70%"
         ])
         self._filter_combo.setStyleSheet(
-            f"color: {t['text_secondary']}; font-size: 11px; background: {t['bg_tertiary']};"
-            f"border: 1px solid {t['border_subtle']}; border-radius: 4px; padding: 4px 8px;"
+            f"QComboBox#FilterChipCombo {{"
+            f"  color: {t['text_secondary']}; font-size: 11px; background: {t['bg_tertiary']};"
+            f"  border: 1px solid {t['border_subtle']}; border-radius: 12px; padding: 5px 12px;"
+            f"}}"
+            f"QComboBox#FilterChipCombo:hover {{ border-color: {t['border_strong']}; }}"
+            f"QComboBox#FilterChipCombo::drop-down {{ width: 0px; border: none; }}"
+            f"QComboBox#FilterChipCombo::down-arrow {{ width: 0px; height: 0px; image: none; }}"
         )
         self._filter_combo.currentTextChanged.connect(self._apply_filter)
         # ЗАДАЧА 1: Стилизация popup для корректного отображения темы
@@ -628,7 +639,7 @@ class ErrorEditorPage(QWidget):
         for btn in (self._btn_prev, self._btn_next):
             btn.setObjectName("BtnSecondary")
             # ЗАДАЧА 4: Убираем setMinimumHeight - используем QSS (36px)
-            btn.setFixedWidth(100)  # ЗАДАЧА 4: Одинаковая ширина для пары
+            btn.setFixedWidth(130)  # Увеличено — 100px было < min-width(120px) из QSS, текст резался
             btn.setSizePolicy(
                 QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed
             )

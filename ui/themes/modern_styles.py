@@ -182,7 +182,7 @@ QLabel {{
     color: {t['text_on_accent']};
     border: none;
     border-radius: 8px;
-    padding: 10px 24px;
+    padding: 10px 16px;
     font-size: 14px;
     font-weight: 600;
     min-width: 120px;
@@ -200,9 +200,8 @@ QLabel {{
 
 #BtnPrimary:disabled {{
     background-color: {t['bg_hover']};
-    color: {t['text_primary']};
+    color: {t['text_secondary']};
     border: 1.5px solid {t['border_strong']};
-    opacity: 0.6;
 }}
 
 #BtnSecondary {{
@@ -210,7 +209,7 @@ QLabel {{
     color: {t['text_primary']};
     border: 1.5px solid {t['border_default']};
     border-radius: 8px;
-    padding: 10px 24px;
+    padding: 10px 16px;
     font-size: 14px;
     font-weight: 500;
     min-width: 120px;
@@ -381,7 +380,7 @@ QComboBox:focus {{
 QComboBox::drop-down {{
     border: none;
     background: transparent;
-    width: 30px;
+    width: 22px;
     padding-right: 8px;
 }}
 
@@ -401,15 +400,16 @@ QComboBox QAbstractItemView {{
     selection-background-color: {t['accent_subtle']};
     selection-color: {t['accent']};
     color: {t['text_primary']};
-    border-radius: 8px;
-    padding: 4px;
+    border-radius: 10px;
+    padding: 6px;
     outline: none;
 }}
 
 QComboBox QAbstractItemView::item {{
-    min-height: 32px;
-    padding: 6px 12px;
-    border-radius: 6px;
+    min-height: 34px;
+    padding: 7px 14px;
+    border-radius: 8px;
+    margin: 1px 0px;
 }}
 
 QComboBox QAbstractItemView::item:hover {{
@@ -419,6 +419,7 @@ QComboBox QAbstractItemView::item:hover {{
 QComboBox QAbstractItemView::item:selected {{
     background-color: {t['accent_subtle']};
     color: {t['accent']};
+    font-weight: 600;
 }}
 
 """ + _build_modern_qss_part2(t)

@@ -51,7 +51,7 @@ class MapPage(QWidget):
         self._reload_btn = QPushButton("↺  Перезагрузить")
         self._reload_btn.setObjectName("BtnSecondary")
         # ЗАДАЧА 4: Убираем setMinimumHeight - используем QSS (36px)
-        self._reload_btn.setFixedWidth(150)  # ЗАДАЧА 4: Одинаковая ширина для пары
+        self._reload_btn.setFixedWidth(180)  # Увеличено — текст не помещался (см. UI-фикс кнопок)
         self._reload_btn.setSizePolicy(
             QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed
         )
@@ -62,7 +62,7 @@ class MapPage(QWidget):
         self._open_btn = QPushButton("⬡  В браузере")
         self._open_btn.setObjectName("BtnSecondary")
         # ЗАДАЧА 4: Убираем setMinimumHeight - используем QSS (36px)
-        self._open_btn.setFixedWidth(150)  # ЗАДАЧА 4: Одинаковая ширина для пары
+        self._open_btn.setFixedWidth(180)  # Увеличено — текст не помещался (см. UI-фикс кнопок)
         self._open_btn.setSizePolicy(
             QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed
         )
@@ -159,7 +159,7 @@ class MapPage(QWidget):
                 def createWindow(self, _type):
                     """ЗАДАЧА 5.3: Создаёт popup окно для window.open()."""
                     dialog = QDialog(self.view().window())
-                    dialog.setWindowTitle("Видеоплеер — RoadScanner")
+                    dialog.setWindowTitle("Видеоплеер — Signer v2")
                     dialog.resize(1280, 720)
                     
                     layout = QVBoxLayout(dialog)

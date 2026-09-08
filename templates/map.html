@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>RoadScanner — Карта</title>
+<title>Signer v2 — Карта</title>
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
 <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.css"/>
 <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.Default.css"/>
@@ -145,14 +145,18 @@
     gap: 8px;
     background: var(--bg3);
   }
-
+  
   .panel-head-title {
     font-size: 10px;
     font-weight: 700;
     letter-spacing: 1.2px;
     color: var(--text3);
     text-transform: uppercase;
-    flex: 1;
+  }
+  
+  /* Для панели с заголовком и кнопкой справа */
+  .panel-head-with-close {
+    justify-content: space-between;
   }
 
   /* ── Video player section ────────────────────────── */
@@ -625,19 +629,19 @@
         </video>
         <div id="video-controls" style="display: flex; gap: 4px; padding: 6px; background: var(--bg2); border-top: 1px solid var(--border); flex-wrap: wrap;">
           <!-- ЗАДАЧА 5.1: Кнопки переключения клип/полное видео -->
-          <div style="display: flex; gap: 4px; flex: 1; min-width: 200px;">
-            <button class="tb-btn accent" id="btn-clip-mode" onclick="switchToClipMode()" title="Короткий клип вокруг знака" style="flex: 1; font-size: 9px;">📹 Клип</button>
-            <button class="tb-btn" id="btn-full-mode" onclick="switchToFullVideo()" title="Полное видео (может быть медленным)" style="flex: 1; font-size: 9px;">⛶ Весь файл</button>
+          <div style="display: flex; gap: 4px; min-width: 240px;">
+            <button class="tb-btn accent" id="btn-clip-mode" onclick="switchToClipMode()" title="Короткий клип вокруг знака" style="min-width: 115px; font-size: 10px; padding: 4px 8px; white-space: nowrap;">📹 Клип</button>
+            <button class="tb-btn" id="btn-full-mode" onclick="switchToFullVideo()" title="Полное видео (может быть медленным)" style="min-width: 115px; font-size: 10px; padding: 4px 8px; white-space: nowrap;">⛶ Весь файл</button>
           </div>
           
           <!-- Скорость воспроизведения -->
-          <div style="display: flex; gap: 4px; flex: 1; min-width: 300px;">
-            <button class="tb-btn" onclick="setPlaybackSpeed(0.25)" title="Скорость 0.25x" style="flex: 1; font-size: 9px;">0.25x</button>
-            <button class="tb-btn" onclick="setPlaybackSpeed(0.5)" title="Скорость 0.5x" style="flex: 1; font-size: 9px;">0.5x</button>
-            <button class="tb-btn accent" id="btn-speed-1" onclick="setPlaybackSpeed(1)" title="Скорость 1x" style="flex: 1; font-size: 9px;">1x</button>
-            <button class="tb-btn" onclick="setPlaybackSpeed(2)" title="Скорость 2x" style="flex: 1; font-size: 9px;">2x</button>
-            <button class="tb-btn" onclick="setPlaybackSpeed(5)" title="Скорость 5x" style="flex: 1; font-size: 9px;">5x</button>
-            <button class="tb-btn" onclick="setPlaybackSpeed(10)" title="Скорость 10x" style="flex: 1; font-size: 9px;">10x</button>
+          <div style="display: flex; gap: 4px; flex: 1; min-width: 360px;">
+            <button class="tb-btn" onclick="setPlaybackSpeed(0.25)" title="Скорость 0.25x" style="flex: 1; font-size: 10px; min-width: 52px;">0.25x</button>
+            <button class="tb-btn" onclick="setPlaybackSpeed(0.5)" title="Скорость 0.5x" style="flex: 1; font-size: 10px; min-width: 52px;">0.5x</button>
+            <button class="tb-btn accent" id="btn-speed-1" onclick="setPlaybackSpeed(1)" title="Скорость 1x" style="flex: 1; font-size: 10px; min-width: 52px;">1x</button>
+            <button class="tb-btn" onclick="setPlaybackSpeed(2)" title="Скорость 2x" style="flex: 1; font-size: 10px; min-width: 52px;">2x</button>
+            <button class="tb-btn" onclick="setPlaybackSpeed(5)" title="Скорость 5x" style="flex: 1; font-size: 10px; min-width: 52px;">5x</button>
+            <button class="tb-btn" onclick="setPlaybackSpeed(10)" title="Скорость 10x" style="flex: 1; font-size: 10px; min-width: 52px;">10x</button>
           </div>
           
           <!-- Дополнительные функции -->
@@ -655,7 +659,7 @@
     <!-- Detail / Editor -->
     <div id="detail-section">
 
-      <div class="panel-head" style="border-top: 1px solid var(--border);">
+      <div class="panel-head panel-head-with-close" style="border-top: 1px solid var(--border);">
         <span class="panel-head-title">Знак</span>
         <button class="tb-btn" id="btn-close-detail" onclick="closeDetail()" style="display:none;">✕</button>
       </div>
@@ -1013,6 +1017,8 @@ function renderMarkers() {
 // ── Sign selection ──────────────────────────────────────────────────
 async function selectSign(id) {
   try {
+    console.log("[selectSign] Начало загрузки знака, id:", id);
+    
     // Деселект предыдущего
     if (selectedId) {
       const prev = document.getElementById(`sm-${selectedId}`);
@@ -1024,12 +1030,33 @@ async function selectSign(id) {
     if (el) el.classList.add("selected");
 
     // Загрузить детали
-    const r    = await fetch(`${API}/sign/${id}`);
-    if (!r.ok) throw new Error(`HTTP ${r.status}`);
-    const feat = await r.json();
-    if (feat.error) throw new Error(feat.error);
+    const url = `${API}/sign/${id}`;
+    console.log("[selectSign] Запрос к:", url);
     
-    const p    = feat.properties;
+    const r = await fetch(url);
+    console.log("[selectSign] Ответ получен, status:", r.status);
+    
+    if (!r.ok) {
+      const errorText = await r.text();
+      console.error("[selectSign] Ошибка HTTP:", r.status, errorText);
+      throw new Error(`HTTP ${r.status}: ${errorText}`);
+    }
+    
+    const feat = await r.json();
+    console.log("[selectSign] Данные знака получены:", feat);
+    
+    if (feat.error) {
+      console.error("[selectSign] Ошибка от API:", feat.error);
+      throw new Error(feat.error);
+    }
+    
+    if (!feat.properties) {
+      console.error("[selectSign] Нет свойства properties в ответе");
+      throw new Error("Неверный формат данных: отсутствует properties");
+    }
+    
+    const p = feat.properties;
+    console.log("[selectSign] Properties:", p);
 
     // Показать панель
     document.getElementById("detail-empty").style.display   = "none";
@@ -1062,9 +1089,12 @@ async function selectSign(id) {
     
     // ЗАДАЧА 3: Загружаем видео для этого знака
     await loadVideoForSign(p);
+    
+    console.log("[selectSign] Знак успешно загружен");
   } catch (err) {
-    console.error("Error selecting sign:", err);
-    toast("Ошибка загрузки знака", "err");
+    console.error("[selectSign] Ошибка при загрузке знака:", err);
+    const errorMsg = err.message || "Неизвестная ошибка";
+    toast(`Ошибка загрузки знака: ${errorMsg}`, "err");
   }
 }
 
@@ -2160,7 +2190,7 @@ function openVideoWindow() {
   const doc = videoWindow.document;
   doc.open();
   doc.write('<!DOCTYPE html><html><head><meta charset="UTF-8">');
-  doc.write('<title>Видеоплеер — RoadScanner</title>');
+  doc.write('<title>Видеоплеер — Signer v2</title>');
   doc.write('<style>');
   doc.write('* { margin: 0; padding: 0; box-sizing: border-box; }');
   doc.write('body { background: #0a0a0a; color: #f0f0f0; font-family: "Segoe UI", system-ui, sans-serif; display: flex; flex-direction: column; height: 100vh; overflow: hidden; }');

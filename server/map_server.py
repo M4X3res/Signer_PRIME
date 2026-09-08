@@ -279,13 +279,35 @@ def api_signs():
 @app.route("/api/sign/<sign_id>")
 def api_sign_detail(sign_id: str):
     """Детали одного знака по ID."""
+    logger.info(f"[API /api/sign/{sign_id}] Запрос получен")
+    
+    if not config.PATH_TO_GEOJSON:
+        logger.error(f"[API /api/sign/{sign_id}] PATH_TO_GEOJSON не установлен")
+        return jsonify({"error": "GeoJSON path not configured"}), 500
+        
     if not os.path.exists(config.PATH_TO_GEOJSON):
-        return jsonify({"error": "no geojson"}), 404
-    data = _load_geojson()
-    for feat in data.get("features", []):
-        if feat["properties"].get("id") == sign_id:
-            return jsonify(feat)
-    return jsonify({"error": "not found"}), 404
+        logger.error(f"[API /api/sign/{sign_id}] Файл не найден: {config.PATH_TO_GEOJSON}")
+        return jsonify({"error": "GeoJSON file not found"}), 404
+        
+    try:
+        data = _load_geojson()
+        features = data.get("features", [])
+        logger.info(f"[API /api/sign/{sign_id}] Найдено {len(features)} features в GeoJSON")
+        
+        for feat in features:
+            feat_id = feat.get("properties", {}).get("id")
+            if feat_id == sign_id:
+                logger.info(f"[API /api/sign/{sign_id}] Знак найден")
+                return jsonify(feat)
+        
+        logger.warning(f"[API /api/sign/{sign_id}] Знак не найден в GeoJSON")
+        return jsonify({"error": f"Sign with id '{sign_id}' not found"}), 404
+        
+    except Exception as e:
+        logger.error(f"[API /api/sign/{sign_id}] Ошибка при загрузке: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({"error": f"Server error: {str(e)}"}), 500
 
 
 @app.route("/api/sign", methods=["POST"])

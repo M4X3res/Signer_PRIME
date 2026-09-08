@@ -46,7 +46,7 @@ class StatusBar(QWidget):
             "background: transparent;"
         )
 
-        self._right = QLabel("RoadScanner v2.0")
+        self._right = QLabel("Signer v2.0")
         self._right.setStyleSheet(
             f"color: {theme_manager.tokens['text_tertiary']}; font-size: 11px;"
             "background: transparent;"
@@ -81,7 +81,7 @@ class StatusBar(QWidget):
 class MainWindow(QMainWindow):
     def     __init__(self):
         super().__init__()
-        self.setWindowTitle("RoadScanner")
+        self.setWindowTitle("Signer v2")
         self.setMinimumSize(1200, 720)
         self.resize(1400, 860)
 
