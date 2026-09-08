@@ -8,6 +8,7 @@ from PyQt6.QtWidgets import (
 )
 from PyQt6.QtCore import Qt, pyqtSignal
 from ui.themes.theme_manager import theme_manager, Theme
+from ui.widgets.utils import connect_combobox_theme_updates  # ЗАДАЧА 1
 from configs import config
 
 
@@ -202,6 +203,9 @@ class SettingsPage(QWidget):
             0 if theme_manager.current == Theme.DARK else 1
         )
         self._theme_combo.currentIndexChanged.connect(self._on_theme_changed)
+        # ЗАДАЧА 1: Стилизация popup для корректного отображения темы
+        connect_combobox_theme_updates(self._theme_combo)
+        
         ui_group.add_row(
             "Тема оформления",
             "Тёмная или светлая тема приложения",
@@ -259,6 +263,9 @@ class SettingsPage(QWidget):
         self._frame_mode_combo.setCurrentIndex(
             0 if self._settings.frame_step_mode == "auto" else 1
         )
+        # ЗАДАЧА 1: Стилизация popup для корректного отображения темы
+        connect_combobox_theme_updates(self._frame_mode_combo)
+        
         proc_group.add_row(
             "Режим шага кадра",
             "Авто: адаптивно от скорости. Вручную: фиксированный шаг",
@@ -599,6 +606,8 @@ class SettingsPage(QWidget):
         )
         self._cpu_backend_combo.setMinimumHeight(36)
         self._cpu_backend_combo.setMinimumWidth(200)
+        # ЗАДАЧА 1: Стилизация popup для корректного отображения темы
+        connect_combobox_theme_updates(self._cpu_backend_combo)
         
         # Связываем активность с CUDA toggle
         def update_backend_enabled():

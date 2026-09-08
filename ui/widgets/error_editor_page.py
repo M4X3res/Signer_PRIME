@@ -34,6 +34,7 @@ from PyQt6.QtWidgets import (
 from configs import config
 from configs.sign_data import CODES_SIGNS, TYPE_SIGNS_WITH_TEXT, NAMES_SIGNS_BY_TYPE
 from ui.themes.theme_manager import theme_manager
+from ui.widgets.utils import connect_combobox_theme_updates  # ЗАДАЧА 1
 
 
 # ── Модель данных ─────────────────────────────────────────────────
@@ -485,21 +486,24 @@ class ErrorEditorPage(QWidget):
         lay.addWidget(sep)
 
         # Кнопки
+        # ЗАДАЧА 4: Унифицируем размеры парных кнопок
         self._btn_load = QPushButton("↑  Загрузить GeoJSON")
         self._btn_load.setObjectName("BtnSecondary")
         self._btn_load.setSizePolicy(
-            QSizePolicy.Policy.MinimumExpanding, QSizePolicy.Policy.Fixed
+            QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed
         )
-        self._btn_load.setMinimumHeight(34)
+        # ЗАДАЧА 4: Используем min-height из QSS (36px), убираем конфликт
+        self._btn_load.setFixedWidth(180)  # ЗАДАЧА 4: Одинаковая ширина для пары
         self._btn_load.setCursor(Qt.CursorShape.PointingHandCursor)
         self._btn_load.clicked.connect(self.load_geojson)
 
         self._btn_save = QPushButton("✓  Сохранить")
         self._btn_save.setObjectName("BtnPrimary")
         self._btn_save.setSizePolicy(
-            QSizePolicy.Policy.MinimumExpanding, QSizePolicy.Policy.Fixed
+            QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed
         )
-        self._btn_save.setMinimumHeight(34)
+        # ЗАДАЧА 4: Используем min-height из QSS (36px), убираем конфликт
+        self._btn_save.setFixedWidth(180)  # ЗАДАЧА 4: Одинаковая ширина для пары
         self._btn_save.setCursor(Qt.CursorShape.PointingHandCursor)
         self._btn_save.setEnabled(False)
         self._btn_save.clicked.connect(self.save_geojson)
@@ -588,6 +592,9 @@ class ErrorEditorPage(QWidget):
             f"border: 1px solid {t['border_subtle']}; border-radius: 4px; padding: 4px 8px;"
         )
         self._filter_combo.currentTextChanged.connect(self._apply_filter)
+        # ЗАДАЧА 1: Стилизация popup для корректного отображения темы
+        connect_combobox_theme_updates(self._filter_combo)
+        
         fb_lay.addWidget(self._filter_combo)
 
         lay.addWidget(filter_bar)
@@ -620,9 +627,10 @@ class ErrorEditorPage(QWidget):
         self._btn_next = QPushButton("След. →")
         for btn in (self._btn_prev, self._btn_next):
             btn.setObjectName("BtnSecondary")
-            btn.setMinimumHeight(32)  # Минимальная высота
+            # ЗАДАЧА 4: Убираем setMinimumHeight - используем QSS (36px)
+            btn.setFixedWidth(100)  # ЗАДАЧА 4: Одинаковая ширина для пары
             btn.setSizePolicy(
-                QSizePolicy.Policy.MinimumExpanding, QSizePolicy.Policy.Minimum
+                QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed
             )
             btn.setCursor(Qt.CursorShape.PointingHandCursor)
         self._btn_prev.clicked.connect(self._go_prev)
@@ -736,6 +744,9 @@ class ErrorEditorPage(QWidget):
         self._type_combo = QComboBox()
         self._type_combo.setMaxVisibleItems(10)
         self._type_combo.currentTextChanged.connect(self._on_type_selected)
+        # ЗАДАЧА 1: Стилизация popup для корректного отображения темы
+        connect_combobox_theme_updates(self._type_combo)
+        
         edit_col.addWidget(self._type_combo)
 
         # Текст на знаке

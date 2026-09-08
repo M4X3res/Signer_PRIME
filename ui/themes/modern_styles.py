@@ -199,9 +199,10 @@ QLabel {{
 }}
 
 #BtnPrimary:disabled {{
-    background-color: {t['bg_tertiary']};
-    color: {t['text_secondary']};
+    background-color: {t['bg_hover']};
+    color: {t['text_primary']};
     border: 1.5px solid {t['border_strong']};
+    opacity: 0.6;
 }}
 
 #BtnSecondary {{
@@ -379,6 +380,7 @@ QComboBox:focus {{
 
 QComboBox::drop-down {{
     border: none;
+    background: transparent;
     width: 30px;
     padding-right: 8px;
 }}
@@ -389,6 +391,8 @@ QComboBox::down-arrow {{
     border-right: 4px solid transparent;
     border-top: 5px solid {t['text_secondary']};
     margin-right: 8px;
+    width: 8px;
+    height: 5px;
 }}
 
 QComboBox QAbstractItemView {{

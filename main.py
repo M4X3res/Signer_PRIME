@@ -229,3 +229,4 @@ if __name__ == "__main__":
         os.environ.setdefault("ORT_DISABLE_CUDA", "1")  # DEPRECATED, no-op
         
         # Worker процесс не запускает GUI - ProcessPoolExecutor использует его для задач
+        pass

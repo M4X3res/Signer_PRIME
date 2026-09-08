@@ -9,7 +9,7 @@ QApplication создана с флагом AA_ShareOpenGLContexts.
 """
 from PyQt6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout,
-    QLabel, QPushButton, QSizePolicy, QFrame
+    QLabel, QPushButton, QSizePolicy, QFrame, QDialog
 )
 from PyQt6.QtCore import Qt, QUrl, QTimer, pyqtSignal
 from ui.themes.theme_manager import theme_manager
@@ -50,10 +50,10 @@ class MapPage(QWidget):
 
         self._reload_btn = QPushButton("↺  Перезагрузить")
         self._reload_btn.setObjectName("BtnSecondary")
-        self._reload_btn.setMinimumHeight(36)  # Минимальная высота
-        self._reload_btn.setMinimumWidth(140)  # Минимальная ширина
+        # ЗАДАЧА 4: Убираем setMinimumHeight - используем QSS (36px)
+        self._reload_btn.setFixedWidth(150)  # ЗАДАЧА 4: Одинаковая ширина для пары
         self._reload_btn.setSizePolicy(
-            QSizePolicy.Policy.Minimum, QSizePolicy.Policy.Minimum
+            QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed
         )
         self._reload_btn.setCursor(Qt.CursorShape.PointingHandCursor)
         self._reload_btn.clicked.connect(self._reload_map)
@@ -61,10 +61,10 @@ class MapPage(QWidget):
 
         self._open_btn = QPushButton("⬡  В браузере")
         self._open_btn.setObjectName("BtnSecondary")
-        self._open_btn.setMinimumHeight(36)  # Минимальная высота
-        self._open_btn.setMinimumWidth(140)  # Минимальная ширина
+        # ЗАДАЧА 4: Убираем setMinimumHeight - используем QSS (36px)
+        self._open_btn.setFixedWidth(150)  # ЗАДАЧА 4: Одинаковая ширина для пары
         self._open_btn.setSizePolicy(
-            QSizePolicy.Policy.Minimum, QSizePolicy.Policy.Minimum
+            QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed
         )
         self._open_btn.setCursor(Qt.CursorShape.PointingHandCursor)
         self._open_btn.clicked.connect(self._open_in_browser)
@@ -147,13 +147,51 @@ class MapPage(QWidget):
         if self._webview is None:
             # Импорт ЗДЕСЬ, не на уровне модуля
             from PyQt6.QtWebEngineWidgets import QWebEngineView
-            from PyQt6.QtWebEngineCore import QWebEngineSettings, QWebEngineProfile
+            from PyQt6.QtWebEngineCore import QWebEngineSettings, QWebEngineProfile, QWebEnginePage
+
+            # ЗАДАЧА 5.2 + 5.3: Определяем кастомную страницу с поддержкой fullscreen и popup
+            class MapWebEnginePage(QWebEnginePage):
+                """Кастомная страница с поддержкой fullscreen и popup окон."""
+                def __init__(self, profile, parent_view):
+                    super().__init__(profile, parent_view)
+                    self._popup_windows = []
+                
+                def createWindow(self, _type):
+                    """ЗАДАЧА 5.3: Создаёт popup окно для window.open()."""
+                    dialog = QDialog(self.view().window())
+                    dialog.setWindowTitle("Видеоплеер — RoadScanner")
+                    dialog.resize(1280, 720)
+                    
+                    layout = QVBoxLayout(dialog)
+                    layout.setContentsMargins(0, 0, 0, 0)
+                    
+                    popup_view = QWebEngineView(dialog)
+                    popup_page = QWebEnginePage(self.profile(), popup_view)
+                    popup_view.setPage(popup_page)
+                    layout.addWidget(popup_view)
+                    dialog.show()
+                    
+                    # Сохраняем ссылку для предотвращения GC
+                    self._popup_windows.append((dialog, popup_view, popup_page))
+                    
+                    def on_finished():
+                        try:
+                            self._popup_windows.remove((dialog, popup_view, popup_page))
+                        except ValueError:
+                            pass
+                    dialog.finished.connect(on_finished)
+                    
+                    return popup_page
 
             self._webview = QWebEngineView()
             self._webview.setVisible(False)
 
             # Получаем профиль для настройки
             profile = self._webview.page().profile()
+            
+            # ЗАДАЧА 5.2 + 5.3: Создаём кастомную страницу
+            page = MapWebEnginePage(profile, self._webview)
+            self._webview.setPage(page)
             
             # Настройки для работы с медиа
             settings = self._webview.settings()
@@ -173,6 +211,11 @@ class MapPage(QWidget):
                 QWebEngineSettings.WebAttribute.AllowRunningInsecureContent, True
             )
             
+            # ЗАДАЧА 5.2: Включаем поддержку Fullscreen API
+            settings.setAttribute(
+                QWebEngineSettings.WebAttribute.FullScreenSupportEnabled, True
+            )
+            
             # Разрешаем автовоспроизведение медиа
             try:
                 settings.setAttribute(
@@ -180,6 +223,9 @@ class MapPage(QWidget):
                 )
             except AttributeError:
                 pass  # Старая версия PyQt6
+
+            # ЗАДАЧА 5.2: Подключаем обработчик fullscreen запросов
+            page.fullScreenRequested.connect(self._on_fullscreen_requested)
 
             self._content_layout.addWidget(self._webview)
             self._webview.loadFinished.connect(self._on_load_finished)
@@ -198,6 +244,25 @@ class MapPage(QWidget):
             self._open_btn.setEnabled(True)
         else:
             self._placeholder.set_status("Не удалось загрузить карту", error=True)
+
+    def _on_fullscreen_requested(self, request):
+        """
+        ЗАДАЧА 5.2: Обработчик fullscreen запросов от видеоплеера.
+        
+        При нажатии кнопки fullscreen в видеоплеере разворачивает
+        всё главное окно приложения на весь экран. При выходе из fullscreen
+        (через Esc или повторное нажатие) возвращает нормальный размер.
+        """
+        request.accept()
+        
+        main_window = self.window()
+        
+        if request.toggleOn():
+            # Включаем fullscreen
+            main_window.showFullScreen()
+        else:
+            # Выключаем fullscreen
+            main_window.showNormal()
 
     def _reload_map(self):
         if self._webview:
