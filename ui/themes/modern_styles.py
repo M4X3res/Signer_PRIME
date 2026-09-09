@@ -231,6 +231,33 @@ QLabel {{
     border-color: {t['border_subtle']};
 }}
 
+#BtnNavCompact {{
+    background-color: transparent;
+    color: {t['text_primary']};
+    border: 1.5px solid {t['border_default']};
+    border-radius: 8px;
+    padding: 6px 10px;
+    font-size: 12px;
+    font-weight: 500;
+    min-height: 32px;
+    /* без min-width — позволяем кнопке сжиматься */
+}}
+
+#BtnNavCompact:hover {{
+    background-color: {t['bg_hover']};
+    border-color: {t['border_strong']};
+}}
+
+#BtnNavCompact:pressed {{
+    background-color: {t['bg_active']};
+    border-color: {t['accent']};
+}}
+
+#BtnNavCompact:disabled {{
+    color: {t['text_disabled']};
+    border-color: {t['border_subtle']};
+}}
+
 #BtnDanger {{
     background-color: transparent;
     color: {t['error']};

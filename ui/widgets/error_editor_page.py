@@ -440,7 +440,7 @@ class ErrorEditorPage(QWidget):
 
         splitter.addWidget(self._build_list_panel())
         splitter.addWidget(self._build_detail_panel())
-        splitter.setSizes([360, 840])  # Увеличен первый параметр для панели шириной 340px
+        splitter.setSizes([340, 860])  # Увеличено до 340 для панели с min-width 300px + запас
 
         root.addWidget(splitter)
         
@@ -567,7 +567,7 @@ class ErrorEditorPage(QWidget):
         t = theme_manager.tokens
         self._list_panel = QWidget()
         panel = self._list_panel
-        panel.setMinimumWidth(340)  # Увеличено для корректного отображения всех кнопок
+        panel.setMinimumWidth(300)  # Минимальная ширина с запасом для всех элементов
         panel.setStyleSheet(
             f"background: {t['bg_secondary']};"
             f"border-right: 1px solid {t['border_subtle']};"
@@ -617,19 +617,18 @@ class ErrorEditorPage(QWidget):
         # ЗАДАЧА 1: Стилизация popup для корректного отображения темы
         connect_combobox_theme_updates(self._filter_combo)
         
-        row2.addWidget(self._filter_combo)
+        row2.addWidget(self._filter_combo, 1)   # stretch=1 — забирает всё свободное место
 
         # ЗАДАЧА 3 (P2): Кнопка переключения направления сортировки
         self._sort_dir_btn = QPushButton("↑")
-        self._sort_dir_btn.setObjectName("BtnSecondary")
+        self._sort_dir_btn.setObjectName("BtnNavCompact")
         self._sort_dir_btn.setCheckable(True)
         self._sort_dir_btn.setChecked(False)  # False = по возрастанию (дефолт)
-        self._sort_dir_btn.setFixedHeight(28)
-        self._sort_dir_btn.setFixedWidth(40)  # Узкая кнопка только с иконкой
+        self._sort_dir_btn.setFixedSize(36, 32)             # компактный квадрат под иконку
         self._sort_dir_btn.setToolTip("По возрастанию")
         self._sort_dir_btn.setCursor(Qt.CursorShape.PointingHandCursor)
         self._sort_dir_btn.clicked.connect(self._on_sort_direction_toggled)
-        row2.addWidget(self._sort_dir_btn)
+        row2.addWidget(self._sort_dir_btn, 0)   # stretch=0 — фиксированный квадрат
         
         fb_lay.addLayout(row2)
 
@@ -656,28 +655,28 @@ class ErrorEditorPage(QWidget):
         nav_bar.setMaximumHeight(48)  # Максимальная высота
 
         nb_lay = QHBoxLayout(nav_bar)
-        nb_lay.setContentsMargins(8, 0, 8, 0)
-        nb_lay.setSpacing(6)
+        nb_lay.setContentsMargins(6, 0, 6, 0)
+        nb_lay.setSpacing(4)
 
         self._btn_prev = QPushButton("← Пред.")
         self._btn_next = QPushButton("След. →")
         for btn in (self._btn_prev, self._btn_next):
-            btn.setObjectName("BtnSecondary")
-            # ЗАДАЧА 4: Убираем setMinimumHeight - используем QSS (36px)
-            btn.setSizePolicy(
-                QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed
-            )
+            btn.setObjectName("BtnNavCompact")
+            btn.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
+            btn.setMinimumWidth(0)          # явно снять любой унаследованный минимум
             btn.setCursor(Qt.CursorShape.PointingHandCursor)
         self._btn_prev.clicked.connect(self._go_prev)
         self._btn_next.clicked.connect(self._go_next)
+        
         self._lbl_nav = QLabel("—")
         self._lbl_nav.setObjectName("EditorNavLabel")
         self._lbl_nav.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self._lbl_nav.setFixedWidth(60)  # Фиксированная узкая ширина для метки
+        self._lbl_nav.setFixedWidth(48)      # фиксированная, но МАЛЕНЬКАЯ ширина под "12 / 34"
+        self._lbl_nav.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed)
 
-        nb_lay.addWidget(self._btn_prev)
-        nb_lay.addWidget(self._lbl_nav)
-        nb_lay.addWidget(self._btn_next)
+        nb_lay.addWidget(self._btn_prev, 1)   # stretch=1
+        nb_lay.addWidget(self._lbl_nav,  0)   # stretch=0 — не растягивается
+        nb_lay.addWidget(self._btn_next, 1)   # stretch=1
         lay.addWidget(nav_bar)
         return panel
 
