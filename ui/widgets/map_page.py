@@ -52,9 +52,9 @@ class MapPage(QWidget):
         self._reload_btn = QPushButton("↺  Перезагрузить")
         self._reload_btn.setObjectName("BtnSecondary")
         # ЗАДАЧА 4: Убираем setMinimumHeight - используем QSS (36px)
-        self._reload_btn.setFixedWidth(180)  # Увеличено — текст не помещался (см. UI-фикс кнопок)
+        self._reload_btn.setMinimumWidth(195)  # Увеличено для корректного отображения текста
         self._reload_btn.setSizePolicy(
-            QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed
+            QSizePolicy.Policy.Minimum, QSizePolicy.Policy.Fixed
         )
         self._reload_btn.setCursor(Qt.CursorShape.PointingHandCursor)
         self._reload_btn.clicked.connect(self._reload_map)
@@ -63,9 +63,9 @@ class MapPage(QWidget):
         self._open_btn = QPushButton("⬡  В браузере")
         self._open_btn.setObjectName("BtnSecondary")
         # ЗАДАЧА 4: Убираем setMinimumHeight - используем QSS (36px)
-        self._open_btn.setFixedWidth(180)  # Увеличено — текст не помещался (см. UI-фикс кнопок)
+        self._open_btn.setMinimumWidth(195)  # Увеличено для корректного отображения текста
         self._open_btn.setSizePolicy(
-            QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed
+            QSizePolicy.Policy.Minimum, QSizePolicy.Policy.Fixed
         )
         self._open_btn.setCursor(Qt.CursorShape.PointingHandCursor)
         self._open_btn.clicked.connect(self._open_in_browser)

@@ -663,24 +663,27 @@
           <source src="" type="video/mp4">
           Ваш браузер не поддерживает видео HTML5.
         </video>
-        <div id="video-controls" style="padding: 6px; background: var(--bg2); border-top: 1px solid var(--border);">
-          <!-- Строка 1 -->
-          <div style="display: flex; gap: 4px; margin-bottom: 4px;">
-            <button class="tb-btn accent" id="btn-clip-mode" onclick="switchToClipMode()" title="Короткий клип">📹</button>
-            <button class="tb-btn" id="btn-full-mode" onclick="switchToFullVideo()" title="Полное видео">⛶</button>
-            <div style="width: 1px; background: var(--border); margin: 0 4px;"></div>
-            <button class="tb-btn" onclick="setPlaybackSpeed(0.5)" title="0.5x">0.5x</button>
-            <button class="tb-btn accent" id="btn-speed-1" onclick="setPlaybackSpeed(1)" title="1x">1x</button>
-            <button class="tb-btn" onclick="setPlaybackSpeed(2)" title="2x">2x</button>
-            <button class="tb-btn" onclick="setPlaybackSpeed(5)" title="5x">5x</button>
-          </div>
-          <!-- Строка 2 -->
+        <div id="video-controls" style="padding: 8px; background: var(--bg2); border-top: 1px solid var(--border); display: flex; flex-direction: column; gap: 6px;">
+          <!-- Группа 1: Источник -->
           <div style="display: flex; gap: 4px;">
-            <button class="tb-btn" onclick="setPlaybackSpeed(0.25)" title="0.25x">0.25x</button>
-            <button class="tb-btn" onclick="setPlaybackSpeed(10)" title="10x">10x</button>
-            <div style="width: 1px; background: var(--border); margin: 0 4px;"></div>
-            <button class="tb-btn" onclick="toggleFullscreen()" title="Полный экран">⛶</button>
-            <button class="tb-btn" onclick="openVideoWindow()" title="В окне">⧉</button>
+            <button class="tb-btn accent" id="btn-clip-mode" onclick="switchToClipMode()" title="Короткий клип" style="flex: 1; min-height: 30px;">📹 Клип</button>
+            <button class="tb-btn" id="btn-full-mode" onclick="switchToFullVideo()" title="Полное видео" style="flex: 1; min-height: 30px;">⛶ Полное</button>
+          </div>
+          
+          <!-- Группа 2: Скорость -->
+          <div style="display: flex; gap: 4px;">
+            <button class="tb-btn" onclick="setPlaybackSpeed(0.25)" title="0.25x" style="flex: 1 1 0; min-height: 30px;">0.25x</button>
+            <button class="tb-btn" onclick="setPlaybackSpeed(0.5)" title="0.5x" style="flex: 1 1 0; min-height: 30px;">0.5x</button>
+            <button class="tb-btn accent" id="btn-speed-1" onclick="setPlaybackSpeed(1)" title="1x" style="flex: 1 1 0; min-height: 30px;">1x</button>
+            <button class="tb-btn" onclick="setPlaybackSpeed(2)" title="2x" style="flex: 1 1 0; min-height: 30px;">2x</button>
+            <button class="tb-btn" onclick="setPlaybackSpeed(5)" title="5x" style="flex: 1 1 0; min-height: 30px;">5x</button>
+            <button class="tb-btn" onclick="setPlaybackSpeed(10)" title="10x" style="flex: 1 1 0; min-height: 30px;">10x</button>
+          </div>
+          
+          <!-- Группа 3: Окно -->
+          <div style="display: flex; gap: 4px;">
+            <button class="tb-btn" onclick="toggleFullscreen()" title="Полный экран" style="flex: 1; min-height: 30px;">⛶ Полноэкр.</button>
+            <button class="tb-btn" onclick="openVideoWindow()" title="В отдельном окне" style="flex: 1; min-height: 30px;">⧉ В окне</button>
           </div>
         </div>
         <div id="video-status" style="display: none; padding: 20px; text-align: center; color: var(--text3); font-size: 12px; white-space: pre-line;">

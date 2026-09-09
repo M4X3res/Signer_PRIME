@@ -440,7 +440,7 @@ class ErrorEditorPage(QWidget):
 
         splitter.addWidget(self._build_list_panel())
         splitter.addWidget(self._build_detail_panel())
-        splitter.setSizes([320, 880])
+        splitter.setSizes([360, 840])  # Увеличен первый параметр для панели шириной 340px
 
         root.addWidget(splitter)
         
@@ -567,7 +567,7 @@ class ErrorEditorPage(QWidget):
         t = theme_manager.tokens
         self._list_panel = QWidget()
         panel = self._list_panel
-        panel.setMinimumWidth(280)
+        panel.setMinimumWidth(340)  # Увеличено для корректного отображения всех кнопок
         panel.setStyleSheet(
             f"background: {t['bg_secondary']};"
             f"border-right: 1px solid {t['border_subtle']};"
@@ -579,24 +579,31 @@ class ErrorEditorPage(QWidget):
         # Фильтры
         filter_bar = QWidget()
         filter_bar.setObjectName("EditorFilterBar")
-        filter_bar.setMinimumHeight(44)  # Минимальная высота
-        filter_bar.setMaximumHeight(52)  # Максимальная высота
-        fb_lay = QHBoxLayout(filter_bar)
-        fb_lay.setContentsMargins(10, 0, 10, 0)
+        filter_bar.setMinimumHeight(78)  # Увеличено для двух рядов
+        filter_bar.setMaximumHeight(86)  # Увеличено для двух рядов
+        fb_lay = QVBoxLayout(filter_bar)  # Изменено на вертикальный layout
+        fb_lay.setContentsMargins(10, 6, 10, 6)
         fb_lay.setSpacing(6)
 
+        # Ряд 1: Поле поиска
         self._search = QLineEdit()
         self._search.setPlaceholderText("Поиск по типу…")
         self._search.setObjectName("FilePathBox")
         self._search.setMinimumHeight(32)  # Минимальная высота вместо фиксированной
+        self._search.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
         self._search.textChanged.connect(self._apply_filter)
         fb_lay.addWidget(self._search)
 
+        # Ряд 2: Фильтр уверенности + кнопка сортировки
+        row2 = QHBoxLayout()
+        row2.setSpacing(6)
+        
         self._filter_combo = QComboBox()
         self._filter_combo.setObjectName("FilterChipCombo")
         self._filter_combo.addItems([
             "Все", "< 30%", "< 40%", "< 50%", "< 70%", ">= 70%"
         ])
+        self._filter_combo.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
         self._filter_combo.setStyleSheet(
             f"QComboBox#FilterChipCombo {{"
             f"  color: {t['text_secondary']}; font-size: 11px; background: {t['bg_tertiary']};"
@@ -610,18 +617,21 @@ class ErrorEditorPage(QWidget):
         # ЗАДАЧА 1: Стилизация popup для корректного отображения темы
         connect_combobox_theme_updates(self._filter_combo)
         
-        fb_lay.addWidget(self._filter_combo)
+        row2.addWidget(self._filter_combo)
 
         # ЗАДАЧА 3 (P2): Кнопка переключения направления сортировки
-        self._sort_dir_btn = QPushButton("↑ По возрастанию")
+        self._sort_dir_btn = QPushButton("↑")
         self._sort_dir_btn.setObjectName("BtnSecondary")
         self._sort_dir_btn.setCheckable(True)
         self._sort_dir_btn.setChecked(False)  # False = по возрастанию (дефолт)
         self._sort_dir_btn.setFixedHeight(28)
-        self._sort_dir_btn.setMinimumWidth(140)
+        self._sort_dir_btn.setFixedWidth(40)  # Узкая кнопка только с иконкой
+        self._sort_dir_btn.setToolTip("По возрастанию")
         self._sort_dir_btn.setCursor(Qt.CursorShape.PointingHandCursor)
         self._sort_dir_btn.clicked.connect(self._on_sort_direction_toggled)
-        fb_lay.addWidget(self._sort_dir_btn)
+        row2.addWidget(self._sort_dir_btn)
+        
+        fb_lay.addLayout(row2)
 
         lay.addWidget(filter_bar)
 
@@ -654,9 +664,8 @@ class ErrorEditorPage(QWidget):
         for btn in (self._btn_prev, self._btn_next):
             btn.setObjectName("BtnSecondary")
             # ЗАДАЧА 4: Убираем setMinimumHeight - используем QSS (36px)
-            btn.setFixedWidth(130)  # Увеличено — 100px было < min-width(120px) из QSS, текст резался
             btn.setSizePolicy(
-                QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed
+                QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed
             )
             btn.setCursor(Qt.CursorShape.PointingHandCursor)
         self._btn_prev.clicked.connect(self._go_prev)
@@ -664,6 +673,7 @@ class ErrorEditorPage(QWidget):
         self._lbl_nav = QLabel("—")
         self._lbl_nav.setObjectName("EditorNavLabel")
         self._lbl_nav.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self._lbl_nav.setFixedWidth(60)  # Фиксированная узкая ширина для метки
 
         nb_lay.addWidget(self._btn_prev)
         nb_lay.addWidget(self._lbl_nav)
@@ -1105,7 +1115,13 @@ class ErrorEditorPage(QWidget):
     def _on_sort_direction_toggled(self) -> None:
         """ЗАДАЧА 3 (P2): Обработчик переключения направления сортировки."""
         self._sort_ascending = not self._sort_dir_btn.isChecked()
-        self._sort_dir_btn.setText("↑ По возрастанию" if self._sort_ascending else "↓ По убыванию")
+        # Обновляем иконку и тултип для компактной кнопки
+        if self._sort_ascending:
+            self._sort_dir_btn.setText("↑")
+            self._sort_dir_btn.setToolTip("По возрастанию")
+        else:
+            self._sort_dir_btn.setText("↓")
+            self._sort_dir_btn.setToolTip("По убыванию")
         self._resort_model()
 
     def _resort_model(self) -> None:
