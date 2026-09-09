@@ -55974,3 +55974,124 @@ NameError: name 'logger' is not defined
 08:24:54 [INFO] server.map_server: [API /api/sign/37449369-42e5-4c78-a0e4-0165febac1a4] Знак найден
 08:24:54 [INFO] server.map_server: [API /api/video_clip/0] start=71.94653333333333, duration=16.0
 08:24:54 [INFO] server.map_server: [API /api/video_clip] Cache hit: E:\Urban\vid\test\GOPR0064\GOPR0064_clip_72_16.webm
+08:35:41 [INFO] __main__: ============================================================
+08:35:41 [INFO] __main__: RoadScanner v2 запускается...
+08:35:41 [INFO] __main__: Установлены environment workarounds для предотвращения крашей
+08:35:41 [INFO] __main__: Инициализация QApplication...
+08:35:41 [INFO] __main__: Применение темы оформления...
+08:35:41 [INFO] __main__: Создание главного окна...
+08:35:42 [INFO] server.map_server: [MapServer] emit_theme_changed: light
+08:35:42 [INFO] __main__: Приложение готово к работе
+08:36:34 [INFO] server.map_server: [MapServer] emit_theme_changed: dark
+08:59:08 [INFO] __main__: ============================================================
+08:59:08 [INFO] __main__: RoadScanner v2 запускается...
+08:59:08 [INFO] __main__: Установлены environment workarounds для предотвращения крашей
+08:59:08 [INFO] __main__: Инициализация QApplication...
+08:59:08 [INFO] __main__: Применение темы оформления...
+08:59:08 [INFO] __main__: Создание главного окна...
+08:59:10 [INFO] server.map_server: [MapServer] emit_theme_changed: dark
+08:59:10 [INFO] __main__: Приложение готово к работе
+08:59:13 [INFO] server.map_server: [MapServer] emit_theme_changed: light
+08:59:17 [INFO] ui.widgets.dashboard_page: [DashboardPage] Выбрана папка: E:\Urban\vid\test\GOPR0064
+08:59:17 [INFO] ui.widgets.dashboard_page: [DashboardPage] VideoScanWorker запущен
+08:59:17 [INFO] ui.widgets.dashboard_page: [VideoScanWorker] Начинаем сканирование папки: E:\Urban\vid\test\GOPR0064
+08:59:17 [INFO] ui.widgets.dashboard_page: [VideoScanWorker] Найдено видео файлов: 14
+08:59:17 [INFO] ui.widgets.dashboard_page: [DashboardPage] Сканирование завершено: найдено 14 видео
+08:59:25 [INFO] ui.main_window: Запуск обработки...
+08:59:25 [INFO] processing.processing_controller: [ProcessingController] Режим обработки: single_thread (Task E: всегда single_thread)
+08:59:29 [WARNING] werkzeug: Werkzeug appears to be used in a production deployment. Consider switching to a production web server instead.
+08:59:29 [INFO] processing.detector_thread: ✅ CUDA доступна: NVIDIA GeForce RTX 2080 Ti
+08:59:29 [INFO] processing.detector_thread: 📺 UI Preview: макс. 10.0 FPS (интервал 0.100s)
+08:59:29 [INFO] core.lane_detector: [LaneDetector] Инициализирован: CONF_DETECT=0.65, CONF_SEGMENT=0.65
+08:59:29 [INFO] core.detector: Detector инициализирован: CONF_SIDE=0.55, CONF_RUBE=0.70, CONF_CNN=0.60, IOU=0.15, save_error_frames=False
+08:59:29 [INFO] processing.processing_controller: [ProcessingController] finish_and_save: сигнал остановки чтения видео
+08:59:30 [INFO] core.sign_handler: SignHandler инициализирован: NEARBY_SIGN_RADIUS_M=10.0m
+08:59:33 [INFO] processing.video_reader.video_debug: === VideoReader Debug Log ===
+08:59:33 [INFO] processing.video_reader.video_debug: START: INDEX_OF_VIDEO=0, INDEX_OF_FRAME=0
+08:59:33 [INFO] processing.video_reader.video_debug: Total videos: 14
+
+08:59:33 [INFO] processing.detector_thread: CNN кэш инициализирован: размер=1000
+08:59:33 [INFO] processing.detector_thread: 🔧 Режим: SINGLE THREAD — OCR выполняется синхронно (Task E)
+08:59:33 [INFO] processing.detector_thread: Прогрев EasyOCR...
+08:59:34 [INFO] server.map_server: [API /api/track] Запрос получен
+08:59:34 [INFO] server.map_server: [API /api/track] PATH_TO_GPX = E:\Urban\vid\test\07,07,20211.gpx
+08:59:34 [INFO] server.map_server: [API /api/track] Загружаем GPX из E:\Urban\vid\test\07,07,20211.gpx
+08:59:34 [INFO] server.map_server: [API /api/signs] Запрос получен
+08:59:34 [INFO] server.map_server: [API /api/signs] PATH_TO_GEOJSON = E:\Urban\vid\test\test_new_algo.geojson
+08:59:34 [INFO] server.map_server: [API /api/signs] Загружаем GeoJSON из E:\Urban\vid\test\test_new_algo.geojson
+08:59:34 [INFO] server.map_server: [API /api/signs] Найдено 2 features в GeoJSON
+08:59:34 [INFO] server.map_server: [API /api/signs] Возвращаем 2 знаков клиенту
+08:59:35 [INFO] server.map_server: [API /api/track] Найдено 13887 точек трека
+08:59:36 [INFO] server.map_server: [API /api/track] Запрос получен
+08:59:36 [INFO] server.map_server: [API /api/track] PATH_TO_GPX = E:\Urban\vid\test\07,07,20211.gpx
+08:59:36 [INFO] server.map_server: [API /api/track] Загружаем GPX из E:\Urban\vid\test\07,07,20211.gpx
+08:59:36 [INFO] server.map_server: [API /api/signs] Запрос получен
+08:59:36 [INFO] server.map_server: [API /api/signs] PATH_TO_GEOJSON = E:\Urban\vid\test\test_new_algo.geojson
+08:59:36 [INFO] server.map_server: [API /api/signs] Загружаем GeoJSON из E:\Urban\vid\test\test_new_algo.geojson
+08:59:36 [INFO] server.map_server: [API /api/signs] Найдено 2 features в GeoJSON
+08:59:36 [INFO] server.map_server: [API /api/signs] Возвращаем 2 знаков клиенту
+08:59:38 [INFO] server.map_server: [API /api/track] Найдено 13887 точек трека
+08:59:43 [INFO] processing.detector_thread: ✅ EasyOCR прогрет успешно
+08:59:43 [INFO] processing.detector_thread: [DetectorThread] Финализация оставшихся активных знаков...
+08:59:44 [INFO] processing.processing_controller: [ProcessingController] Получено 0 знаков из очереди
+08:59:44 [INFO] server.map_server: [MapServer] emit_processing_finished вызван
+08:59:44 [INFO] core.final_handler: [FinalHandler] Инициализирован: DEDUP_RADIUS_M=20.0m, DEDUP_AZIMUTH_DEG=40.0°, GRID_CELL_M=10.0m
+08:59:44 [INFO] server.map_server: [MapServer] PATH_TO_GEOJSON = E:\Urban\vid\test\test_new_algo.geojson
+08:59:44 [INFO] core.final_handler: [FinalHandler] save_result вызван:
+08:59:44 [INFO] core.final_handler:   - Знаков: 0
+08:59:44 [INFO] server.map_server: [MapServer] Файл существует: True
+08:59:44 [INFO] core.final_handler:   - Поворотов: 0
+08:59:44 [INFO] server.map_server: [MapServer] События отправлены клиентам
+08:59:44 [INFO] core.final_handler:   - Путь: E:\Urban\vid\test\test_new_algo.geojson
+08:59:44 [INFO] core.final_handler: [FinalHandler] Начинаем обработку прямолинейных знаков...
+08:59:44 [INFO] core.final_handler: [FinalHandler] _process_straight_signs: обрабатываем 0 знаков
+08:59:44 [WARNING] core.final_handler: [FinalHandler] Нет валидных знаков после фильтрации
+08:59:44 [INFO] core.final_handler: [FinalHandler] Обработано 0 прямолинейных знаков
+08:59:44 [INFO] core.final_handler: [FinalHandler] Начинаем обработку знаков на поворотах...
+08:59:44 [INFO] core.final_handler: [FinalHandler] Обработано 0 знаков на поворотах
+08:59:44 [INFO] core.final_handler: [FinalHandler] После обработки: 0 features
+08:59:44 [INFO] core.final_handler: [FinalHandler] Начинаем дедупликацию...
+08:59:44 [INFO] core.final_handler: [FinalHandler] _deduplicate начат, features: 0
+08:59:44 [INFO] core.final_handler: [FinalHandler] _deduplicate завершён: 0 знаков (0.0s)
+08:59:44 [INFO] core.final_handler: [FinalHandler] После дедупликации: 0 features
+08:59:44 [INFO] core.final_handler: [FinalHandler] Сохраняем GeoJSON...
+08:59:44 [INFO] core.final_handler: [FinalHandler] Сохранено 0 знаков → E:\Urban\vid\test\test_new_algo.geojson
+08:59:44 [INFO] core.final_handler: [FinalHandler] ИТОГ: на входе знаков≈0, после обработки и дедупликации записано 0 features → E:\Urban\vid\test\test_new_algo.geojson
+08:59:44 [INFO] server.map_server: [API /api/track] Запрос получен
+08:59:44 [INFO] server.map_server: [API /api/track] PATH_TO_GPX = E:\Urban\vid\test\07,07,20211.gpx
+08:59:44 [INFO] server.map_server: [API /api/track] Загружаем GPX из E:\Urban\vid\test\07,07,20211.gpx
+08:59:44 [INFO] server.map_server: [API /api/signs] Запрос получен
+08:59:44 [INFO] server.map_server: [API /api/signs] PATH_TO_GEOJSON = E:\Urban\vid\test\test_new_algo.geojson
+08:59:44 [INFO] server.map_server: [API /api/signs] Загружаем GeoJSON из E:\Urban\vid\test\test_new_algo.geojson
+08:59:44 [INFO] server.map_server: [API /api/signs] Найдено 0 features в GeoJSON
+08:59:44 [INFO] server.map_server: [API /api/signs] Возвращаем 0 знаков клиенту
+08:59:44 [INFO] server.map_server: [API /api/signs] Запрос получен
+08:59:44 [INFO] server.map_server: [API /api/signs] PATH_TO_GEOJSON = E:\Urban\vid\test\test_new_algo.geojson
+08:59:44 [INFO] server.map_server: [API /api/signs] Загружаем GeoJSON из E:\Urban\vid\test\test_new_algo.geojson
+08:59:44 [INFO] server.map_server: [API /api/signs] Найдено 0 features в GeoJSON
+08:59:44 [INFO] server.map_server: [API /api/signs] Возвращаем 0 знаков клиенту
+08:59:44 [INFO] server.map_server: [API /api/track] Найдено 13887 точек трека
+08:59:45 [INFO] server.map_server: [API /api/track] Запрос получен
+08:59:45 [INFO] server.map_server: [API /api/track] PATH_TO_GPX = E:\Urban\vid\test\07,07,20211.gpx
+08:59:45 [INFO] server.map_server: [API /api/signs] Запрос получен
+08:59:45 [INFO] server.map_server: [API /api/track] Загружаем GPX из E:\Urban\vid\test\07,07,20211.gpx
+08:59:45 [INFO] server.map_server: [API /api/signs] PATH_TO_GEOJSON = E:\Urban\vid\test\test_new_algo.geojson
+08:59:45 [INFO] server.map_server: [API /api/signs] Загружаем GeoJSON из E:\Urban\vid\test\test_new_algo.geojson
+08:59:45 [INFO] server.map_server: [API /api/signs] Найдено 0 features в GeoJSON
+08:59:45 [INFO] server.map_server: [API /api/signs] Возвращаем 0 знаков клиенту
+08:59:46 [INFO] server.map_server: [API /api/track] Найдено 13887 точек трека
+08:59:58 [INFO] ui.main_window: Запуск обработки...
+08:59:58 [INFO] processing.processing_controller: [ProcessingController] Режим обработки: single_thread (Task E: всегда single_thread)
+08:59:58 [INFO] processing.detector_thread: ✅ CUDA доступна: NVIDIA GeForce RTX 2080 Ti
+08:59:58 [INFO] processing.detector_thread: 📺 UI Preview: макс. 10.0 FPS (интервал 0.100s)
+08:59:58 [INFO] core.lane_detector: [LaneDetector] Инициализирован: CONF_DETECT=0.65, CONF_SEGMENT=0.65
+08:59:58 [INFO] core.detector: Detector инициализирован: CONF_SIDE=0.55, CONF_RUBE=0.70, CONF_CNN=0.60, IOU=0.15, save_error_frames=False
+08:59:58 [INFO] server.map_server: [API /api/track] Запрос получен
+08:59:58 [INFO] server.map_server: [API /api/track] PATH_TO_GPX = E:\Urban\vid\test\07,07,20211.gpx
+08:59:58 [INFO] server.map_server: [API /api/track] Загружаем GPX из E:\Urban\vid\test\07,07,20211.gpx
+08:59:58 [INFO] server.map_server: [API /api/signs] Запрос получен
+08:59:58 [INFO] core.sign_handler: SignHandler инициализирован: NEARBY_SIGN_RADIUS_M=10.0m
+08:59:58 [INFO] server.map_server: [API /api/signs] PATH_TO_GEOJSON = E:\Urban\vid\test\test_new_algo.geojson
+08:59:58 [INFO] server.map_server: [API /api/signs] Загружаем GeoJSON из E:\Urban\vid\test\test_new_algo.geojson
+08:59:58 [INFO] server.map_server: [API /api/signs] Найдено 0 features в GeoJSON
+08:59:58 [INFO] server.map_server: [API /api/signs] Возвращаем 0 знаков клиенту

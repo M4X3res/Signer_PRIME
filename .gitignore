@@ -30,6 +30,10 @@ __pycache__/
 *.dll
 *.lib
 
+# IDE
+.idea/
+.kiro/model_cache/
+
 # Protect against duplicate model directories
 configs/small_models/
 configs/lane_guidance_models/
