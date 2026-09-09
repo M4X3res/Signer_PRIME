@@ -64,7 +64,8 @@
     display: flex;
     flex-direction: column;
     flex-shrink: 0;
-    overflow: hidden;
+    overflow-y: auto;
+    overflow-x: hidden;
   }
 
   /* ── Top bar ─────────────────────────────────────── */
@@ -158,9 +159,27 @@
   .panel-head-with-close {
     justify-content: space-between;
   }
+  
+  .panel-head-title {
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 1.2px;
+    color: var(--text3);
+    text-transform: uppercase;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
 
   /* ── Video player section ────────────────────────── */
-  #video-section { flex-shrink: 0; }
+  #video-section { 
+    flex-shrink: 0;
+    flex-grow: 0;
+    position: sticky;
+    top: 0;
+    z-index: 5;
+    background: var(--bg2);
+  }
 
   #video-placeholder {
     height: 180px;
@@ -170,16 +189,27 @@
     justify-content: center;
     color: var(--text3);
     font-size: 12px;
+    overflow: hidden;
+  }
+
+  #video-container {
+    overflow: hidden;
+    flex-shrink: 0;
   }
 
   #video-controls {
-    height: 40px;
+    height: auto;
+    min-height: 40px;
     display: flex;
-    align-items: center;
-    padding: 0 12px;
-    gap: 8px;
+    flex-direction: column;
+    align-items: stretch;
+    padding: 6px 12px;
+    gap: 4px;
     background: var(--bg3);
     border-top: 1px solid var(--border);
+    border-bottom: 1px solid var(--border);
+    margin-bottom: 4px;
+    flex-shrink: 0;
   }
 
   #video-slider {
@@ -219,10 +249,12 @@
 
   /* ── Sign detail / editor ────────────────────────── */
   #detail-section {
-    flex: 1;
+    flex: 1 1 0;
     overflow-y: auto;
+    overflow-x: hidden;
     display: flex;
     flex-direction: column;
+    min-height: 0;
   }
 
   #detail-empty {
@@ -426,9 +458,13 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    cursor: pointer;
-    transition: border-color .15s, transform .15s;
+    cursor: grab;
+    transition: border-color .15s, transform .15s, opacity .15s;
     overflow: hidden;
+  }
+
+  .sign-marker:active {
+    cursor: grabbing;
   }
 
   .sign-marker:hover, .sign-marker.selected {
@@ -627,27 +663,24 @@
           <source src="" type="video/mp4">
           Ваш браузер не поддерживает видео HTML5.
         </video>
-        <div id="video-controls" style="display: flex; gap: 4px; padding: 6px; background: var(--bg2); border-top: 1px solid var(--border); flex-wrap: wrap;">
-          <!-- ЗАДАЧА 5.1: Кнопки переключения клип/полное видео -->
-          <div style="display: flex; gap: 4px; min-width: 240px;">
-            <button class="tb-btn accent" id="btn-clip-mode" onclick="switchToClipMode()" title="Короткий клип вокруг знака" style="min-width: 115px; font-size: 10px; padding: 4px 8px; white-space: nowrap;">📹 Клип</button>
-            <button class="tb-btn" id="btn-full-mode" onclick="switchToFullVideo()" title="Полное видео (может быть медленным)" style="min-width: 115px; font-size: 10px; padding: 4px 8px; white-space: nowrap;">⛶ Весь файл</button>
+        <div id="video-controls" style="padding: 6px; background: var(--bg2); border-top: 1px solid var(--border);">
+          <!-- Строка 1 -->
+          <div style="display: flex; gap: 4px; margin-bottom: 4px;">
+            <button class="tb-btn accent" id="btn-clip-mode" onclick="switchToClipMode()" title="Короткий клип">📹</button>
+            <button class="tb-btn" id="btn-full-mode" onclick="switchToFullVideo()" title="Полное видео">⛶</button>
+            <div style="width: 1px; background: var(--border); margin: 0 4px;"></div>
+            <button class="tb-btn" onclick="setPlaybackSpeed(0.5)" title="0.5x">0.5x</button>
+            <button class="tb-btn accent" id="btn-speed-1" onclick="setPlaybackSpeed(1)" title="1x">1x</button>
+            <button class="tb-btn" onclick="setPlaybackSpeed(2)" title="2x">2x</button>
+            <button class="tb-btn" onclick="setPlaybackSpeed(5)" title="5x">5x</button>
           </div>
-          
-          <!-- Скорость воспроизведения -->
-          <div style="display: flex; gap: 4px; flex: 1; min-width: 360px;">
-            <button class="tb-btn" onclick="setPlaybackSpeed(0.25)" title="Скорость 0.25x" style="flex: 1; font-size: 10px; min-width: 52px;">0.25x</button>
-            <button class="tb-btn" onclick="setPlaybackSpeed(0.5)" title="Скорость 0.5x" style="flex: 1; font-size: 10px; min-width: 52px;">0.5x</button>
-            <button class="tb-btn accent" id="btn-speed-1" onclick="setPlaybackSpeed(1)" title="Скорость 1x" style="flex: 1; font-size: 10px; min-width: 52px;">1x</button>
-            <button class="tb-btn" onclick="setPlaybackSpeed(2)" title="Скорость 2x" style="flex: 1; font-size: 10px; min-width: 52px;">2x</button>
-            <button class="tb-btn" onclick="setPlaybackSpeed(5)" title="Скорость 5x" style="flex: 1; font-size: 10px; min-width: 52px;">5x</button>
-            <button class="tb-btn" onclick="setPlaybackSpeed(10)" title="Скорость 10x" style="flex: 1; font-size: 10px; min-width: 52px;">10x</button>
-          </div>
-          
-          <!-- Дополнительные функции -->
+          <!-- Строка 2 -->
           <div style="display: flex; gap: 4px;">
-            <button class="tb-btn" onclick="toggleFullscreen()" title="Полноэкранный режим" style="padding: 4px 8px; font-size: 10px;">[ ]</button>
-            <button class="tb-btn" onclick="openVideoWindow()" title="Открыть в отдельном окне" style="padding: 4px 8px; font-size: 10px;">+</button>
+            <button class="tb-btn" onclick="setPlaybackSpeed(0.25)" title="0.25x">0.25x</button>
+            <button class="tb-btn" onclick="setPlaybackSpeed(10)" title="10x">10x</button>
+            <div style="width: 1px; background: var(--border); margin: 0 4px;"></div>
+            <button class="tb-btn" onclick="toggleFullscreen()" title="Полный экран">⛶</button>
+            <button class="tb-btn" onclick="openVideoWindow()" title="В окне">⧉</button>
           </div>
         </div>
         <div id="video-status" style="display: none; padding: 20px; text-align: center; color: var(--text3); font-size: 12px; white-space: pre-line;">
@@ -984,8 +1017,18 @@ function renderMarkers() {
       popupAnchor:[0, -20],
     });
 
-    const m = L.marker([sign.lat, sign.lon], { icon })
-      .on("click", () => selectSign(sign.id));
+    // ЗАДАЧА 2 (P1): Делаем маркеры перетаскиваемыми
+    const m = L.marker([sign.lat, sign.lon], { icon, draggable: true })
+      .on("click", () => selectSign(sign.id))
+      .on("dragstart", (e) => {
+        // Визуальная индикация начала перетаскивания
+        const markerEl = document.getElementById(`sm-${sign.id}`);
+        if (markerEl) {
+          markerEl.style.opacity = "0.6";
+          markerEl.style.transform = "scale(1.3)";
+        }
+      })
+      .on("dragend", (e) => onMarkerDragEnd(sign.id, e.target.getLatLng()));
 
     markers[sign.id] = m;
     markersToAdd.push(m); // Для batch добавления
@@ -1010,6 +1053,55 @@ function renderMarkers() {
       map.fitBounds(bounds, { padding: [50, 50] });
     } else {
       console.log(`[renderMarkers] Трек виден, не центрируем на знаки`);
+    }
+  }
+}
+
+// ЗАДАЧА 2 (P1): Обработчик перетаскивания маркера
+async function onMarkerDragEnd(id, latlng) {
+  try {
+    console.log(`[onMarkerDragEnd] Знак ${id} перемещён на lat=${latlng.lat}, lon=${latlng.lng}`);
+    
+    // Сброс визуальных эффектов перетаскивания
+    const markerEl = document.getElementById(`sm-${id}`);
+    if (markerEl) {
+      markerEl.style.opacity = "";
+      markerEl.style.transform = "";
+    }
+    
+    // Отправляем новые координаты на сервер
+    const r = await fetch(`${API}/sign/${id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ lat: latlng.lat, lon: latlng.lng }),
+    });
+    
+    if (!r.ok) throw new Error(`HTTP ${r.status}`);
+    const result = await r.json();
+    if (result.error) throw new Error(result.error);
+
+    // Обновляем локальный кэш координат
+    const idx = signsData.findIndex(s => s.id === id);
+    if (idx !== -1) {
+      signsData[idx].lat = latlng.lat;
+      signsData[idx].lon = latlng.lng;
+      console.log(`[onMarkerDragEnd] Обновлён локальный кэш для знака ${id}`);
+    }
+    
+    toast("Положение знака обновлено", "ok");
+    
+    // Если сейчас открыта деталка именно этого знака — не перезагружай видео/данные,
+    // просто оставь панель как есть (координаты не отображаются как обязательное поле).
+    
+  } catch (err) {
+    console.error("Error updating sign position:", err);
+    toast("Ошибка сохранения нового положения", "err");
+    
+    // Откатываем маркер на прежнее место
+    const orig = signsData.find(s => s.id === id);
+    if (orig && markers[id]) {
+      markers[id].setLatLng([orig.lat, orig.lon]);
+      console.log(`[onMarkerDragEnd] Маркер откачен на исходную позицию: lat=${orig.lat}, lon=${orig.lon}`);
     }
   }
 }
@@ -1698,9 +1790,10 @@ async function loadVideoForSign(signProps) {
     
     if (!rawFrames || rawFrames.length === 0) {
       console.log("[loadVideoForSign] Нет данных о кадрах");
-      videoStatus.textContent = "Нет данных о кадрах для этого знака";
-      videoStatus.style.display = "block";
+      // ЗАДАЧА 1 (P0): Явно переключаем видимость
       video.style.display = "none";
+      videoStatus.style.display = "block";
+      videoStatus.textContent = "Нет данных о кадрах для этого знака";
       return;
     }
     
@@ -1747,9 +1840,10 @@ async function loadVideoForSign(signProps) {
     
     console.log(`[loadVideoForSign] FPS=${fps}, secondsInVideo=${secondsInVideo.toFixed(2)}`);
     
-    // Показываем видео
-    videoStatus.style.display = "none";
-    video.style.display = "block";
+    // ЗАДАЧА 1 (P0): Показываем статус ожидания, СКРЫВАЕМ видео
+    video.style.display = "none";
+    videoStatus.style.display = "block";
+    videoStatus.textContent = "Подготовка видео... это может занять несколько секунд";
     
     // Task D: Запрашиваем короткий клип вокруг момента знака (не всё видео!)
     // Транскод VP9 медленнее реального времени - полное видео не успевает за 10 сек
@@ -1760,10 +1854,6 @@ async function loadVideoForSign(signProps) {
     const videoSrc = `${API}/video_clip/${videoIdx}?start=${clipStart}&duration=${clipDuration}`;
     console.log(`[loadVideoForSign] Загрузка WebM-клипа: ${videoSrc} (${clipDuration}s вокруг момента ${secondsInVideo.toFixed(2)}s)`);
     
-    // Показываем статус ожидания
-    videoStatus.textContent = "Подготовка видео... это может занять несколько секунд";
-    videoStatus.style.display = "block";
-    
     // Проверяем доступность эндпоинта (ffmpeg может быть не установлен)
     try {
       const checkResp = await fetch(videoSrc, {method: 'HEAD'});
@@ -1773,12 +1863,13 @@ async function loadVideoForSign(signProps) {
         if (!errorResp.ok) {
           const errorData = await errorResp.json().catch(() => null);
           if (errorData && errorData.error === 'ffmpeg not found') {
+            // ЗАДАЧА 1 (P0): Явная синхронизация видимости
+            video.style.display = "none";
+            videoStatus.style.display = "block";
             videoStatus.textContent = 
               `Для воспроизведения видео требуется ffmpeg. ` +
               `Установите ffmpeg и добавьте в PATH. ` +
               `Инструкция: ${errorData.install_url || 'https://ffmpeg.org/download.html'}`;
-            videoStatus.style.display = "block";
-            video.style.display = "none";
             return;
           }
         }
@@ -1841,8 +1932,9 @@ async function loadVideoForSign(signProps) {
       video.playbackRate = currentPlaybackRate;
       console.log(`[loadVideoForSign] Применена скорость ${currentPlaybackRate}x`);
       
-      // Скрываем статус ожидания
+      // ЗАДАЧА 1 (P0): Скрываем статус ожидания, ПОКАЗЫВАЕМ видео
       videoStatus.style.display = "none";
+      video.style.display = "block";
       
       // Обновляем глобальный индекс
       currentVideoIdx = videoIdx;
@@ -2280,6 +2372,51 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 });
+
+// ── ЗАДАЧА 4 (P2): Фокусировка знака из редактора ошибок ────────────
+
+window.focusSignFromEditor = async function(signId) {
+  /*
+   * Вызывается из MapPage.focus_sign() через runJavaScript.
+   * Центрирует карту на знаке и открывает его панель деталей.
+   */
+  try {
+    console.log(`[focusSignFromEditor] Фокусировка на знаке ${signId}`);
+    
+    // Если данные ещё не загружены (карта только что открылась) — ждём
+    if (!signsData || signsData.length === 0) {
+      console.log("[focusSignFromEditor] Данные не загружены, ждём loadAll()...");
+      await loadAll();
+    }
+
+    const sign = signsData.find(s => s.id === signId);
+    if (!sign) {
+      toast("Знак не найден на карте (возможно, GeoJSON устарел)", "err");
+      console.warn(`[focusSignFromEditor] Знак ${signId} не найден в signsData`);
+      return;
+    }
+
+    console.log(`[focusSignFromEditor] Знак найден: lat=${sign.lat}, lon=${sign.lon}`);
+    
+    const marker = markers[signId];
+    if (marker && markerCluster && markerCluster.hasLayer(marker)) {
+      // Знак в кластере — разворачиваем кластер и центрируем
+      console.log("[focusSignFromEditor] Знак в кластере, разворачиваем...");
+      markerCluster.zoomToShowLayer(marker, () => {
+        map.setView([sign.lat, sign.lon], Math.max(map.getZoom(), 17));
+        selectSign(signId);
+      });
+    } else {
+      // Знак уже на карте отдельно — просто центрируем
+      console.log("[focusSignFromEditor] Знак вне кластера, центрируем карту");
+      map.setView([sign.lat, sign.lon], 17);
+      selectSign(signId);
+    }
+  } catch (err) {
+    console.error("[focusSignFromEditor] Ошибка:", err);
+    toast("Ошибка при переходе к знаку", "err");
+  }
+};
 
 // ── Обработка ошибок ──────────────────────────────────────────────
 

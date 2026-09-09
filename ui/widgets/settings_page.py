@@ -592,6 +592,34 @@ class SettingsPage(QWidget):
             gpu_widget,
         )
         
+        # ЗАДАЧА 5 (P1): Кнопка "Использовать рекомендуемые настройки"
+        recommend_btn = QPushButton("✨  Использовать рекомендуемые настройки")
+        recommend_btn.setObjectName("BtnSecondary")
+        recommend_btn.setMinimumHeight(36)
+        recommend_btn.setMinimumWidth(260)
+        recommend_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        recommend_btn.clicked.connect(self._apply_recommended_settings)
+
+        recommend_layout = QVBoxLayout()
+        recommend_layout.setSpacing(8)
+        recommend_layout.addWidget(recommend_btn)
+
+        self._recommend_status_label = QLabel("")
+        self._recommend_status_label.setObjectName("SettingsHint")
+        self._recommend_status_label.setWordWrap(True)
+        recommend_layout.addWidget(self._recommend_status_label)
+
+        recommend_widget = QWidget()
+        recommend_widget.setStyleSheet("background: transparent;")
+        recommend_widget.setLayout(recommend_layout)
+
+        compute_group.add_row(
+            "Рекомендуемые настройки",
+            "Автоматически определяет оптимальный backend (CUDA/ONNX/OpenVINO) "
+            "и выставляет сбалансированные пороги качества/производительности",
+            recommend_widget,
+        )
+        
         # ── CPU-инференс (BLOCK M) ──────────────────────────────
         self._cpu_backend_combo = QComboBox()
         self._cpu_backend_combo.addItems([
@@ -1269,6 +1297,111 @@ class SettingsPage(QWidget):
                 f"color: {theme_manager.tokens['error']}; font-size: 11px;"
             )
             print(f"[SettingsPage] GPU check error: {e}")
+    
+    def _apply_recommended_settings(self) -> None:
+        """
+        ЗАДАЧА 5 (P1): применяет рекомендованный backend (на основе железа)
+        и сбалансированные пороги качества/производительности к текущему UI
+        (без немедленного сохранения — пользователь может передумать и не
+        нажать "Сохранить", как и с любыми другими изменениями в форме).
+        """
+        from configs.hardware_recommend import detect_recommended_backend
+
+        try:
+            rec = detect_recommended_backend()
+
+            # ── Backend / CUDA ──────────────────────────────────────
+            if hasattr(self, '_cuda_toggle'):
+                self._cuda_toggle.set_checked(rec["use_cuda"])
+            if hasattr(self, '_cpu_backend_combo'):
+                backend_map_rev = {"torch": 0, "onnx": 1, "openvino": 2}
+                self._cpu_backend_combo.setCurrentIndex(
+                    backend_map_rev.get(rec["cpu_inference_backend"], 0)
+                )
+                # update_backend_enabled() уже подключён к toggled_state CUDA-тумблера,
+                # но сработает только если состояние тумблера реально ИЗМЕНИЛОСЬ —
+                # принудительно синхронизируем enabled-состояние комбобокса:
+                self._cpu_backend_combo.setEnabled(not rec["use_cuda"])
+
+            # ── Рекомендованные пороги качества/производительности ──
+            # (значения см. в PROMPT_FIX_UI_OVERLAP_MAP_EDIT_SETTINGS.md, раздел 5.1)
+            if hasattr(self, '_conf_side_spin'):
+                self._conf_side_spin.setValue(0.55)
+            if hasattr(self, '_iou_spin'):
+                self._iou_spin.setValue(0.15)
+            if hasattr(self, '_dedup_track_spin'):
+                self._dedup_track_spin.setValue(10)
+            if hasattr(self, '_dedup_azimuth_spin'):
+                self._dedup_azimuth_spin.setValue(40)
+            # preview_fps_limit применяем напрямую
+            self._settings.preview_fps_limit = 10.0
+
+            # ── Статус для пользователя ──────────────────────────────
+            status_lines = [rec["reason"]]
+
+            # Если рекомендован не-PyTorch backend, но он не готов — предупреждаем сразу
+            if rec["cpu_inference_backend"] != "torch" and not rec["use_cuda"]:
+                readiness_issue = self._get_backend_readiness_issue(rec["cpu_inference_backend"])
+                if readiness_issue:
+                    status_lines.append(f"⚠️ {readiness_issue}")
+
+            self._recommend_status_label.setText("\n".join(status_lines))
+            self._recommend_status_label.setStyleSheet(
+                f"color: {theme_manager.tokens['text_secondary']}; font-size: 11px;"
+            )
+
+            print(f"[SettingsPage] Рекомендуемые настройки применены: {rec}")
+
+        except Exception as e:
+            print(f"[SettingsPage] Ошибка применения рекомендуемых настроек: {e}")
+            import traceback
+            traceback.print_exc()
+            self._recommend_status_label.setText(f"Ошибка определения рекомендаций: {e}")
+            self._recommend_status_label.setStyleSheet(
+                f"color: {theme_manager.tokens['error']}; font-size: 11px;"
+            )
+    
+    def _get_backend_readiness_issue(self, backend_name: str) -> str:
+        """
+        ЗАДАЧА 5 (P1): Возвращает текстовое описание проблемы готовности backend'а
+        ("" если всё готово). Не показывает никаких диалогов —
+        чистая проверка для переиспользования в разных местах UI.
+        """
+        import glob
+
+        issues = []
+        try:
+            if backend_name == "onnx":
+                import onnx       # noqa: F401
+                import onnxruntime  # noqa: F401
+            elif backend_name == "openvino":
+                import openvino  # noqa: F401
+        except ImportError as e:
+            missing_pkg = str(e).split("'")[1] if "'" in str(e) else "неизвестный пакет"
+            issues.append(f"пакет '{missing_pkg}' не установлен")
+
+        exported_files_exist = False
+        patterns = {
+            "onnx": ["CNN_side/*.onnx", "small_models/*.onnx", "lane_guidance_models/*.onnx"],
+            "openvino": [
+                "CNN_side/*_openvino_model",
+                "small_models/*_openvino_model",
+                "lane_guidance_models/*_openvino_model",
+            ],
+        }.get(backend_name, [])
+        for pattern in patterns:
+            if glob.glob(pattern):
+                exported_files_exist = True
+                break
+        if not exported_files_exist:
+            issues.append(f"модели не экспортированы в формат {backend_name.upper()}")
+
+        if not issues:
+            return ""
+        return (
+            f"Backend '{backend_name.upper()}' выбран, но не готов: {', '.join(issues)}. "
+            f"До экспорта моделей/установки пакета обработка будет использовать PyTorch."
+        )
     
     def _export_models(self):
         """Экспорт моделей в ONNX/OpenVINO форматы (BLOCK M)."""

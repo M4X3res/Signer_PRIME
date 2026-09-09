@@ -27,6 +27,7 @@ class MapPage(QWidget):
         self._server_thread = None
         self._server_ready  = False
         self._webview       = None  # создаётся лениво в _load_map()
+        self._pending_focus_sign_id = None  # ЗАДАЧА 4 (P2): Отложенный фокус знака
 
         root = QVBoxLayout(self)
         root.setContentsMargins(0, 0, 0, 0)
@@ -242,6 +243,12 @@ class MapPage(QWidget):
             self._webview.setVisible(True)
             self._reload_btn.setEnabled(True)
             self._open_btn.setEnabled(True)
+            
+            # ЗАДАЧА 4 (P2): Если был отложенный фокус знака — выполняем его
+            pending = getattr(self, "_pending_focus_sign_id", None)
+            if pending:
+                self._pending_focus_sign_id = None
+                self.focus_sign(pending)
         else:
             self._placeholder.set_status("Не удалось загрузить карту", error=True)
 
@@ -287,6 +294,18 @@ class MapPage(QWidget):
             emit_position(seconds)
         except Exception:
             pass
+    
+    def focus_sign(self, sign_id: str) -> None:
+        """
+        ЗАДАЧА 4 (P2): Просит веб-страницу карты выбрать и отцентрировать знак по id.
+        Если страница ещё не загружена — откладывает вызов до loadFinished.
+        """
+        if self._webview is None or not self._server_ready:
+            self._pending_focus_sign_id = sign_id
+            return
+        self._pending_focus_sign_id = None
+        js = f'if (window.focusSignFromEditor) window.focusSignFromEditor("{sign_id}");'
+        self._webview.page().runJavaScript(js)
 
     def stop_server(self):
         """Остановка Flask-сервера и ServerThread при закрытии приложения."""

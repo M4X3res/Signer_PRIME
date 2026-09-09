@@ -18,15 +18,17 @@ class AppSettings:
     frame_step_manual: int = 5  # Используется только если mode == "manual"
     
     # ── Пороги уверенности (confidence) ───────────────────────────
-    conf_side: float = 0.50   # YOLO side-detect (грубая детекция знака)
+    # ЗАДАЧА 5 (P1): Обновлены дефолты на рекомендуемые значения
+    conf_side: float = 0.55   # YOLO side-detect (грубая детекция знака) [рекомендовано 0.4-0.7]
     conf_rube: float = 0.70   # YOLO rube классификация (грубая категория)
     conf_cnn: float = 0.60    # CNN fine классификация (точный тип)
-    iou_threshold: float = 0.1  # IoU для NMS в YOLO
+    iou_threshold: float = 0.15  # IoU для NMS в YOLO [рекомендовано 0.1-0.2]
     
     # ── Дедупликация знаков ───────────────────────────────────────
-    dedup_radius_track_m: float = 8.0   # SignHandler.NEARBY_SIGN_RADIUS_M
+    # ЗАДАЧА 5 (P1): Обновлены дефолты на рекомендуемые значения
+    dedup_radius_track_m: float = 10.0   # SignHandler.NEARBY_SIGN_RADIUS_M [рекомендовано 8-15]
     dedup_radius_final_m: float = 20.0  # FinalHandler.DEDUP_RADIUS_M
-    dedup_azimuth_deg: float = 45.0     # FinalHandler.DEDUP_AZIMUTH_DEG
+    dedup_azimuth_deg: float = 40.0     # FinalHandler.DEDUP_AZIMUTH_DEG [рекомендовано 35-45]
     
     # ── Определение стороны знака и полосы (TASK 1) ───────────────
     # Ширина дороги и полос учитывается при группировке знаков
@@ -74,7 +76,8 @@ class AppSettings:
     lane_conf_segment: float = 0.65  # Порог уверенности для model_lane_segment
     
     # ── CPU-оптимизация (BLOCK CPU) ───────────────────────────────
-    preview_fps_limit: float = 12.0  # Максимальная частота обновления превью UI (кадр/сек)
+    # ЗАДАЧА 5 (P1): Обновлены дефолты на рекомендуемые значения
+    preview_fps_limit: float = 10.0  # Максимальная частота обновления превью UI (кадр/сек) [рекомендовано 8-12]
     ocr_throttle_interval_frames: int = 8   # Минимальный интервал между OCR-вызовами для одного знака
     ocr_max_calls_per_sign: int = 6         # Максимальное число OCR-вызовов для одного знака
     

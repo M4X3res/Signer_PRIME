@@ -156,6 +156,9 @@ class MainWindow(QMainWindow):
         # Редактор ошибок — прыжок к кадру
         self.page_errors.jump_to_frame.connect(self._on_editor_jump)
         
+        # ЗАДАЧА 4 (P2): Редактор ошибок — показать на карте
+        self.page_errors.show_on_map.connect(self._on_show_sign_on_map)
+        
         # Карта — прыжок к секунде
         self.page_map.jump_to_second.connect(self._on_jump_to_second)
 
@@ -604,6 +607,21 @@ class MainWindow(QMainWindow):
             self.page_processing.log(
                 f"Не удалось загрузить кадр: видео {video_idx + 1}, кадр {frame_num}", "error"
             )
+    
+    def _on_show_sign_on_map(self, sign_id: str) -> None:
+        """
+        ЗАДАЧА 4 (P2): Переключает на вкладку "Карта" и просит веб-страницу карты 
+        выбрать и отцентрировать конкретный знак по его id.
+        """
+        self._switch_page("map")
+        self.sidebar.set_page("map")
+        
+        # Если сервер карты ещё не запущен — запускаем его
+        if not self.page_map._server_ready:
+            self.page_map.start_server()
+        
+        # Передаём sign_id в MapPage для фокусировки
+        self.page_map.focus_sign(sign_id)
 
     def _load_and_show_frame(self, video_idx: int, frame_num: int) -> bool:
         """

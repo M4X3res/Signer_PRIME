@@ -54048,3 +54048,1228 @@ NameError: name 'logger' is not defined
 15:22:36 [INFO] server.map_server: [API /api/video_clip] Cache hit: E:\Urban\vid\test\GOPR0064\GOPR0064_clip_150_16.webm
 15:22:36 [INFO] server.map_server: [API /api/video_clip/0] start=150.02453333333332, duration=16.0
 15:22:36 [INFO] server.map_server: [API /api/video_clip] Cache hit: E:\Urban\vid\test\GOPR0064\GOPR0064_clip_150_16.webm
+15:24:11 [INFO] __main__: ============================================================
+15:24:11 [INFO] __main__: RoadScanner v2 запускается...
+15:24:11 [INFO] __main__: Установлены environment workarounds для предотвращения крашей
+15:24:11 [INFO] __main__: Инициализация QApplication...
+15:24:11 [INFO] __main__: Применение темы оформления...
+15:24:11 [INFO] __main__: Создание главного окна...
+15:24:13 [INFO] server.map_server: [MapServer] emit_theme_changed: light
+15:24:13 [INFO] __main__: Приложение готово к работе
+15:24:26 [INFO] ui.widgets.dashboard_page: [DashboardPage] Выбрана папка: E:\Urban\vid\test\GOPR0064
+15:24:26 [INFO] ui.widgets.dashboard_page: [DashboardPage] VideoScanWorker запущен
+15:24:26 [INFO] ui.widgets.dashboard_page: [VideoScanWorker] Начинаем сканирование папки: E:\Urban\vid\test\GOPR0064
+15:24:26 [INFO] ui.widgets.dashboard_page: [VideoScanWorker] Найдено видео файлов: 14
+15:24:26 [INFO] ui.widgets.dashboard_page: [DashboardPage] Сканирование завершено: найдено 14 видео
+15:24:33 [INFO] ui.main_window: Запуск обработки...
+15:24:33 [INFO] processing.processing_controller: [ProcessingController] Режим обработки: single_thread (Task E: всегда single_thread)
+15:24:35 [WARNING] werkzeug: Werkzeug appears to be used in a production deployment. Consider switching to a production web server instead.
+15:24:35 [INFO] processing.detector_thread: ✅ CUDA доступна: NVIDIA GeForce RTX 2080 Ti
+15:24:35 [INFO] processing.detector_thread: 📺 UI Preview: макс. 12.0 FPS (интервал 0.083s)
+15:24:35 [INFO] core.lane_detector: [LaneDetector] Инициализирован: CONF_DETECT=0.65, CONF_SEGMENT=0.65
+15:24:35 [INFO] core.detector: Detector инициализирован: CONF_SIDE=0.50, CONF_RUBE=0.70, CONF_CNN=0.60, IOU=0.10, save_error_frames=False
+15:24:36 [INFO] core.sign_handler: SignHandler инициализирован: NEARBY_SIGN_RADIUS_M=8.0m
+15:24:36 [INFO] processing.detector_thread: CNN кэш инициализирован: размер=1000
+15:24:36 [INFO] processing.detector_thread: 🔧 Режим: SINGLE THREAD — OCR выполняется синхронно (Task E)
+15:24:36 [INFO] processing.detector_thread: Прогрев EasyOCR...
+15:24:36 [INFO] processing.video_reader.video_debug: === VideoReader Debug Log ===
+15:24:36 [INFO] processing.video_reader.video_debug: START: INDEX_OF_VIDEO=0, INDEX_OF_FRAME=0
+15:24:36 [INFO] processing.video_reader.video_debug: Total videos: 14
+
+15:24:37 [INFO] processing.video_reader: [VideoReader] Видео: 1920x1080, FPS: 59.94
+15:24:37 [INFO] processing.video_reader.video_debug: [VIDEO 0] START: GOPR0064.MP4
+15:24:37 [INFO] processing.video_reader.video_debug:   total_frames=63601, starting_frame=0
+15:24:37 [INFO] processing.video_reader.video_debug:   backend=MSMF, fourcc=22.0
+15:24:37 [INFO] processing.video_reader.video_debug:   fps=59.94005994005994, use_frame_limit=True
+15:24:37 [DEBUG] processing.video_reader.video_debug:   Frame 0: grabbed=True
+15:24:37 [DEBUG] processing.video_reader.video_debug:   Frame 1: grabbed=True
+15:24:37 [DEBUG] processing.video_reader.video_debug:   Frame 2: grabbed=True
+15:24:37 [DEBUG] processing.video_reader.video_debug:   Frame 3: grabbed=True
+15:24:37 [DEBUG] processing.video_reader.video_debug:   Frame 4: grabbed=True
+15:24:37 [DEBUG] processing.video_reader.video_debug:   Frame 5: grabbed=True
+15:24:37 [DEBUG] processing.video_reader.video_debug:   Frame 6: grabbed=True
+15:24:37 [DEBUG] processing.video_reader.video_debug:   Frame 7: grabbed=True
+15:24:37 [DEBUG] processing.video_reader.video_debug:   Frame 8: grabbed=True
+15:24:37 [DEBUG] processing.video_reader.video_debug:   Frame 9: grabbed=True
+15:24:37 [DEBUG] processing.video_reader.video_debug:   Frame 10: grabbed=True
+15:24:37 [DEBUG] processing.video_reader.video_debug:   Frame 11: grabbed=True
+15:24:37 [DEBUG] processing.video_reader.video_debug:   Frame 12: grabbed=True
+15:24:37 [DEBUG] processing.video_reader.video_debug:   Frame 13: grabbed=True
+15:24:37 [DEBUG] processing.video_reader.video_debug:   Frame 14: grabbed=True
+15:24:37 [DEBUG] processing.video_reader.video_debug:   Frame 15: grabbed=True
+15:24:37 [DEBUG] processing.video_reader.video_debug:   Frame 16: grabbed=True
+15:24:37 [DEBUG] processing.video_reader.video_debug:   Frame 17: grabbed=True
+15:24:37 [DEBUG] processing.video_reader.video_debug:   Frame 18: grabbed=True
+15:24:37 [DEBUG] processing.video_reader.video_debug:   Frame 19: grabbed=True
+15:24:37 [DEBUG] processing.video_reader.video_debug:   Frame 20: grabbed=True
+15:24:37 [DEBUG] processing.video_reader.video_debug:   Frame 21: grabbed=True
+15:24:37 [DEBUG] processing.video_reader.video_debug:   Frame 22: grabbed=True
+15:24:37 [DEBUG] processing.video_reader.video_debug:   Frame 23: grabbed=True
+15:24:37 [DEBUG] processing.video_reader.video_debug:   Frame 24: grabbed=True
+15:24:37 [DEBUG] processing.video_reader.video_debug:   Frame 25: grabbed=True
+15:24:37 [DEBUG] processing.video_reader.video_debug:   Frame 26: grabbed=True
+15:24:37 [DEBUG] processing.video_reader.video_debug:   Frame 27: grabbed=True
+15:24:37 [DEBUG] processing.video_reader.video_debug:   Frame 28: grabbed=True
+15:24:37 [DEBUG] processing.video_reader.video_debug:   Frame 29: grabbed=True
+15:24:37 [DEBUG] processing.video_reader.video_debug:   Frame 30: grabbed=True
+15:24:37 [DEBUG] processing.video_reader.video_debug:   Frame 31: grabbed=True
+15:24:37 [DEBUG] processing.video_reader.video_debug:   Frame 32: grabbed=True
+15:24:37 [DEBUG] processing.video_reader.video_debug:   Frame 33: grabbed=True
+15:24:37 [DEBUG] processing.video_reader.video_debug:   Frame 34: grabbed=True
+15:24:37 [DEBUG] processing.video_reader.video_debug:   Frame 35: grabbed=True
+15:24:37 [DEBUG] processing.video_reader.video_debug:   Frame 36: grabbed=True
+15:24:37 [DEBUG] processing.video_reader.video_debug:   Frame 37: grabbed=True
+15:24:37 [DEBUG] processing.video_reader.video_debug:   Frame 38: grabbed=True
+15:24:37 [DEBUG] processing.video_reader.video_debug:   Frame 39: grabbed=True
+15:24:37 [DEBUG] processing.video_reader.video_debug:   Frame 40: grabbed=True
+15:24:37 [DEBUG] processing.video_reader.video_debug:   Frame 41: grabbed=True
+15:24:37 [DEBUG] processing.video_reader.video_debug:   Frame 42: grabbed=True
+15:24:37 [DEBUG] processing.video_reader.video_debug:   Frame 43: grabbed=True
+15:24:37 [DEBUG] processing.video_reader.video_debug:   Frame 44: grabbed=True
+15:24:37 [DEBUG] processing.video_reader.video_debug:   Frame 45: grabbed=True
+15:24:37 [DEBUG] processing.video_reader.video_debug:   Frame 46: grabbed=True
+15:24:37 [DEBUG] processing.video_reader.video_debug:   Frame 47: grabbed=True
+15:24:37 [DEBUG] processing.video_reader.video_debug:   Frame 48: grabbed=True
+15:24:37 [DEBUG] processing.video_reader.video_debug:   Frame 49: grabbed=True
+15:24:37 [INFO] server.map_server: [API /api/track] Запрос получен
+15:24:37 [INFO] server.map_server: [API /api/track] PATH_TO_GPX = E:\Urban\vid\test\07,07,20211.gpx
+15:24:37 [INFO] server.map_server: [API /api/signs] Запрос получен
+15:24:37 [INFO] server.map_server: [API /api/track] Загружаем GPX из E:\Urban\vid\test\07,07,20211.gpx
+15:24:37 [INFO] server.map_server: [API /api/signs] PATH_TO_GEOJSON = E:\Urban\vid\test\test_new_algo.geojson
+15:24:37 [INFO] server.map_server: [API /api/signs] Загружаем GeoJSON из E:\Urban\vid\test\test_new_algo.geojson
+15:24:37 [INFO] server.map_server: [API /api/signs] Найдено 28 features в GeoJSON
+15:24:37 [INFO] server.map_server: [API /api/signs] Возвращаем 28 знаков клиенту
+15:24:38 [INFO] server.map_server: [API /api/track] Найдено 13887 точек трека
+15:24:38 [DEBUG] processing.video_reader.video_debug:   Progress: 100 frames read, local=500/63601, abs=500
+15:24:38 [INFO] processing.video_reader: [VIDEO 0] Прогресс: 100 кадров, local_frame=500/63601
+15:24:41 [INFO] processing.detector_thread: ✅ EasyOCR прогрет успешно
+15:24:42 [DEBUG] processing.video_reader.video_debug:   Progress: 200 frames read, local=1000/63601, abs=1000
+15:24:42 [INFO] processing.video_reader: [VIDEO 0] Прогресс: 200 кадров, local_frame=1000/63601
+15:24:42 [INFO] configs.sign_models: [sign_models] Загружена PyTorch-модель: best.pt на device=cuda:0
+15:24:43 [INFO] processing.detector_thread: [SmartSkip] Обработано: 1, Пропущено: 0 (0.0%), Текущий интервал: 1/1, FPS: 0.1, Cache: 0.0% (0/0) size=0, OCR Cache: 0.0% (0/0) size=0
+15:24:43 [DEBUG] processing.video_reader.video_debug:   Progress: 300 frames read, local=1500/63601, abs=1500
+15:24:43 [INFO] processing.video_reader: [VIDEO 0] Прогресс: 300 кадров, local_frame=1500/63601
+15:24:44 [INFO] processing.detector_thread: [SmartSkip] Обработано: 41, Пропущено: 31 (43.1%), Текущий интервал: 1/2, FPS: 39.4, Cache: 0.0% (0/0) size=0, OCR Cache: 0.0% (0/0) size=0
+15:24:44 [DEBUG] processing.video_reader.video_debug:   Progress: 400 frames read, local=2000/63601, abs=2000
+15:24:44 [INFO] processing.video_reader: [VIDEO 0] Прогресс: 400 кадров, local_frame=2000/63601
+15:24:45 [INFO] processing.detector_thread: [SmartSkip] Обработано: 81, Пропущено: 71 (46.7%), Текущий интервал: 1/2, FPS: 39.4, Cache: 0.0% (0/0) size=0, OCR Cache: 0.0% (0/0) size=0
+15:24:46 [INFO] processing.detector_thread: [SmartSkip] Обработано: 120, Пропущено: 110 (47.8%), Текущий интервал: 1/2, FPS: 39.0, Cache: 0.0% (0/0) size=0, OCR Cache: 0.0% (0/0) size=0
+15:24:46 [DEBUG] processing.video_reader.video_debug:   Progress: 500 frames read, local=2500/63601, abs=2500
+15:24:46 [INFO] processing.video_reader: [VIDEO 0] Прогресс: 500 кадров, local_frame=2500/63601
+15:24:46 [INFO] configs.sign_models: [sign_models] Загружена PyTorch-модель: rude.pt на device=cuda:0
+15:24:46 [INFO] configs.sign_models: [sign_models] Загружена PyTorch-модель: red.pt на device=cuda:0
+15:24:47 [INFO] processing.detector_thread: [SmartSkip] Обработано: 132, Пропущено: 122 (48.0%), Текущий интервал: 1/2, FPS: 10.4, Cache: 0.0% (0/1) size=1, TrackedSkip: 0/1 (0.0%), OCR Cache: 0.0% (0/0) size=0
+15:24:48 [INFO] processing.detector_thread: [SmartSkip] Обработано: 172, Пропущено: 152 (46.9%), Текущий интервал: 1/2, FPS: 40.0, Cache: 0.0% (0/1) size=1, TrackedSkip: 0/1 (0.0%), OCR Cache: 0.0% (0/0) size=0
+15:24:48 [INFO] configs.sign_models: [sign_models] Загружена PyTorch-модель: 5.9.1-5.14.pt на device=cuda:0
+15:24:48 [DEBUG] processing.video_reader.video_debug:   Progress: 600 frames read, local=3000/63601, abs=3000
+15:24:48 [INFO] processing.video_reader: [VIDEO 0] Прогресс: 600 кадров, local_frame=3000/63601
+15:24:49 [INFO] processing.detector_thread: [SmartSkip] Обработано: 201, Пропущено: 154 (43.4%), Текущий интервал: 1/1, FPS: 28.6, Cache: 0.0% (0/4) size=4, TrackedSkip: 0/4 (0.0%), OCR Cache: 0.0% (0/0) size=0
+15:24:50 [INFO] processing.detector_thread: [SmartSkip] Обработано: 235, Пропущено: 158 (40.2%), Текущий интервал: 1/1, FPS: 33.5, Cache: 0.0% (0/9) size=9, TrackedSkip: 5/14 (35.7%), OCR Cache: 0.0% (0/0) size=0
+15:24:51 [INFO] processing.processing_controller: [ProcessingController] finish_and_save: сигнал остановки чтения видео
+15:24:51 [INFO] processing.detector_thread: [SmartSkip] Обработано: 267, Пропущено: 158 (37.2%), Текущий интервал: 1/1, FPS: 32.0, Cache: 0.0% (0/17) size=17, TrackedSkip: 17/34 (50.0%), OCR Cache: 0.0% (0/0) size=0
+15:24:52 [INFO] processing.detector_thread: [SmartSkip] Обработано: 313, Пропущено: 196 (38.5%), Текущий интервал: 1/2, FPS: 45.3, Cache: 0.0% (0/17) size=17, TrackedSkip: 17/34 (50.0%), OCR Cache: 0.0% (0/0) size=0
+15:24:52 [INFO] processing.detector_thread: [DetectorThread] Финализация оставшихся активных знаков...
+15:24:52 [INFO] core.sign_handler: [SignHandler] Финализировано 1 активных знаков в конце видео
+15:24:52 [INFO] processing.processing_controller: [ProcessingController] Получено 1 знаков из очереди
+15:24:52 [INFO] server.map_server: [MapServer] emit_processing_finished вызван
+15:24:52 [INFO] core.final_handler: [FinalHandler] Инициализирован: DEDUP_RADIUS_M=20.0m, DEDUP_AZIMUTH_DEG=45.0°, GRID_CELL_M=10.0m
+15:24:52 [INFO] server.map_server: [MapServer] PATH_TO_GEOJSON = E:\Urban\vid\test\test_new_algo.geojson
+15:24:52 [INFO] core.final_handler: [FinalHandler] save_result вызван:
+15:24:52 [INFO] core.final_handler:   - Знаков: 1
+15:24:52 [INFO] server.map_server: [MapServer] Файл существует: True
+15:24:52 [INFO] core.final_handler:   - Поворотов: 0
+15:24:52 [INFO] server.map_server: [MapServer] События отправлены клиентам
+15:24:52 [INFO] core.final_handler:   - Путь: E:\Urban\vid\test\test_new_algo.geojson
+15:24:52 [INFO] core.final_handler: [FinalHandler] Начинаем обработку прямолинейных знаков...
+15:24:52 [INFO] core.final_handler: [FinalHandler] _process_straight_signs: обрабатываем 1 знаков
+15:24:52 [INFO] core.final_handler: [FinalHandler] После merge дубликатов: 1 → 1 знаков
+15:24:52 [INFO] core.final_handler: [FinalHandler] Сгруппировано в 1 групп
+15:24:52 [INFO] core.final_handler: [FinalHandler] Выполняем batch OSM snap...
+15:24:52 [INFO] server.map_server: [API /api/track] Запрос получен
+15:24:52 [INFO] server.map_server: [API /api/track] PATH_TO_GPX = E:\Urban\vid\test\07,07,20211.gpx
+15:24:52 [INFO] server.map_server: [API /api/track] Загружаем GPX из E:\Urban\vid\test\07,07,20211.gpx
+15:24:52 [INFO] server.map_server: [API /api/signs] Запрос получен
+15:24:52 [INFO] server.map_server: [API /api/signs] PATH_TO_GEOJSON = E:\Urban\vid\test\test_new_algo.geojson
+15:24:52 [INFO] server.map_server: [API /api/signs] Загружаем GeoJSON из E:\Urban\vid\test\test_new_algo.geojson
+15:24:52 [INFO] server.map_server: [API /api/signs] Найдено 28 features в GeoJSON
+15:24:53 [INFO] server.map_server: [API /api/signs] Возвращаем 28 знаков клиенту
+15:24:53 [INFO] core.final_handler: [FinalHandler] Второй проход мержа дублей (post-snap)...
+15:24:53 [INFO] server.map_server: [API /api/track] Найдено 13887 точек трека
+15:24:53 [INFO] core.final_handler: [FinalHandler] Второй проход мержа дублей: 1 знаков
+15:24:53 [INFO] server.map_server: [API /api/signs] Запрос получен
+15:24:53 [INFO] core.final_handler: [FinalHandler] После post-snap merge: 1 → 1 знаков
+15:24:53 [INFO] server.map_server: [API /api/signs] PATH_TO_GEOJSON = E:\Urban\vid\test\test_new_algo.geojson
+15:24:53 [INFO] core.final_handler: [FinalHandler] Перегруппировка и сортировка по cross-track distance...
+15:24:53 [INFO] server.map_server: [API /api/signs] Загружаем GeoJSON из E:\Urban\vid\test\test_new_algo.geojson
+15:24:53 [INFO] server.map_server: [API /api/signs] Найдено 28 features в GeoJSON
+15:24:53 [INFO] server.map_server: [API /api/signs] Возвращаем 28 знаков клиенту
+15:24:53 [INFO] core.final_handler: [FinalHandler] _process_straight_signs завершён: 1 features
+15:24:53 [INFO] core.final_handler: [FinalHandler] Обработано 1 прямолинейных знаков
+15:24:53 [INFO] core.final_handler: [FinalHandler] Начинаем обработку знаков на поворотах...
+15:24:53 [INFO] core.final_handler: [FinalHandler] Обработано 0 знаков на поворотах
+15:24:53 [INFO] core.final_handler: [FinalHandler] После обработки: 1 features
+15:24:53 [INFO] core.final_handler: [FinalHandler] Начинаем дедупликацию...
+15:24:53 [INFO] core.final_handler: [FinalHandler] _deduplicate начат, features: 1
+15:24:53 [INFO] core.final_handler: [FinalHandler] _deduplicate завершён: 1 знаков (0.0s)
+15:24:53 [INFO] core.final_handler: [FinalHandler] После дедупликации: 1 features
+15:24:53 [INFO] core.final_handler: [FinalHandler] Сохраняем GeoJSON...
+15:24:53 [INFO] core.final_handler: [FinalHandler] Сохранено 1 знаков → E:\Urban\vid\test\test_new_algo.geojson
+15:24:53 [INFO] core.final_handler: [FinalHandler] ИТОГ: на входе знаков≈1, после обработки и дедупликации записано 1 features → E:\Urban\vid\test\test_new_algo.geojson
+15:24:54 [INFO] server.map_server: [API /api/track] Запрос получен
+15:24:54 [INFO] server.map_server: [API /api/track] PATH_TO_GPX = E:\Urban\vid\test\07,07,20211.gpx
+15:24:54 [INFO] server.map_server: [API /api/signs] Запрос получен
+15:24:54 [INFO] server.map_server: [API /api/track] Загружаем GPX из E:\Urban\vid\test\07,07,20211.gpx
+15:24:54 [INFO] server.map_server: [API /api/signs] PATH_TO_GEOJSON = E:\Urban\vid\test\test_new_algo.geojson
+15:24:54 [INFO] server.map_server: [API /api/signs] Загружаем GeoJSON из E:\Urban\vid\test\test_new_algo.geojson
+15:24:54 [INFO] server.map_server: [API /api/signs] Найдено 1 features в GeoJSON
+15:24:54 [INFO] server.map_server: [API /api/signs] Возвращаем 1 знаков клиенту
+15:24:54 [INFO] server.map_server: [API /api/track] Найдено 13887 точек трека
+15:24:57 [INFO] server.map_server: [API /api/track] Запрос получен
+15:24:57 [INFO] server.map_server: [API /api/signs] Запрос получен
+15:24:57 [INFO] server.map_server: [API /api/track] PATH_TO_GPX = E:\Urban\vid\test\07,07,20211.gpx
+15:24:57 [INFO] server.map_server: [API /api/signs] PATH_TO_GEOJSON = E:\Urban\vid\test\test_new_algo.geojson
+15:24:57 [INFO] server.map_server: [API /api/track] Загружаем GPX из E:\Urban\vid\test\07,07,20211.gpx
+15:24:57 [INFO] server.map_server: [API /api/signs] Загружаем GeoJSON из E:\Urban\vid\test\test_new_algo.geojson
+15:24:57 [INFO] server.map_server: [API /api/signs] Найдено 1 features в GeoJSON
+15:24:57 [INFO] server.map_server: [API /api/signs] Возвращаем 1 знаков клиенту
+15:24:57 [INFO] server.map_server: [API /api/signs] Запрос получен
+15:24:57 [INFO] server.map_server: [API /api/signs] PATH_TO_GEOJSON = E:\Urban\vid\test\test_new_algo.geojson
+15:24:57 [INFO] server.map_server: [API /api/signs] Загружаем GeoJSON из E:\Urban\vid\test\test_new_algo.geojson
+15:24:57 [INFO] server.map_server: [API /api/track] Найдено 13887 точек трека
+15:24:57 [INFO] server.map_server: [API /api/signs] Найдено 1 features в GeoJSON
+15:24:57 [INFO] server.map_server: [API /api/signs] Возвращаем 1 знаков клиенту
+15:24:58 [INFO] server.map_server: [API /api/sign/13d49592-8567-4fb4-960b-3cbbae5f9ffb] Запрос получен
+15:24:58 [INFO] server.map_server: [API /api/sign/13d49592-8567-4fb4-960b-3cbbae5f9ffb] Найдено 1 features в GeoJSON
+15:24:58 [INFO] server.map_server: [API /api/sign/13d49592-8567-4fb4-960b-3cbbae5f9ffb] Знак найден
+15:24:58 [INFO] server.map_server: [API /api/video_clip/0] start=38.93021666666667, duration=16.0
+15:24:58 [INFO] server.map_server: [API /api/video_clip] Транскодирование: E:\Urban\vid\test\GOPR0064\GOPR0064.MP4 -> E:\Urban\vid\test\GOPR0064\GOPR0064_clip_39_16.webm
+15:24:58 [INFO] server.map_server: [API /api/video_clip] Запуск ffmpeg: ffmpeg -ss 38.93021666666667 -i E:\Urban\vid\test\GOPR0064\GOPR0064.MP4 -t 16.0 -c:v libvpx-vp9 -deadline realtime -cpu-used 8 -b:v 1M -c:a libopus -f webm -y E:\Urban\vid\test\GOPR0064\GOPR0064_clip_39_16.webm
+15:25:05 [INFO] server.map_server: [API /api/video_clip] Транскодирование завершено: E:\Urban\vid\test\GOPR0064\GOPR0064_clip_39_16.webm
+15:25:05 [INFO] server.map_server: [API /api/video_clip/0] start=38.93021666666667, duration=16.0
+15:25:05 [INFO] server.map_server: [API /api/video_clip] Cache hit: E:\Urban\vid\test\GOPR0064\GOPR0064_clip_39_16.webm
+15:25:05 [INFO] server.map_server: [API /api/video_clip/0] start=38.93021666666667, duration=16.0
+15:25:05 [INFO] server.map_server: [API /api/video_clip] Cache hit: E:\Urban\vid\test\GOPR0064\GOPR0064_clip_39_16.webm
+15:25:05 [INFO] server.map_server: [API /api/video_clip/0] start=38.93021666666667, duration=16.0
+15:25:05 [INFO] server.map_server: [API /api/video_clip] Cache hit: E:\Urban\vid\test\GOPR0064\GOPR0064_clip_39_16.webm
+15:25:05 [INFO] server.map_server: [API /api/video_clip/0] start=38.93021666666667, duration=16.0
+15:25:05 [INFO] server.map_server: [API /api/video_clip] Cache hit: E:\Urban\vid\test\GOPR0064\GOPR0064_clip_39_16.webm
+15:40:56 [INFO] __main__: ============================================================
+15:40:56 [INFO] __main__: RoadScanner v2 запускается...
+15:40:56 [INFO] __main__: Установлены environment workarounds для предотвращения крашей
+15:40:56 [INFO] __main__: Инициализация QApplication...
+15:40:56 [INFO] __main__: Применение темы оформления...
+15:40:56 [INFO] __main__: Создание главного окна...
+15:40:57 [INFO] server.map_server: [MapServer] emit_theme_changed: light
+15:40:57 [INFO] __main__: Приложение готово к работе
+15:41:05 [INFO] ui.widgets.dashboard_page: [DashboardPage] Выбрана папка: E:\Urban\vid\test\GOPR0064
+15:41:05 [INFO] ui.widgets.dashboard_page: [DashboardPage] VideoScanWorker запущен
+15:41:05 [INFO] ui.widgets.dashboard_page: [VideoScanWorker] Начинаем сканирование папки: E:\Urban\vid\test\GOPR0064
+15:41:05 [INFO] ui.widgets.dashboard_page: [VideoScanWorker] Найдено видео файлов: 14
+15:41:05 [INFO] ui.widgets.dashboard_page: [DashboardPage] Сканирование завершено: найдено 14 видео
+15:41:11 [INFO] ui.main_window: Запуск обработки...
+15:41:11 [INFO] processing.processing_controller: [ProcessingController] Режим обработки: single_thread (Task E: всегда single_thread)
+15:41:13 [WARNING] werkzeug: Werkzeug appears to be used in a production deployment. Consider switching to a production web server instead.
+15:41:13 [INFO] processing.detector_thread: ✅ CUDA доступна: NVIDIA GeForce RTX 2080 Ti
+15:41:13 [INFO] processing.detector_thread: 📺 UI Preview: макс. 12.0 FPS (интервал 0.083s)
+15:41:13 [INFO] core.lane_detector: [LaneDetector] Инициализирован: CONF_DETECT=0.65, CONF_SEGMENT=0.65
+15:41:13 [INFO] core.detector: Detector инициализирован: CONF_SIDE=0.50, CONF_RUBE=0.70, CONF_CNN=0.60, IOU=0.10, save_error_frames=False
+15:41:14 [INFO] core.sign_handler: SignHandler инициализирован: NEARBY_SIGN_RADIUS_M=8.0m
+15:41:14 [INFO] processing.video_reader.video_debug: === VideoReader Debug Log ===
+15:41:14 [INFO] processing.video_reader.video_debug: START: INDEX_OF_VIDEO=0, INDEX_OF_FRAME=0
+15:41:14 [INFO] processing.video_reader.video_debug: Total videos: 14
+
+15:41:14 [INFO] processing.detector_thread: CNN кэш инициализирован: размер=1000
+15:41:14 [INFO] processing.detector_thread: 🔧 Режим: SINGLE THREAD — OCR выполняется синхронно (Task E)
+15:41:14 [INFO] processing.detector_thread: Прогрев EasyOCR...
+15:41:14 [INFO] processing.video_reader: [VideoReader] Видео: 1920x1080, FPS: 59.94
+15:41:14 [INFO] processing.video_reader.video_debug: [VIDEO 0] START: GOPR0064.MP4
+15:41:14 [INFO] processing.video_reader.video_debug:   total_frames=63601, starting_frame=0
+15:41:14 [INFO] processing.video_reader.video_debug:   backend=MSMF, fourcc=22.0
+15:41:14 [INFO] processing.video_reader.video_debug:   fps=59.94005994005994, use_frame_limit=True
+15:41:14 [DEBUG] processing.video_reader.video_debug:   Frame 0: grabbed=True
+15:41:14 [DEBUG] processing.video_reader.video_debug:   Frame 1: grabbed=True
+15:41:14 [DEBUG] processing.video_reader.video_debug:   Frame 2: grabbed=True
+15:41:14 [DEBUG] processing.video_reader.video_debug:   Frame 3: grabbed=True
+15:41:14 [DEBUG] processing.video_reader.video_debug:   Frame 4: grabbed=True
+15:41:14 [DEBUG] processing.video_reader.video_debug:   Frame 5: grabbed=True
+15:41:14 [DEBUG] processing.video_reader.video_debug:   Frame 6: grabbed=True
+15:41:14 [DEBUG] processing.video_reader.video_debug:   Frame 7: grabbed=True
+15:41:14 [DEBUG] processing.video_reader.video_debug:   Frame 8: grabbed=True
+15:41:14 [DEBUG] processing.video_reader.video_debug:   Frame 9: grabbed=True
+15:41:14 [DEBUG] processing.video_reader.video_debug:   Frame 10: grabbed=True
+15:41:14 [DEBUG] processing.video_reader.video_debug:   Frame 11: grabbed=True
+15:41:14 [DEBUG] processing.video_reader.video_debug:   Frame 12: grabbed=True
+15:41:14 [DEBUG] processing.video_reader.video_debug:   Frame 13: grabbed=True
+15:41:14 [DEBUG] processing.video_reader.video_debug:   Frame 14: grabbed=True
+15:41:15 [DEBUG] processing.video_reader.video_debug:   Frame 15: grabbed=True
+15:41:15 [DEBUG] processing.video_reader.video_debug:   Frame 16: grabbed=True
+15:41:15 [DEBUG] processing.video_reader.video_debug:   Frame 17: grabbed=True
+15:41:15 [DEBUG] processing.video_reader.video_debug:   Frame 18: grabbed=True
+15:41:15 [DEBUG] processing.video_reader.video_debug:   Frame 19: grabbed=True
+15:41:15 [DEBUG] processing.video_reader.video_debug:   Frame 20: grabbed=True
+15:41:15 [DEBUG] processing.video_reader.video_debug:   Frame 21: grabbed=True
+15:41:15 [DEBUG] processing.video_reader.video_debug:   Frame 22: grabbed=True
+15:41:15 [DEBUG] processing.video_reader.video_debug:   Frame 23: grabbed=True
+15:41:15 [DEBUG] processing.video_reader.video_debug:   Frame 24: grabbed=True
+15:41:15 [DEBUG] processing.video_reader.video_debug:   Frame 25: grabbed=True
+15:41:15 [DEBUG] processing.video_reader.video_debug:   Frame 26: grabbed=True
+15:41:15 [DEBUG] processing.video_reader.video_debug:   Frame 27: grabbed=True
+15:41:15 [DEBUG] processing.video_reader.video_debug:   Frame 28: grabbed=True
+15:41:15 [DEBUG] processing.video_reader.video_debug:   Frame 29: grabbed=True
+15:41:15 [DEBUG] processing.video_reader.video_debug:   Frame 30: grabbed=True
+15:41:15 [DEBUG] processing.video_reader.video_debug:   Frame 31: grabbed=True
+15:41:15 [DEBUG] processing.video_reader.video_debug:   Frame 32: grabbed=True
+15:41:15 [DEBUG] processing.video_reader.video_debug:   Frame 33: grabbed=True
+15:41:15 [DEBUG] processing.video_reader.video_debug:   Frame 34: grabbed=True
+15:41:15 [DEBUG] processing.video_reader.video_debug:   Frame 35: grabbed=True
+15:41:15 [DEBUG] processing.video_reader.video_debug:   Frame 36: grabbed=True
+15:41:15 [DEBUG] processing.video_reader.video_debug:   Frame 37: grabbed=True
+15:41:15 [DEBUG] processing.video_reader.video_debug:   Frame 38: grabbed=True
+15:41:15 [DEBUG] processing.video_reader.video_debug:   Frame 39: grabbed=True
+15:41:15 [DEBUG] processing.video_reader.video_debug:   Frame 40: grabbed=True
+15:41:15 [DEBUG] processing.video_reader.video_debug:   Frame 41: grabbed=True
+15:41:15 [DEBUG] processing.video_reader.video_debug:   Frame 42: grabbed=True
+15:41:15 [DEBUG] processing.video_reader.video_debug:   Frame 43: grabbed=True
+15:41:15 [DEBUG] processing.video_reader.video_debug:   Frame 44: grabbed=True
+15:41:15 [DEBUG] processing.video_reader.video_debug:   Frame 45: grabbed=True
+15:41:15 [DEBUG] processing.video_reader.video_debug:   Frame 46: grabbed=True
+15:41:15 [DEBUG] processing.video_reader.video_debug:   Frame 47: grabbed=True
+15:41:15 [DEBUG] processing.video_reader.video_debug:   Frame 48: grabbed=True
+15:41:15 [DEBUG] processing.video_reader.video_debug:   Frame 49: grabbed=True
+15:41:15 [INFO] server.map_server: [API /api/track] Запрос получен
+15:41:15 [INFO] server.map_server: [API /api/track] PATH_TO_GPX = E:\Urban\vid\test\07,07,20211.gpx
+15:41:15 [INFO] server.map_server: [API /api/signs] Запрос получен
+15:41:15 [INFO] server.map_server: [API /api/track] Загружаем GPX из E:\Urban\vid\test\07,07,20211.gpx
+15:41:15 [INFO] server.map_server: [API /api/signs] PATH_TO_GEOJSON = E:\Urban\vid\test\test_new_algo.geojson
+15:41:15 [INFO] server.map_server: [API /api/signs] Загружаем GeoJSON из E:\Urban\vid\test\test_new_algo.geojson
+15:41:15 [INFO] server.map_server: [API /api/signs] Найдено 1 features в GeoJSON
+15:41:15 [INFO] server.map_server: [API /api/signs] Возвращаем 1 знаков клиенту
+15:41:16 [INFO] server.map_server: [API /api/track] Найдено 13887 точек трека
+15:41:16 [DEBUG] processing.video_reader.video_debug:   Progress: 100 frames read, local=500/63601, abs=500
+15:41:16 [INFO] processing.video_reader: [VIDEO 0] Прогресс: 100 кадров, local_frame=500/63601
+15:41:19 [INFO] processing.detector_thread: ✅ EasyOCR прогрет успешно
+15:41:20 [DEBUG] processing.video_reader.video_debug:   Progress: 200 frames read, local=1000/63601, abs=1000
+15:41:20 [INFO] processing.video_reader: [VIDEO 0] Прогресс: 200 кадров, local_frame=1000/63601
+15:41:20 [INFO] configs.sign_models: [sign_models] Загружена PyTorch-модель: best.pt на device=cuda:0
+15:41:21 [INFO] processing.detector_thread: [SmartSkip] Обработано: 1, Пропущено: 0 (0.0%), Текущий интервал: 1/1, FPS: 0.1, Cache: 0.0% (0/0) size=0, OCR Cache: 0.0% (0/0) size=0
+15:41:21 [DEBUG] processing.video_reader.video_debug:   Progress: 300 frames read, local=1500/63601, abs=1500
+15:41:21 [INFO] processing.video_reader: [VIDEO 0] Прогресс: 300 кадров, local_frame=1500/63601
+15:41:22 [INFO] processing.detector_thread: [SmartSkip] Обработано: 39, Пропущено: 29 (42.6%), Текущий интервал: 1/2, FPS: 37.4, Cache: 0.0% (0/0) size=0, OCR Cache: 0.0% (0/0) size=0
+15:41:22 [DEBUG] processing.video_reader.video_debug:   Progress: 400 frames read, local=2000/63601, abs=2000
+15:41:22 [INFO] processing.video_reader: [VIDEO 0] Прогресс: 400 кадров, local_frame=2000/63601
+15:41:23 [INFO] processing.detector_thread: [SmartSkip] Обработано: 76, Пропущено: 66 (46.5%), Текущий интервал: 1/2, FPS: 37.0, Cache: 0.0% (0/0) size=0, OCR Cache: 0.0% (0/0) size=0
+15:41:24 [INFO] processing.detector_thread: [SmartSkip] Обработано: 113, Пропущено: 103 (47.7%), Текущий интервал: 1/2, FPS: 36.5, Cache: 0.0% (0/0) size=0, OCR Cache: 0.0% (0/0) size=0
+15:41:24 [DEBUG] processing.video_reader.video_debug:   Progress: 500 frames read, local=2500/63601, abs=2500
+15:41:24 [INFO] processing.video_reader: [VIDEO 0] Прогресс: 500 кадров, local_frame=2500/63601
+15:41:24 [INFO] configs.sign_models: [sign_models] Загружена PyTorch-модель: rude.pt на device=cuda:0
+15:41:24 [INFO] configs.sign_models: [sign_models] Загружена PyTorch-модель: red.pt на device=cuda:0
+15:41:25 [INFO] processing.detector_thread: [SmartSkip] Обработано: 132, Пропущено: 122 (48.0%), Текущий интервал: 1/2, FPS: 13.5, Cache: 0.0% (0/1) size=1, TrackedSkip: 0/1 (0.0%), OCR Cache: 0.0% (0/0) size=0
+15:41:26 [INFO] processing.detector_thread: [SmartSkip] Обработано: 170, Пропущено: 150 (46.9%), Текущий интервал: 1/2, FPS: 38.0, Cache: 0.0% (0/1) size=1, TrackedSkip: 0/1 (0.0%), OCR Cache: 0.0% (0/0) size=0
+15:41:26 [INFO] configs.sign_models: [sign_models] Загружена PyTorch-модель: 5.9.1-5.14.pt на device=cuda:0
+15:41:26 [DEBUG] processing.video_reader.video_debug:   Progress: 600 frames read, local=3000/63601, abs=3000
+15:41:26 [INFO] processing.video_reader: [VIDEO 0] Прогресс: 600 кадров, local_frame=3000/63601
+15:41:27 [INFO] processing.detector_thread: [SmartSkip] Обработано: 202, Пропущено: 154 (43.3%), Текущий интервал: 1/1, FPS: 31.5, Cache: 0.0% (0/4) size=4, TrackedSkip: 0/4 (0.0%), OCR Cache: 0.0% (0/0) size=0
+15:41:28 [INFO] processing.detector_thread: [SmartSkip] Обработано: 235, Пропущено: 158 (40.2%), Текущий интервал: 1/1, FPS: 33.0, Cache: 0.0% (0/9) size=9, TrackedSkip: 5/14 (35.7%), OCR Cache: 0.0% (0/0) size=0
+15:41:29 [INFO] processing.detector_thread: [SmartSkip] Обработано: 268, Пропущено: 158 (37.1%), Текущий интервал: 1/1, FPS: 33.0, Cache: 0.0% (0/17) size=17, TrackedSkip: 17/34 (50.0%), OCR Cache: 0.0% (0/0) size=0
+15:41:29 [DEBUG] processing.video_reader.video_debug:   Progress: 700 frames read, local=3500/63601, abs=3500
+15:41:29 [INFO] processing.video_reader: [VIDEO 0] Прогресс: 700 кадров, local_frame=3500/63601
+15:41:30 [INFO] processing.detector_thread: [SmartSkip] Обработано: 308, Пропущено: 191 (38.3%), Текущий интервал: 1/2, FPS: 40.0, Cache: 0.0% (0/17) size=17, TrackedSkip: 17/34 (50.0%), OCR Cache: 0.0% (0/0) size=0
+15:41:30 [INFO] processing.processing_controller: [ProcessingController] finish_and_save: сигнал остановки чтения видео
+15:41:31 [INFO] processing.detector_thread: [SmartSkip] Обработано: 354, Пропущено: 237 (40.1%), Текущий интервал: 1/2, FPS: 46.0, Cache: 0.0% (0/17) size=17, TrackedSkip: 17/34 (50.0%), OCR Cache: 0.0% (0/0) size=0
+15:41:31 [INFO] processing.detector_thread: [DetectorThread] Финализация оставшихся активных знаков...
+15:41:31 [INFO] core.sign_handler: [SignHandler] Финализировано 1 активных знаков в конце видео
+15:41:31 [INFO] processing.processing_controller: [ProcessingController] Получено 1 знаков из очереди
+15:41:31 [INFO] server.map_server: [MapServer] emit_processing_finished вызван
+15:41:31 [INFO] core.final_handler: [FinalHandler] Инициализирован: DEDUP_RADIUS_M=20.0m, DEDUP_AZIMUTH_DEG=45.0°, GRID_CELL_M=10.0m
+15:41:31 [INFO] server.map_server: [MapServer] PATH_TO_GEOJSON = E:\Urban\vid\test\test_new_algo.geojson
+15:41:31 [INFO] core.final_handler: [FinalHandler] save_result вызван:
+15:41:31 [INFO] core.final_handler:   - Знаков: 1
+15:41:31 [INFO] server.map_server: [MapServer] Файл существует: True
+15:41:31 [INFO] core.final_handler:   - Поворотов: 0
+15:41:31 [INFO] server.map_server: [MapServer] События отправлены клиентам
+15:41:31 [INFO] core.final_handler:   - Путь: E:\Urban\vid\test\test_new_algo.geojson
+15:41:31 [INFO] core.final_handler: [FinalHandler] Начинаем обработку прямолинейных знаков...
+15:41:31 [INFO] core.final_handler: [FinalHandler] _process_straight_signs: обрабатываем 1 знаков
+15:41:31 [INFO] core.final_handler: [FinalHandler] После merge дубликатов: 1 → 1 знаков
+15:41:31 [INFO] core.final_handler: [FinalHandler] Сгруппировано в 1 групп
+15:41:31 [INFO] core.final_handler: [FinalHandler] Выполняем batch OSM snap...
+15:41:31 [INFO] server.map_server: [API /api/track] Запрос получен
+15:41:31 [INFO] server.map_server: [API /api/track] PATH_TO_GPX = E:\Urban\vid\test\07,07,20211.gpx
+15:41:31 [INFO] server.map_server: [API /api/track] Загружаем GPX из E:\Urban\vid\test\07,07,20211.gpx
+15:41:31 [INFO] server.map_server: [API /api/signs] Запрос получен
+15:41:31 [INFO] server.map_server: [API /api/signs] PATH_TO_GEOJSON = E:\Urban\vid\test\test_new_algo.geojson
+15:41:31 [INFO] server.map_server: [API /api/signs] Загружаем GeoJSON из E:\Urban\vid\test\test_new_algo.geojson
+15:41:32 [INFO] server.map_server: [API /api/signs] Найдено 1 features в GeoJSON
+15:41:32 [INFO] server.map_server: [API /api/signs] Возвращаем 1 знаков клиенту
+15:41:32 [INFO] core.final_handler: [FinalHandler] Второй проход мержа дублей (post-snap)...
+15:41:32 [INFO] core.final_handler: [FinalHandler] Второй проход мержа дублей: 1 знаков
+15:41:32 [INFO] server.map_server: [API /api/signs] Запрос получен
+15:41:32 [INFO] core.final_handler: [FinalHandler] После post-snap merge: 1 → 1 знаков
+15:41:32 [INFO] server.map_server: [API /api/track] Найдено 13887 точек трека
+15:41:32 [INFO] server.map_server: [API /api/signs] PATH_TO_GEOJSON = E:\Urban\vid\test\test_new_algo.geojson
+15:41:32 [INFO] core.final_handler: [FinalHandler] Перегруппировка и сортировка по cross-track distance...
+15:41:32 [INFO] server.map_server: [API /api/signs] Загружаем GeoJSON из E:\Urban\vid\test\test_new_algo.geojson
+15:41:32 [INFO] server.map_server: [API /api/signs] Найдено 1 features в GeoJSON
+15:41:32 [INFO] server.map_server: [API /api/signs] Возвращаем 1 знаков клиенту
+15:41:32 [INFO] core.final_handler: [FinalHandler] _process_straight_signs завершён: 1 features
+15:41:32 [INFO] core.final_handler: [FinalHandler] Обработано 1 прямолинейных знаков
+15:41:32 [INFO] core.final_handler: [FinalHandler] Начинаем обработку знаков на поворотах...
+15:41:32 [INFO] core.final_handler: [FinalHandler] Обработано 0 знаков на поворотах
+15:41:32 [INFO] core.final_handler: [FinalHandler] После обработки: 1 features
+15:41:32 [INFO] core.final_handler: [FinalHandler] Начинаем дедупликацию...
+15:41:32 [INFO] core.final_handler: [FinalHandler] _deduplicate начат, features: 1
+15:41:32 [INFO] core.final_handler: [FinalHandler] _deduplicate завершён: 1 знаков (0.0s)
+15:41:32 [INFO] core.final_handler: [FinalHandler] После дедупликации: 1 features
+15:41:32 [INFO] core.final_handler: [FinalHandler] Сохраняем GeoJSON...
+15:41:32 [INFO] core.final_handler: [FinalHandler] Сохранено 1 знаков → E:\Urban\vid\test\test_new_algo.geojson
+15:41:32 [INFO] core.final_handler: [FinalHandler] ИТОГ: на входе знаков≈1, после обработки и дедупликации записано 1 features → E:\Urban\vid\test\test_new_algo.geojson
+15:41:33 [INFO] server.map_server: [API /api/track] Запрос получен
+15:41:33 [INFO] server.map_server: [API /api/signs] Запрос получен
+15:41:33 [INFO] server.map_server: [API /api/track] PATH_TO_GPX = E:\Urban\vid\test\07,07,20211.gpx
+15:41:33 [INFO] server.map_server: [API /api/signs] PATH_TO_GEOJSON = E:\Urban\vid\test\test_new_algo.geojson
+15:41:33 [INFO] server.map_server: [API /api/track] Загружаем GPX из E:\Urban\vid\test\07,07,20211.gpx
+15:41:33 [INFO] server.map_server: [API /api/signs] Загружаем GeoJSON из E:\Urban\vid\test\test_new_algo.geojson
+15:41:33 [INFO] server.map_server: [API /api/signs] Найдено 1 features в GeoJSON
+15:41:33 [INFO] server.map_server: [API /api/signs] Возвращаем 1 знаков клиенту
+15:41:33 [INFO] server.map_server: [API /api/track] Найдено 13887 точек трека
+15:41:42 [INFO] server.map_server: [API /api/track] Запрос получен
+15:41:42 [INFO] server.map_server: [API /api/signs] Запрос получен
+15:41:42 [INFO] server.map_server: [API /api/track] PATH_TO_GPX = E:\Urban\vid\test\07,07,20211.gpx
+15:41:42 [INFO] server.map_server: [API /api/signs] PATH_TO_GEOJSON = E:\Urban\vid\test\test_new_algo.geojson
+15:41:42 [INFO] server.map_server: [API /api/track] Загружаем GPX из E:\Urban\vid\test\07,07,20211.gpx
+15:41:42 [INFO] server.map_server: [API /api/signs] Загружаем GeoJSON из E:\Urban\vid\test\test_new_algo.geojson
+15:41:42 [INFO] server.map_server: [API /api/signs] Найдено 1 features в GeoJSON
+15:41:42 [INFO] server.map_server: [API /api/signs] Возвращаем 1 знаков клиенту
+15:41:42 [INFO] server.map_server: [API /api/track] Найдено 13887 точек трека
+15:41:42 [INFO] server.map_server: [API /api/signs] Запрос получен
+15:41:42 [INFO] server.map_server: [API /api/signs] PATH_TO_GEOJSON = E:\Urban\vid\test\test_new_algo.geojson
+15:41:42 [INFO] server.map_server: [API /api/signs] Загружаем GeoJSON из E:\Urban\vid\test\test_new_algo.geojson
+15:41:42 [INFO] server.map_server: [API /api/signs] Найдено 1 features в GeoJSON
+15:41:42 [INFO] server.map_server: [API /api/signs] Возвращаем 1 знаков клиенту
+15:41:44 [INFO] server.map_server: [API /api/sign/e01e3f44-251c-49c5-9dcf-31cd7b18c9b9] Запрос получен
+15:41:44 [INFO] server.map_server: [API /api/sign/e01e3f44-251c-49c5-9dcf-31cd7b18c9b9] Найдено 1 features в GeoJSON
+15:41:44 [INFO] server.map_server: [API /api/sign/e01e3f44-251c-49c5-9dcf-31cd7b18c9b9] Знак найден
+15:41:44 [INFO] server.map_server: [API /api/video_clip/0] start=38.93021666666667, duration=16.0
+15:41:44 [INFO] server.map_server: [API /api/video_clip] Cache hit: E:\Urban\vid\test\GOPR0064\GOPR0064_clip_39_16.webm
+15:41:44 [INFO] server.map_server: [API /api/video_clip/0] start=38.93021666666667, duration=16.0
+15:41:44 [INFO] server.map_server: [API /api/video_clip] Cache hit: E:\Urban\vid\test\GOPR0064\GOPR0064_clip_39_16.webm
+15:41:44 [INFO] server.map_server: [API /api/video_clip/0] start=38.93021666666667, duration=16.0
+15:41:44 [INFO] server.map_server: [API /api/video_clip] Cache hit: E:\Urban\vid\test\GOPR0064\GOPR0064_clip_39_16.webm
+15:41:44 [INFO] server.map_server: [API /api/video_clip/0] start=38.93021666666667, duration=16.0
+15:41:44 [INFO] server.map_server: [API /api/video_clip] Cache hit: E:\Urban\vid\test\GOPR0064\GOPR0064_clip_39_16.webm
+15:41:44 [INFO] server.map_server: [API /api/video_clip/0] start=38.93021666666667, duration=16.0
+15:41:44 [INFO] server.map_server: [API /api/video_clip] Cache hit: E:\Urban\vid\test\GOPR0064\GOPR0064_clip_39_16.webm
+15:42:23 [INFO] server.map_server: [API /api/track] Запрос получен
+15:42:23 [INFO] server.map_server: [API /api/track] PATH_TO_GPX = E:\Urban\vid\test\07,07,20211.gpx
+15:42:23 [INFO] server.map_server: [API /api/track] Загружаем GPX из E:\Urban\vid\test\07,07,20211.gpx
+15:42:23 [INFO] server.map_server: [API /api/signs] Запрос получен
+15:42:23 [INFO] server.map_server: [API /api/signs] PATH_TO_GEOJSON = E:\Urban\vid\test\test_new_algo.geojson
+15:42:23 [INFO] server.map_server: [API /api/signs] Загружаем GeoJSON из E:\Urban\vid\test\test_new_algo.geojson
+15:42:23 [INFO] server.map_server: [API /api/signs] Найдено 1 features в GeoJSON
+15:42:23 [INFO] server.map_server: [API /api/signs] Возвращаем 1 знаков клиенту
+15:42:24 [INFO] server.map_server: [API /api/track] Найдено 13887 точек трека
+15:42:24 [INFO] server.map_server: [API /api/signs] Запрос получен
+15:42:24 [INFO] server.map_server: [API /api/signs] PATH_TO_GEOJSON = E:\Urban\vid\test\test_new_algo.geojson
+15:42:24 [INFO] server.map_server: [API /api/signs] Загружаем GeoJSON из E:\Urban\vid\test\test_new_algo.geojson
+15:42:24 [INFO] server.map_server: [API /api/signs] Найдено 1 features в GeoJSON
+15:42:24 [INFO] server.map_server: [API /api/signs] Возвращаем 1 знаков клиенту
+15:42:24 [INFO] server.map_server: [API /api/signs] Запрос получен
+15:42:24 [INFO] server.map_server: [API /api/signs] PATH_TO_GEOJSON = E:\Urban\vid\test\test_new_algo.geojson
+15:42:24 [INFO] server.map_server: [API /api/signs] Загружаем GeoJSON из E:\Urban\vid\test\test_new_algo.geojson
+15:42:24 [INFO] server.map_server: [API /api/signs] Найдено 1 features в GeoJSON
+15:42:24 [INFO] server.map_server: [API /api/signs] Возвращаем 1 знаков клиенту
+15:42:29 [INFO] server.map_server: [API /api/sign/e01e3f44-251c-49c5-9dcf-31cd7b18c9b9] Запрос получен
+15:42:29 [INFO] server.map_server: [API /api/sign/e01e3f44-251c-49c5-9dcf-31cd7b18c9b9] Найдено 1 features в GeoJSON
+15:42:29 [INFO] server.map_server: [API /api/sign/e01e3f44-251c-49c5-9dcf-31cd7b18c9b9] Знак найден
+15:42:29 [INFO] server.map_server: [API /api/video_clip/0] start=38.93021666666667, duration=16.0
+15:42:29 [INFO] server.map_server: [API /api/video_clip] Cache hit: E:\Urban\vid\test\GOPR0064\GOPR0064_clip_39_16.webm
+15:42:29 [INFO] server.map_server: [API /api/video_clip/0] start=38.93021666666667, duration=16.0
+15:42:29 [INFO] server.map_server: [API /api/video_clip] Cache hit: E:\Urban\vid\test\GOPR0064\GOPR0064_clip_39_16.webm
+15:42:29 [INFO] server.map_server: [API /api/video_clip/0] start=38.93021666666667, duration=16.0
+15:42:29 [INFO] server.map_server: [API /api/video_clip] Cache hit: E:\Urban\vid\test\GOPR0064\GOPR0064_clip_39_16.webm
+15:42:29 [INFO] server.map_server: [API /api/video_clip/0] start=38.93021666666667, duration=16.0
+15:42:29 [INFO] server.map_server: [API /api/video_clip] Cache hit: E:\Urban\vid\test\GOPR0064\GOPR0064_clip_39_16.webm
+15:42:29 [INFO] server.map_server: [API /api/video_clip/0] start=38.93021666666667, duration=16.0
+15:42:29 [INFO] server.map_server: [API /api/video_clip] Cache hit: E:\Urban\vid\test\GOPR0064\GOPR0064_clip_39_16.webm
+15:46:54 [INFO] __main__: ============================================================
+15:46:54 [INFO] __main__: RoadScanner v2 запускается...
+15:46:54 [INFO] __main__: Установлены environment workarounds для предотвращения крашей
+15:46:54 [INFO] __main__: Инициализация QApplication...
+15:46:54 [INFO] __main__: Применение темы оформления...
+15:46:54 [INFO] __main__: Создание главного окна...
+15:46:55 [INFO] server.map_server: [MapServer] emit_theme_changed: light
+15:46:55 [INFO] __main__: Приложение готово к работе
+15:47:03 [INFO] ui.widgets.dashboard_page: [DashboardPage] Выбрана папка: E:\Urban\vid\test\GOPR0064
+15:47:03 [INFO] ui.widgets.dashboard_page: [DashboardPage] VideoScanWorker запущен
+15:47:03 [INFO] ui.widgets.dashboard_page: [VideoScanWorker] Начинаем сканирование папки: E:\Urban\vid\test\GOPR0064
+15:47:03 [INFO] ui.widgets.dashboard_page: [VideoScanWorker] Найдено видео файлов: 14
+15:47:03 [INFO] ui.widgets.dashboard_page: [DashboardPage] Сканирование завершено: найдено 14 видео
+15:47:11 [INFO] ui.main_window: Запуск обработки...
+15:47:11 [INFO] processing.processing_controller: [ProcessingController] Режим обработки: single_thread (Task E: всегда single_thread)
+15:47:13 [WARNING] werkzeug: Werkzeug appears to be used in a production deployment. Consider switching to a production web server instead.
+15:47:13 [INFO] processing.detector_thread: ✅ CUDA доступна: NVIDIA GeForce RTX 2080 Ti
+15:47:13 [INFO] processing.detector_thread: 📺 UI Preview: макс. 12.0 FPS (интервал 0.083s)
+15:47:13 [INFO] core.lane_detector: [LaneDetector] Инициализирован: CONF_DETECT=0.65, CONF_SEGMENT=0.65
+15:47:13 [INFO] core.detector: Detector инициализирован: CONF_SIDE=0.50, CONF_RUBE=0.70, CONF_CNN=0.60, IOU=0.10, save_error_frames=False
+15:47:14 [INFO] core.sign_handler: SignHandler инициализирован: NEARBY_SIGN_RADIUS_M=8.0m
+15:47:14 [INFO] processing.video_reader.video_debug: === VideoReader Debug Log ===
+15:47:14 [INFO] processing.video_reader.video_debug: START: INDEX_OF_VIDEO=0, INDEX_OF_FRAME=0
+15:47:14 [INFO] processing.video_reader.video_debug: Total videos: 14
+
+15:47:14 [INFO] processing.detector_thread: CNN кэш инициализирован: размер=1000
+15:47:14 [INFO] processing.detector_thread: 🔧 Режим: SINGLE THREAD — OCR выполняется синхронно (Task E)
+15:47:14 [INFO] processing.detector_thread: Прогрев EasyOCR...
+15:47:15 [INFO] processing.video_reader: [VideoReader] Видео: 1920x1080, FPS: 59.94
+15:47:15 [INFO] processing.video_reader.video_debug: [VIDEO 0] START: GOPR0064.MP4
+15:47:15 [INFO] processing.video_reader.video_debug:   total_frames=63601, starting_frame=0
+15:47:15 [INFO] processing.video_reader.video_debug:   backend=MSMF, fourcc=22.0
+15:47:15 [INFO] processing.video_reader.video_debug:   fps=59.94005994005994, use_frame_limit=True
+15:47:15 [DEBUG] processing.video_reader.video_debug:   Frame 0: grabbed=True
+15:47:15 [DEBUG] processing.video_reader.video_debug:   Frame 1: grabbed=True
+15:47:15 [DEBUG] processing.video_reader.video_debug:   Frame 2: grabbed=True
+15:47:15 [DEBUG] processing.video_reader.video_debug:   Frame 3: grabbed=True
+15:47:15 [DEBUG] processing.video_reader.video_debug:   Frame 4: grabbed=True
+15:47:15 [DEBUG] processing.video_reader.video_debug:   Frame 5: grabbed=True
+15:47:15 [DEBUG] processing.video_reader.video_debug:   Frame 6: grabbed=True
+15:47:15 [DEBUG] processing.video_reader.video_debug:   Frame 7: grabbed=True
+15:47:15 [DEBUG] processing.video_reader.video_debug:   Frame 8: grabbed=True
+15:47:15 [DEBUG] processing.video_reader.video_debug:   Frame 9: grabbed=True
+15:47:15 [DEBUG] processing.video_reader.video_debug:   Frame 10: grabbed=True
+15:47:15 [DEBUG] processing.video_reader.video_debug:   Frame 11: grabbed=True
+15:47:15 [DEBUG] processing.video_reader.video_debug:   Frame 12: grabbed=True
+15:47:15 [DEBUG] processing.video_reader.video_debug:   Frame 13: grabbed=True
+15:47:15 [DEBUG] processing.video_reader.video_debug:   Frame 14: grabbed=True
+15:47:15 [DEBUG] processing.video_reader.video_debug:   Frame 15: grabbed=True
+15:47:15 [DEBUG] processing.video_reader.video_debug:   Frame 16: grabbed=True
+15:47:15 [DEBUG] processing.video_reader.video_debug:   Frame 17: grabbed=True
+15:47:15 [DEBUG] processing.video_reader.video_debug:   Frame 18: grabbed=True
+15:47:15 [DEBUG] processing.video_reader.video_debug:   Frame 19: grabbed=True
+15:47:15 [INFO] server.map_server: [API /api/track] Запрос получен
+15:47:15 [INFO] server.map_server: [API /api/signs] Запрос получен
+15:47:15 [INFO] server.map_server: [API /api/track] PATH_TO_GPX = E:\Urban\vid\test\07,07,20211.gpx
+15:47:15 [INFO] server.map_server: [API /api/signs] PATH_TO_GEOJSON = E:\Urban\vid\test\test_new_algo.geojson
+15:47:15 [INFO] server.map_server: [API /api/track] Загружаем GPX из E:\Urban\vid\test\07,07,20211.gpx
+15:47:15 [DEBUG] processing.video_reader.video_debug:   Frame 20: grabbed=True
+15:47:15 [INFO] server.map_server: [API /api/signs] Загружаем GeoJSON из E:\Urban\vid\test\test_new_algo.geojson
+15:47:15 [INFO] server.map_server: [API /api/signs] Найдено 1 features в GeoJSON
+15:47:15 [DEBUG] processing.video_reader.video_debug:   Frame 21: grabbed=True
+15:47:15 [INFO] server.map_server: [API /api/signs] Возвращаем 1 знаков клиенту
+15:47:15 [DEBUG] processing.video_reader.video_debug:   Frame 22: grabbed=True
+15:47:15 [DEBUG] processing.video_reader.video_debug:   Frame 23: grabbed=True
+15:47:15 [DEBUG] processing.video_reader.video_debug:   Frame 24: grabbed=True
+15:47:15 [DEBUG] processing.video_reader.video_debug:   Frame 25: grabbed=True
+15:47:15 [DEBUG] processing.video_reader.video_debug:   Frame 26: grabbed=True
+15:47:15 [DEBUG] processing.video_reader.video_debug:   Frame 27: grabbed=True
+15:47:15 [DEBUG] processing.video_reader.video_debug:   Frame 28: grabbed=True
+15:47:15 [DEBUG] processing.video_reader.video_debug:   Frame 29: grabbed=True
+15:47:15 [DEBUG] processing.video_reader.video_debug:   Frame 30: grabbed=True
+15:47:15 [INFO] server.map_server: [API /api/track] Найдено 13887 точек трека
+15:47:15 [DEBUG] processing.video_reader.video_debug:   Frame 31: grabbed=True
+15:47:15 [DEBUG] processing.video_reader.video_debug:   Frame 32: grabbed=True
+15:47:15 [DEBUG] processing.video_reader.video_debug:   Frame 33: grabbed=True
+15:47:15 [DEBUG] processing.video_reader.video_debug:   Frame 34: grabbed=True
+15:47:15 [DEBUG] processing.video_reader.video_debug:   Frame 35: grabbed=True
+15:47:15 [DEBUG] processing.video_reader.video_debug:   Frame 36: grabbed=True
+15:47:15 [DEBUG] processing.video_reader.video_debug:   Frame 37: grabbed=True
+15:47:15 [DEBUG] processing.video_reader.video_debug:   Frame 38: grabbed=True
+15:47:15 [DEBUG] processing.video_reader.video_debug:   Frame 39: grabbed=True
+15:47:15 [DEBUG] processing.video_reader.video_debug:   Frame 40: grabbed=True
+15:47:15 [DEBUG] processing.video_reader.video_debug:   Frame 41: grabbed=True
+15:47:15 [DEBUG] processing.video_reader.video_debug:   Frame 42: grabbed=True
+15:47:15 [DEBUG] processing.video_reader.video_debug:   Frame 43: grabbed=True
+15:47:15 [DEBUG] processing.video_reader.video_debug:   Frame 44: grabbed=True
+15:47:15 [DEBUG] processing.video_reader.video_debug:   Frame 45: grabbed=True
+15:47:15 [DEBUG] processing.video_reader.video_debug:   Frame 46: grabbed=True
+15:47:15 [DEBUG] processing.video_reader.video_debug:   Frame 47: grabbed=True
+15:47:15 [DEBUG] processing.video_reader.video_debug:   Frame 48: grabbed=True
+15:47:15 [DEBUG] processing.video_reader.video_debug:   Frame 49: grabbed=True
+15:47:16 [DEBUG] processing.video_reader.video_debug:   Progress: 100 frames read, local=500/63601, abs=500
+15:47:16 [INFO] processing.video_reader: [VIDEO 0] Прогресс: 100 кадров, local_frame=500/63601
+15:47:18 [INFO] processing.detector_thread: ✅ EasyOCR прогрет успешно
+15:47:19 [DEBUG] processing.video_reader.video_debug:   Progress: 200 frames read, local=1000/63601, abs=1000
+15:47:19 [INFO] processing.video_reader: [VIDEO 0] Прогресс: 200 кадров, local_frame=1000/63601
+15:47:20 [INFO] configs.sign_models: [sign_models] Загружена PyTorch-модель: best.pt на device=cuda:0
+15:47:20 [INFO] processing.detector_thread: [SmartSkip] Обработано: 1, Пропущено: 0 (0.0%), Текущий интервал: 1/1, FPS: 0.1, Cache: 0.0% (0/0) size=0, OCR Cache: 0.0% (0/0) size=0
+15:47:21 [DEBUG] processing.video_reader.video_debug:   Progress: 300 frames read, local=1500/63601, abs=1500
+15:47:21 [INFO] processing.video_reader: [VIDEO 0] Прогресс: 300 кадров, local_frame=1500/63601
+15:47:21 [INFO] processing.detector_thread: [SmartSkip] Обработано: 41, Пропущено: 31 (43.1%), Текущий интервал: 1/2, FPS: 39.4, Cache: 0.0% (0/0) size=0, OCR Cache: 0.0% (0/0) size=0
+15:47:22 [DEBUG] processing.video_reader.video_debug:   Progress: 400 frames read, local=2000/63601, abs=2000
+15:47:22 [INFO] processing.video_reader: [VIDEO 0] Прогресс: 400 кадров, local_frame=2000/63601
+15:47:22 [INFO] processing.detector_thread: [SmartSkip] Обработано: 81, Пропущено: 71 (46.7%), Текущий интервал: 1/2, FPS: 39.4, Cache: 0.0% (0/0) size=0, OCR Cache: 0.0% (0/0) size=0
+15:47:23 [DEBUG] processing.video_reader.video_debug:   Progress: 500 frames read, local=2500/63601, abs=2500
+15:47:23 [INFO] processing.video_reader: [VIDEO 0] Прогресс: 500 кадров, local_frame=2500/63601
+15:47:24 [INFO] processing.detector_thread: [SmartSkip] Обработано: 121, Пропущено: 111 (47.8%), Текущий интервал: 1/2, FPS: 39.4, Cache: 0.0% (0/0) size=0, OCR Cache: 0.0% (0/0) size=0
+15:47:24 [INFO] configs.sign_models: [sign_models] Загружена PyTorch-модель: rude.pt на device=cuda:0
+15:47:24 [INFO] configs.sign_models: [sign_models] Загружена PyTorch-модель: red.pt на device=cuda:0
+15:47:25 [INFO] processing.detector_thread: [SmartSkip] Обработано: 132, Пропущено: 122 (48.0%), Текущий интервал: 1/2, FPS: 9.9, Cache: 0.0% (0/1) size=1, TrackedSkip: 0/1 (0.0%), OCR Cache: 0.0% (0/0) size=0
+15:47:26 [INFO] processing.detector_thread: [SmartSkip] Обработано: 173, Пропущено: 153 (46.9%), Текущий интервал: 1/2, FPS: 40.4, Cache: 0.0% (0/1) size=1, TrackedSkip: 0/1 (0.0%), OCR Cache: 0.0% (0/0) size=0
+15:47:26 [INFO] configs.sign_models: [sign_models] Загружена PyTorch-модель: 5.9.1-5.14.pt на device=cuda:0
+15:47:26 [DEBUG] processing.video_reader.video_debug:   Progress: 600 frames read, local=3000/63601, abs=3000
+15:47:26 [INFO] processing.video_reader: [VIDEO 0] Прогресс: 600 кадров, local_frame=3000/63601
+15:47:27 [INFO] processing.detector_thread: [SmartSkip] Обработано: 202, Пропущено: 154 (43.3%), Текущий интервал: 1/1, FPS: 29.0, Cache: 0.0% (0/4) size=4, TrackedSkip: 0/4 (0.0%), OCR Cache: 0.0% (0/0) size=0
+15:47:28 [INFO] processing.detector_thread: [SmartSkip] Обработано: 236, Пропущено: 158 (40.1%), Текущий интервал: 1/1, FPS: 33.5, Cache: 0.0% (0/9) size=9, TrackedSkip: 6/15 (40.0%), OCR Cache: 0.0% (0/0) size=0
+15:47:29 [INFO] processing.detector_thread: [SmartSkip] Обработано: 270, Пропущено: 158 (36.9%), Текущий интервал: 1/1, FPS: 33.5, Cache: 0.0% (0/17) size=17, TrackedSkip: 17/34 (50.0%), OCR Cache: 0.0% (0/0) size=0
+15:47:29 [DEBUG] processing.video_reader.video_debug:   Progress: 700 frames read, local=3500/63601, abs=3500
+15:47:29 [INFO] processing.video_reader: [VIDEO 0] Прогресс: 700 кадров, local_frame=3500/63601
+15:47:30 [INFO] processing.detector_thread: [SmartSkip] Обработано: 310, Пропущено: 193 (38.4%), Текущий интервал: 1/2, FPS: 39.4, Cache: 0.0% (0/17) size=17, TrackedSkip: 17/34 (50.0%), OCR Cache: 0.0% (0/0) size=0
+15:47:30 [DEBUG] processing.video_reader.video_debug:   Progress: 800 frames read, local=4000/63601, abs=4000
+15:47:30 [INFO] processing.video_reader: [VIDEO 0] Прогресс: 800 кадров, local_frame=4000/63601
+15:47:31 [INFO] processing.detector_thread: [SmartSkip] Обработано: 349, Пропущено: 232 (39.9%), Текущий интервал: 1/2, FPS: 39.0, Cache: 0.0% (0/17) size=17, TrackedSkip: 17/34 (50.0%), OCR Cache: 0.0% (0/0) size=0
+15:47:31 [DEBUG] processing.video_reader.video_debug:   Progress: 900 frames read, local=4500/63601, abs=4500
+15:47:31 [INFO] processing.video_reader: [VIDEO 0] Прогресс: 900 кадров, local_frame=4500/63601
+15:47:32 [INFO] processing.processing_controller: [ProcessingController] finish_and_save: сигнал остановки чтения видео
+15:47:32 [INFO] processing.detector_thread: [SmartSkip] Обработано: 389, Пропущено: 272 (41.1%), Текущий интервал: 1/2, FPS: 39.4, Cache: 0.0% (0/17) size=17, TrackedSkip: 17/34 (50.0%), OCR Cache: 0.0% (0/0) size=0
+15:47:33 [INFO] processing.detector_thread: [DetectorThread] Финализация оставшихся активных знаков...
+15:47:33 [INFO] core.sign_handler: [SignHandler] Финализировано 1 активных знаков в конце видео
+15:47:33 [INFO] processing.processing_controller: [ProcessingController] Получено 1 знаков из очереди
+15:47:33 [INFO] server.map_server: [MapServer] emit_processing_finished вызван
+15:47:33 [INFO] core.final_handler: [FinalHandler] Инициализирован: DEDUP_RADIUS_M=20.0m, DEDUP_AZIMUTH_DEG=45.0°, GRID_CELL_M=10.0m
+15:47:33 [INFO] server.map_server: [MapServer] PATH_TO_GEOJSON = E:\Urban\vid\test\test_new_algo.geojson
+15:47:33 [INFO] core.final_handler: [FinalHandler] save_result вызван:
+15:47:33 [INFO] core.final_handler:   - Знаков: 1
+15:47:33 [INFO] server.map_server: [MapServer] Файл существует: True
+15:47:33 [INFO] core.final_handler:   - Поворотов: 0
+15:47:33 [INFO] server.map_server: [MapServer] События отправлены клиентам
+15:47:33 [INFO] core.final_handler:   - Путь: E:\Urban\vid\test\test_new_algo.geojson
+15:47:33 [INFO] core.final_handler: [FinalHandler] Начинаем обработку прямолинейных знаков...
+15:47:33 [INFO] core.final_handler: [FinalHandler] _process_straight_signs: обрабатываем 1 знаков
+15:47:33 [INFO] core.final_handler: [FinalHandler] После merge дубликатов: 1 → 1 знаков
+15:47:33 [INFO] core.final_handler: [FinalHandler] Сгруппировано в 1 групп
+15:47:33 [INFO] core.final_handler: [FinalHandler] Выполняем batch OSM snap...
+15:47:33 [INFO] server.map_server: [API /api/track] Запрос получен
+15:47:33 [INFO] server.map_server: [API /api/track] PATH_TO_GPX = E:\Urban\vid\test\07,07,20211.gpx
+15:47:33 [INFO] server.map_server: [API /api/track] Загружаем GPX из E:\Urban\vid\test\07,07,20211.gpx
+15:47:33 [INFO] server.map_server: [API /api/signs] Запрос получен
+15:47:33 [INFO] server.map_server: [API /api/signs] PATH_TO_GEOJSON = E:\Urban\vid\test\test_new_algo.geojson
+15:47:33 [INFO] server.map_server: [API /api/signs] Загружаем GeoJSON из E:\Urban\vid\test\test_new_algo.geojson
+15:47:33 [INFO] server.map_server: [API /api/signs] Найдено 1 features в GeoJSON
+15:47:33 [INFO] core.final_handler: [FinalHandler] Второй проход мержа дублей (post-snap)...
+15:47:33 [INFO] server.map_server: [API /api/track] Найдено 13887 точек трека
+15:47:33 [INFO] server.map_server: [API /api/signs] Возвращаем 1 знаков клиенту
+15:47:33 [INFO] core.final_handler: [FinalHandler] Второй проход мержа дублей: 1 знаков
+15:47:33 [INFO] core.final_handler: [FinalHandler] После post-snap merge: 1 → 1 знаков
+15:47:33 [INFO] core.final_handler: [FinalHandler] Перегруппировка и сортировка по cross-track distance...
+15:47:33 [INFO] server.map_server: [API /api/signs] Запрос получен
+15:47:33 [INFO] server.map_server: [API /api/signs] PATH_TO_GEOJSON = E:\Urban\vid\test\test_new_algo.geojson
+15:47:33 [INFO] server.map_server: [API /api/signs] Загружаем GeoJSON из E:\Urban\vid\test\test_new_algo.geojson
+15:47:33 [INFO] server.map_server: [API /api/signs] Найдено 1 features в GeoJSON
+15:47:33 [INFO] server.map_server: [API /api/signs] Возвращаем 1 знаков клиенту
+15:47:33 [INFO] core.final_handler: [FinalHandler] _process_straight_signs завершён: 1 features
+15:47:33 [INFO] core.final_handler: [FinalHandler] Обработано 1 прямолинейных знаков
+15:47:33 [INFO] core.final_handler: [FinalHandler] Начинаем обработку знаков на поворотах...
+15:47:33 [INFO] core.final_handler: [FinalHandler] Обработано 0 знаков на поворотах
+15:47:33 [INFO] core.final_handler: [FinalHandler] После обработки: 1 features
+15:47:33 [INFO] core.final_handler: [FinalHandler] Начинаем дедупликацию...
+15:47:33 [INFO] core.final_handler: [FinalHandler] _deduplicate начат, features: 1
+15:47:33 [INFO] core.final_handler: [FinalHandler] _deduplicate завершён: 1 знаков (0.0s)
+15:47:33 [INFO] core.final_handler: [FinalHandler] После дедупликации: 1 features
+15:47:33 [INFO] core.final_handler: [FinalHandler] Сохраняем GeoJSON...
+15:47:33 [INFO] core.final_handler: [FinalHandler] Сохранено 1 знаков → E:\Urban\vid\test\test_new_algo.geojson
+15:47:33 [INFO] core.final_handler: [FinalHandler] ИТОГ: на входе знаков≈1, после обработки и дедупликации записано 1 features → E:\Urban\vid\test\test_new_algo.geojson
+15:47:34 [INFO] server.map_server: [API /api/track] Запрос получен
+15:47:34 [INFO] server.map_server: [API /api/signs] Запрос получен
+15:47:34 [INFO] server.map_server: [API /api/track] PATH_TO_GPX = E:\Urban\vid\test\07,07,20211.gpx
+15:47:34 [INFO] server.map_server: [API /api/signs] PATH_TO_GEOJSON = E:\Urban\vid\test\test_new_algo.geojson
+15:47:34 [INFO] server.map_server: [API /api/track] Загружаем GPX из E:\Urban\vid\test\07,07,20211.gpx
+15:47:34 [INFO] server.map_server: [API /api/signs] Загружаем GeoJSON из E:\Urban\vid\test\test_new_algo.geojson
+15:47:34 [INFO] server.map_server: [API /api/signs] Найдено 1 features в GeoJSON
+15:47:34 [INFO] server.map_server: [API /api/signs] Возвращаем 1 знаков клиенту
+15:47:34 [INFO] server.map_server: [API /api/track] Найдено 13887 точек трека
+15:47:48 [INFO] server.map_server: [API /api/track] Запрос получен
+15:47:48 [INFO] server.map_server: [API /api/signs] Запрос получен
+15:47:48 [INFO] server.map_server: [API /api/track] PATH_TO_GPX = E:\Urban\vid\test\07,07,20211.gpx
+15:47:48 [INFO] server.map_server: [API /api/signs] PATH_TO_GEOJSON = E:\Urban\vid\test\test_new_algo.geojson
+15:47:48 [INFO] server.map_server: [API /api/track] Загружаем GPX из E:\Urban\vid\test\07,07,20211.gpx
+15:47:48 [INFO] server.map_server: [API /api/signs] Загружаем GeoJSON из E:\Urban\vid\test\test_new_algo.geojson
+15:47:48 [INFO] server.map_server: [API /api/signs] Найдено 1 features в GeoJSON
+15:47:48 [INFO] server.map_server: [API /api/signs] Возвращаем 1 знаков клиенту
+15:47:48 [INFO] server.map_server: [API /api/track] Найдено 13887 точек трека
+15:47:48 [INFO] server.map_server: [API /api/signs] Запрос получен
+15:47:48 [INFO] server.map_server: [API /api/signs] PATH_TO_GEOJSON = E:\Urban\vid\test\test_new_algo.geojson
+15:47:48 [INFO] server.map_server: [API /api/signs] Загружаем GeoJSON из E:\Urban\vid\test\test_new_algo.geojson
+15:47:48 [INFO] server.map_server: [API /api/signs] Найдено 1 features в GeoJSON
+15:47:48 [INFO] server.map_server: [API /api/signs] Возвращаем 1 знаков клиенту
+15:47:50 [INFO] server.map_server: [API /api/sign/3c587c7e-c54a-4e0d-bb0a-0516556e3c94] Запрос получен
+15:47:50 [INFO] server.map_server: [API /api/sign/3c587c7e-c54a-4e0d-bb0a-0516556e3c94] Найдено 1 features в GeoJSON
+15:47:50 [INFO] server.map_server: [API /api/sign/3c587c7e-c54a-4e0d-bb0a-0516556e3c94] Знак найден
+15:47:50 [INFO] server.map_server: [API /api/video_clip/0] start=38.93021666666667, duration=16.0
+15:47:50 [INFO] server.map_server: [API /api/video_clip] Cache hit: E:\Urban\vid\test\GOPR0064\GOPR0064_clip_39_16.webm
+15:47:50 [INFO] server.map_server: [API /api/video_clip/0] start=38.93021666666667, duration=16.0
+15:47:50 [INFO] server.map_server: [API /api/video_clip] Cache hit: E:\Urban\vid\test\GOPR0064\GOPR0064_clip_39_16.webm
+15:47:50 [INFO] server.map_server: [API /api/video_clip/0] start=38.93021666666667, duration=16.0
+15:47:50 [INFO] server.map_server: [API /api/video_clip] Cache hit: E:\Urban\vid\test\GOPR0064\GOPR0064_clip_39_16.webm
+15:47:50 [INFO] server.map_server: [API /api/video_clip/0] start=38.93021666666667, duration=16.0
+15:47:50 [INFO] server.map_server: [API /api/video_clip] Cache hit: E:\Urban\vid\test\GOPR0064\GOPR0064_clip_39_16.webm
+15:47:50 [INFO] server.map_server: [API /api/video_clip/0] start=38.93021666666667, duration=16.0
+15:47:50 [INFO] server.map_server: [API /api/video_clip] Cache hit: E:\Urban\vid\test\GOPR0064\GOPR0064_clip_39_16.webm
+15:48:21 [INFO] server.map_server: [API /api/track] Запрос получен
+15:48:21 [INFO] server.map_server: [API /api/signs] Запрос получен
+15:48:21 [INFO] server.map_server: [API /api/track] PATH_TO_GPX = E:\Urban\vid\test\07,07,20211.gpx
+15:48:21 [INFO] server.map_server: [API /api/signs] PATH_TO_GEOJSON = E:\Urban\vid\test\test_new_algo.geojson
+15:48:21 [INFO] server.map_server: [API /api/track] Загружаем GPX из E:\Urban\vid\test\07,07,20211.gpx
+15:48:21 [INFO] server.map_server: [API /api/signs] Загружаем GeoJSON из E:\Urban\vid\test\test_new_algo.geojson
+15:48:21 [INFO] server.map_server: [API /api/signs] Найдено 1 features в GeoJSON
+15:48:21 [INFO] server.map_server: [API /api/signs] Возвращаем 1 знаков клиенту
+15:48:22 [INFO] server.map_server: [API /api/track] Найдено 13887 точек трека
+15:48:22 [INFO] server.map_server: [API /api/signs] Запрос получен
+15:48:22 [INFO] server.map_server: [API /api/signs] PATH_TO_GEOJSON = E:\Urban\vid\test\test_new_algo.geojson
+15:48:22 [INFO] server.map_server: [API /api/signs] Загружаем GeoJSON из E:\Urban\vid\test\test_new_algo.geojson
+15:48:22 [INFO] server.map_server: [API /api/signs] Найдено 1 features в GeoJSON
+15:48:22 [INFO] server.map_server: [API /api/signs] Возвращаем 1 знаков клиенту
+15:48:22 [INFO] server.map_server: [API /api/signs] Запрос получен
+15:48:22 [INFO] server.map_server: [API /api/signs] PATH_TO_GEOJSON = E:\Urban\vid\test\test_new_algo.geojson
+15:48:22 [INFO] server.map_server: [API /api/signs] Загружаем GeoJSON из E:\Urban\vid\test\test_new_algo.geojson
+15:48:22 [INFO] server.map_server: [API /api/signs] Найдено 1 features в GeoJSON
+15:48:22 [INFO] server.map_server: [API /api/signs] Возвращаем 1 знаков клиенту
+15:48:26 [INFO] server.map_server: [API /api/sign/3c587c7e-c54a-4e0d-bb0a-0516556e3c94] Запрос получен
+15:48:26 [INFO] server.map_server: [API /api/sign/3c587c7e-c54a-4e0d-bb0a-0516556e3c94] Найдено 1 features в GeoJSON
+15:48:26 [INFO] server.map_server: [API /api/sign/3c587c7e-c54a-4e0d-bb0a-0516556e3c94] Знак найден
+15:48:26 [INFO] server.map_server: [API /api/video_clip/0] start=38.93021666666667, duration=16.0
+15:48:26 [INFO] server.map_server: [API /api/video_clip] Cache hit: E:\Urban\vid\test\GOPR0064\GOPR0064_clip_39_16.webm
+15:48:26 [INFO] server.map_server: [API /api/video_clip/0] start=38.93021666666667, duration=16.0
+15:48:26 [INFO] server.map_server: [API /api/video_clip] Cache hit: E:\Urban\vid\test\GOPR0064\GOPR0064_clip_39_16.webm
+15:48:26 [INFO] server.map_server: [API /api/video_clip/0] start=38.93021666666667, duration=16.0
+15:48:26 [INFO] server.map_server: [API /api/video_clip] Cache hit: E:\Urban\vid\test\GOPR0064\GOPR0064_clip_39_16.webm
+15:48:26 [INFO] server.map_server: [API /api/video_clip/0] start=38.93021666666667, duration=16.0
+15:48:26 [INFO] server.map_server: [API /api/video_clip] Cache hit: E:\Urban\vid\test\GOPR0064\GOPR0064_clip_39_16.webm
+15:48:26 [INFO] server.map_server: [API /api/video_clip/0] start=38.93021666666667, duration=16.0
+15:48:26 [INFO] server.map_server: [API /api/video_clip] Cache hit: E:\Urban\vid\test\GOPR0064\GOPR0064_clip_39_16.webm
+15:48:28 [INFO] server.map_server: [API /api/video_clip/0] start=0.0, duration=0.0
+15:48:28 [INFO] server.map_server: [API /api/video_clip] Cache hit: E:\Urban\vid\test\GOPR0064\GOPR0064_full.webm
+15:48:28 [INFO] server.map_server: [API /api/video_clip/0] start=0.0, duration=0.0
+15:48:28 [INFO] server.map_server: [API /api/video_clip] Cache hit: E:\Urban\vid\test\GOPR0064\GOPR0064_full.webm
+15:48:28 [INFO] server.map_server: [API /api/video_clip/0] start=0.0, duration=0.0
+15:48:28 [INFO] server.map_server: [API /api/video_clip] Cache hit: E:\Urban\vid\test\GOPR0064\GOPR0064_full.webm
+15:48:28 [INFO] server.map_server: [API /api/video_clip/0] start=0.0, duration=0.0
+15:48:28 [INFO] server.map_server: [API /api/video_clip/0] start=0.0, duration=0.0
+15:48:28 [INFO] server.map_server: [API /api/video_clip] Cache hit: E:\Urban\vid\test\GOPR0064\GOPR0064_full.webm
+15:48:28 [INFO] server.map_server: [API /api/video_clip] Cache hit: E:\Urban\vid\test\GOPR0064\GOPR0064_full.webm
+15:48:46 [INFO] server.map_server: [API /api/video_clip/0] start=0.0, duration=0.0
+15:48:46 [INFO] server.map_server: [API /api/video_clip] Cache hit: E:\Urban\vid\test\GOPR0064\GOPR0064_full.webm
+15:48:46 [INFO] server.map_server: [API /api/video_clip/0] start=0.0, duration=0.0
+15:48:46 [INFO] server.map_server: [API /api/video_clip] Cache hit: E:\Urban\vid\test\GOPR0064\GOPR0064_full.webm
+15:48:47 [INFO] server.map_server: [API /api/video_clip/0] start=38.93021666666667, duration=16.0
+15:48:47 [INFO] server.map_server: [API /api/video_clip] Cache hit: E:\Urban\vid\test\GOPR0064\GOPR0064_clip_39_16.webm
+15:48:47 [INFO] server.map_server: [API /api/video_clip/0] start=38.93021666666667, duration=16.0
+15:48:47 [INFO] server.map_server: [API /api/video_clip] Cache hit: E:\Urban\vid\test\GOPR0064\GOPR0064_clip_39_16.webm
+15:48:47 [INFO] server.map_server: [API /api/video_clip/0] start=38.93021666666667, duration=16.0
+15:48:47 [INFO] server.map_server: [API /api/video_clip] Cache hit: E:\Urban\vid\test\GOPR0064\GOPR0064_clip_39_16.webm
+15:48:47 [INFO] server.map_server: [API /api/video_clip/0] start=38.93021666666667, duration=16.0
+15:48:47 [INFO] server.map_server: [API /api/video_clip] Cache hit: E:\Urban\vid\test\GOPR0064\GOPR0064_clip_39_16.webm
+15:48:47 [INFO] server.map_server: [API /api/video_clip/0] start=38.93021666666667, duration=16.0
+15:48:47 [INFO] server.map_server: [API /api/video_clip] Cache hit: E:\Urban\vid\test\GOPR0064\GOPR0064_clip_39_16.webm
+15:48:49 [INFO] server.map_server: [API /api/video_clip/0] start=38.93021666666667, duration=16.0
+15:48:50 [INFO] server.map_server: [API /api/video_clip] Cache hit: E:\Urban\vid\test\GOPR0064\GOPR0064_clip_39_16.webm
+15:48:50 [INFO] server.map_server: [API /api/video_clip/0] start=38.93021666666667, duration=16.0
+15:48:50 [INFO] server.map_server: [API /api/video_clip] Cache hit: E:\Urban\vid\test\GOPR0064\GOPR0064_clip_39_16.webm
+15:49:24 [INFO] server.map_server: [API /api/sign/3c587c7e-c54a-4e0d-bb0a-0516556e3c94] Запрос получен
+15:49:24 [INFO] server.map_server: [API /api/sign/3c587c7e-c54a-4e0d-bb0a-0516556e3c94] Найдено 1 features в GeoJSON
+15:49:24 [INFO] server.map_server: [API /api/sign/3c587c7e-c54a-4e0d-bb0a-0516556e3c94] Знак найден
+15:49:24 [INFO] server.map_server: [API /api/video_clip/0] start=38.93021666666667, duration=16.0
+15:49:24 [INFO] server.map_server: [API /api/video_clip] Cache hit: E:\Urban\vid\test\GOPR0064\GOPR0064_clip_39_16.webm
+15:49:24 [INFO] server.map_server: [API /api/video_clip/0] start=38.93021666666667, duration=16.0
+15:49:24 [INFO] server.map_server: [API /api/video_clip] Cache hit: E:\Urban\vid\test\GOPR0064\GOPR0064_clip_39_16.webm
+15:49:40 [INFO] ui.main_window: [MainWindow] Кадр загружен: видео 0, кадр 2813
+15:50:04 [INFO] server.map_server: [MapServer] emit_theme_changed: dark
+15:50:08 [INFO] server.map_server: [API /api/track] Запрос получен
+15:50:08 [INFO] server.map_server: [API /api/track] PATH_TO_GPX = E:\Urban\vid\test\07,07,20211.gpx
+15:50:08 [INFO] server.map_server: [API /api/track] Загружаем GPX из E:\Urban\vid\test\07,07,20211.gpx
+15:50:08 [INFO] server.map_server: [API /api/signs] Запрос получен
+15:50:08 [INFO] server.map_server: [API /api/signs] PATH_TO_GEOJSON = E:\Urban\vid\test\test_new_algo.geojson
+15:50:08 [INFO] server.map_server: [API /api/signs] Загружаем GeoJSON из E:\Urban\vid\test\test_new_algo.geojson
+15:50:08 [INFO] server.map_server: [API /api/signs] Найдено 1 features в GeoJSON
+15:50:08 [INFO] server.map_server: [API /api/signs] Возвращаем 1 знаков клиенту
+15:50:08 [INFO] server.map_server: [API /api/track] Найдено 13887 точек трека
+15:50:08 [INFO] server.map_server: [API /api/signs] Запрос получен
+15:50:08 [INFO] server.map_server: [API /api/signs] PATH_TO_GEOJSON = E:\Urban\vid\test\test_new_algo.geojson
+15:50:08 [INFO] server.map_server: [API /api/signs] Загружаем GeoJSON из E:\Urban\vid\test\test_new_algo.geojson
+15:50:08 [INFO] server.map_server: [API /api/signs] Найдено 1 features в GeoJSON
+15:50:08 [INFO] server.map_server: [API /api/signs] Возвращаем 1 знаков клиенту
+15:50:08 [INFO] server.map_server: [API /api/signs] Запрос получен
+15:50:08 [INFO] server.map_server: [API /api/signs] PATH_TO_GEOJSON = E:\Urban\vid\test\test_new_algo.geojson
+15:50:08 [INFO] server.map_server: [API /api/signs] Загружаем GeoJSON из E:\Urban\vid\test\test_new_algo.geojson
+15:50:08 [INFO] server.map_server: [API /api/signs] Найдено 1 features в GeoJSON
+15:50:08 [INFO] server.map_server: [API /api/signs] Возвращаем 1 знаков клиенту
+08:00:19 [INFO] __main__: ============================================================
+08:00:19 [INFO] __main__: RoadScanner v2 запускается...
+08:00:19 [INFO] __main__: Установлены environment workarounds для предотвращения крашей
+08:00:19 [INFO] __main__: Инициализация QApplication...
+08:00:19 [INFO] __main__: Применение темы оформления...
+08:00:19 [INFO] __main__: Создание главного окна...
+08:00:21 [INFO] server.map_server: [MapServer] emit_theme_changed: dark
+08:00:21 [INFO] __main__: Приложение готово к работе
+08:00:36 [INFO] ui.widgets.dashboard_page: [DashboardPage] Выбрана папка: E:\Urban\vid\test\GOPR0064
+08:00:36 [INFO] ui.widgets.dashboard_page: [DashboardPage] VideoScanWorker запущен
+08:00:36 [INFO] ui.widgets.dashboard_page: [VideoScanWorker] Начинаем сканирование папки: E:\Urban\vid\test\GOPR0064
+08:00:36 [INFO] ui.widgets.dashboard_page: [VideoScanWorker] Найдено видео файлов: 14
+08:00:36 [INFO] ui.widgets.dashboard_page: [DashboardPage] Сканирование завершено: найдено 14 видео
+08:00:44 [INFO] server.map_server: [MapServer] emit_theme_changed: light
+08:00:45 [INFO] server.map_server: [MapServer] emit_theme_changed: dark
+08:00:48 [INFO] ui.main_window: Запуск обработки...
+08:00:49 [INFO] processing.processing_controller: [ProcessingController] Режим обработки: single_thread (Task E: всегда single_thread)
+08:00:53 [WARNING] werkzeug: Werkzeug appears to be used in a production deployment. Consider switching to a production web server instead.
+08:00:53 [INFO] processing.detector_thread: ✅ CUDA доступна: NVIDIA GeForce RTX 2080 Ti
+08:00:53 [INFO] processing.detector_thread: 📺 UI Preview: макс. 12.0 FPS (интервал 0.083s)
+08:00:53 [INFO] core.lane_detector: [LaneDetector] Инициализирован: CONF_DETECT=0.65, CONF_SEGMENT=0.65
+08:00:53 [INFO] core.detector: Detector инициализирован: CONF_SIDE=0.50, CONF_RUBE=0.70, CONF_CNN=0.60, IOU=0.10, save_error_frames=False
+08:00:54 [INFO] core.sign_handler: SignHandler инициализирован: NEARBY_SIGN_RADIUS_M=8.0m
+08:00:54 [INFO] processing.detector_thread: CNN кэш инициализирован: размер=1000
+08:00:54 [INFO] processing.detector_thread: 🔧 Режим: SINGLE THREAD — OCR выполняется синхронно (Task E)
+08:00:54 [INFO] processing.detector_thread: Прогрев EasyOCR...
+08:00:55 [INFO] processing.video_reader.video_debug: === VideoReader Debug Log ===
+08:00:55 [INFO] processing.video_reader.video_debug: START: INDEX_OF_VIDEO=0, INDEX_OF_FRAME=0
+08:00:55 [INFO] processing.video_reader.video_debug: Total videos: 14
+
+08:00:55 [INFO] server.map_server: [API /api/track] Запрос получен
+08:00:55 [INFO] server.map_server: [API /api/signs] Запрос получен
+08:00:55 [INFO] server.map_server: [API /api/track] PATH_TO_GPX = E:\Urban\vid\test\07,07,20211.gpx
+08:00:55 [INFO] server.map_server: [API /api/signs] PATH_TO_GEOJSON = E:\Urban\vid\test\test_new_algo.geojson
+08:00:55 [INFO] server.map_server: [API /api/track] Загружаем GPX из E:\Urban\vid\test\07,07,20211.gpx
+08:00:55 [INFO] server.map_server: [API /api/signs] Загружаем GeoJSON из E:\Urban\vid\test\test_new_algo.geojson
+08:00:55 [INFO] processing.video_reader: [VideoReader] Видео: 1920x1080, FPS: 59.94
+08:00:56 [INFO] processing.video_reader.video_debug: [VIDEO 0] START: GOPR0064.MP4
+08:00:56 [INFO] processing.video_reader.video_debug:   total_frames=63601, starting_frame=0
+08:00:56 [INFO] server.map_server: [API /api/signs] Найдено 1 features в GeoJSON
+08:00:56 [INFO] server.map_server: [API /api/signs] Возвращаем 1 знаков клиенту
+08:00:56 [INFO] processing.video_reader.video_debug:   backend=MSMF, fourcc=22.0
+08:00:56 [INFO] processing.video_reader.video_debug:   fps=59.94005994005994, use_frame_limit=True
+08:00:56 [DEBUG] processing.video_reader.video_debug:   Frame 0: grabbed=True
+08:00:56 [INFO] server.map_server: [API /api/track] Найдено 13887 точек трека
+08:00:56 [DEBUG] processing.video_reader.video_debug:   Frame 1: grabbed=True
+08:00:56 [DEBUG] processing.video_reader.video_debug:   Frame 2: grabbed=True
+08:00:56 [DEBUG] processing.video_reader.video_debug:   Frame 3: grabbed=True
+08:00:56 [DEBUG] processing.video_reader.video_debug:   Frame 4: grabbed=True
+08:00:56 [DEBUG] processing.video_reader.video_debug:   Frame 5: grabbed=True
+08:00:56 [DEBUG] processing.video_reader.video_debug:   Frame 6: grabbed=True
+08:00:56 [DEBUG] processing.video_reader.video_debug:   Frame 7: grabbed=True
+08:00:56 [DEBUG] processing.video_reader.video_debug:   Frame 8: grabbed=True
+08:00:56 [DEBUG] processing.video_reader.video_debug:   Frame 9: grabbed=True
+08:00:56 [DEBUG] processing.video_reader.video_debug:   Frame 10: grabbed=True
+08:00:56 [DEBUG] processing.video_reader.video_debug:   Frame 11: grabbed=True
+08:00:56 [DEBUG] processing.video_reader.video_debug:   Frame 12: grabbed=True
+08:00:56 [DEBUG] processing.video_reader.video_debug:   Frame 13: grabbed=True
+08:00:56 [DEBUG] processing.video_reader.video_debug:   Frame 14: grabbed=True
+08:00:56 [DEBUG] processing.video_reader.video_debug:   Frame 15: grabbed=True
+08:00:56 [DEBUG] processing.video_reader.video_debug:   Frame 16: grabbed=True
+08:00:56 [DEBUG] processing.video_reader.video_debug:   Frame 17: grabbed=True
+08:00:56 [DEBUG] processing.video_reader.video_debug:   Frame 18: grabbed=True
+08:00:56 [DEBUG] processing.video_reader.video_debug:   Frame 19: grabbed=True
+08:00:56 [DEBUG] processing.video_reader.video_debug:   Frame 20: grabbed=True
+08:00:56 [DEBUG] processing.video_reader.video_debug:   Frame 21: grabbed=True
+08:00:56 [DEBUG] processing.video_reader.video_debug:   Frame 22: grabbed=True
+08:00:56 [DEBUG] processing.video_reader.video_debug:   Frame 23: grabbed=True
+08:00:56 [DEBUG] processing.video_reader.video_debug:   Frame 24: grabbed=True
+08:00:56 [DEBUG] processing.video_reader.video_debug:   Frame 25: grabbed=True
+08:00:56 [DEBUG] processing.video_reader.video_debug:   Frame 26: grabbed=True
+08:00:56 [DEBUG] processing.video_reader.video_debug:   Frame 27: grabbed=True
+08:00:56 [DEBUG] processing.video_reader.video_debug:   Frame 28: grabbed=True
+08:00:56 [DEBUG] processing.video_reader.video_debug:   Frame 29: grabbed=True
+08:00:56 [DEBUG] processing.video_reader.video_debug:   Frame 30: grabbed=True
+08:00:56 [DEBUG] processing.video_reader.video_debug:   Frame 31: grabbed=True
+08:00:56 [DEBUG] processing.video_reader.video_debug:   Frame 32: grabbed=True
+08:00:56 [DEBUG] processing.video_reader.video_debug:   Frame 33: grabbed=True
+08:00:56 [DEBUG] processing.video_reader.video_debug:   Frame 34: grabbed=True
+08:00:56 [DEBUG] processing.video_reader.video_debug:   Frame 35: grabbed=True
+08:00:56 [DEBUG] processing.video_reader.video_debug:   Frame 36: grabbed=True
+08:00:56 [DEBUG] processing.video_reader.video_debug:   Frame 37: grabbed=True
+08:00:56 [DEBUG] processing.video_reader.video_debug:   Frame 38: grabbed=True
+08:00:56 [DEBUG] processing.video_reader.video_debug:   Frame 39: grabbed=True
+08:00:56 [DEBUG] processing.video_reader.video_debug:   Frame 40: grabbed=True
+08:00:56 [DEBUG] processing.video_reader.video_debug:   Frame 41: grabbed=True
+08:00:56 [DEBUG] processing.video_reader.video_debug:   Frame 42: grabbed=True
+08:00:56 [DEBUG] processing.video_reader.video_debug:   Frame 43: grabbed=True
+08:00:56 [DEBUG] processing.video_reader.video_debug:   Frame 44: grabbed=True
+08:00:56 [DEBUG] processing.video_reader.video_debug:   Frame 45: grabbed=True
+08:00:56 [DEBUG] processing.video_reader.video_debug:   Frame 46: grabbed=True
+08:00:56 [DEBUG] processing.video_reader.video_debug:   Frame 47: grabbed=True
+08:00:56 [DEBUG] processing.video_reader.video_debug:   Frame 48: grabbed=True
+08:00:56 [DEBUG] processing.video_reader.video_debug:   Frame 49: grabbed=True
+08:00:57 [DEBUG] processing.video_reader.video_debug:   Progress: 100 frames read, local=500/63601, abs=500
+08:00:57 [INFO] processing.video_reader: [VIDEO 0] Прогресс: 100 кадров, local_frame=500/63601
+08:01:00 [INFO] processing.detector_thread: ✅ EasyOCR прогрет успешно
+08:01:01 [DEBUG] processing.video_reader.video_debug:   Progress: 200 frames read, local=1000/63601, abs=1000
+08:01:01 [INFO] processing.video_reader: [VIDEO 0] Прогресс: 200 кадров, local_frame=1000/63601
+08:01:02 [INFO] configs.sign_models: [sign_models] Загружена PyTorch-модель: best.pt на device=cuda:0
+08:01:03 [INFO] processing.detector_thread: [SmartSkip] Обработано: 1, Пропущено: 0 (0.0%), Текущий интервал: 1/1, FPS: 0.1, Cache: 0.0% (0/0) size=0, OCR Cache: 0.0% (0/0) size=0
+08:01:03 [DEBUG] processing.video_reader.video_debug:   Progress: 300 frames read, local=1500/63601, abs=1500
+08:01:03 [INFO] processing.video_reader: [VIDEO 0] Прогресс: 300 кадров, local_frame=1500/63601
+08:01:04 [INFO] processing.detector_thread: [SmartSkip] Обработано: 42, Пропущено: 32 (43.2%), Текущий интервал: 1/2, FPS: 40.4, Cache: 0.0% (0/0) size=0, OCR Cache: 0.0% (0/0) size=0
+08:01:05 [DEBUG] processing.video_reader.video_debug:   Progress: 400 frames read, local=2000/63601, abs=2000
+08:01:05 [INFO] processing.video_reader: [VIDEO 0] Прогресс: 400 кадров, local_frame=2000/63601
+08:01:05 [INFO] processing.detector_thread: [SmartSkip] Обработано: 82, Пропущено: 72 (46.8%), Текущий интервал: 1/2, FPS: 39.4, Cache: 0.0% (0/0) size=0, OCR Cache: 0.0% (0/0) size=0
+08:01:06 [DEBUG] processing.video_reader.video_debug:   Progress: 500 frames read, local=2500/63601, abs=2500
+08:01:06 [INFO] processing.video_reader: [VIDEO 0] Прогресс: 500 кадров, local_frame=2500/63601
+08:01:06 [INFO] processing.detector_thread: [SmartSkip] Обработано: 121, Пропущено: 111 (47.8%), Текущий интервал: 1/2, FPS: 39.0, Cache: 0.0% (0/0) size=0, OCR Cache: 0.0% (0/0) size=0
+08:01:06 [INFO] configs.sign_models: [sign_models] Загружена PyTorch-модель: rude.pt на device=cuda:0
+08:01:07 [INFO] configs.sign_models: [sign_models] Загружена PyTorch-модель: red.pt на device=cuda:0
+08:01:07 [INFO] processing.detector_thread: [SmartSkip] Обработано: 132, Пропущено: 122 (48.0%), Текущий интервал: 1/2, FPS: 8.6, Cache: 0.0% (0/1) size=1, TrackedSkip: 0/1 (0.0%), OCR Cache: 0.0% (0/0) size=0
+08:01:08 [INFO] processing.detector_thread: [SmartSkip] Обработано: 173, Пропущено: 153 (46.9%), Текущий интервал: 1/2, FPS: 40.4, Cache: 0.0% (0/1) size=1, TrackedSkip: 0/1 (0.0%), OCR Cache: 0.0% (0/0) size=0
+08:01:08 [INFO] configs.sign_models: [sign_models] Загружена PyTorch-модель: 5.9.1-5.14.pt на device=cuda:0
+08:01:09 [DEBUG] processing.video_reader.video_debug:   Progress: 600 frames read, local=3000/63601, abs=3000
+08:01:09 [INFO] processing.video_reader: [VIDEO 0] Прогресс: 600 кадров, local_frame=3000/63601
+08:01:09 [INFO] processing.detector_thread: [SmartSkip] Обработано: 204, Пропущено: 156 (43.3%), Текущий интервал: 1/2, FPS: 30.5, Cache: 0.0% (0/4) size=4, TrackedSkip: 0/4 (0.0%), OCR Cache: 0.0% (0/0) size=0
+08:01:10 [INFO] processing.detector_thread: [SmartSkip] Обработано: 238, Пропущено: 158 (39.9%), Текущий интервал: 1/1, FPS: 34.0, Cache: 0.0% (0/10) size=10, TrackedSkip: 6/16 (37.5%), OCR Cache: 0.0% (0/0) size=0
+08:01:11 [INFO] processing.detector_thread: [SmartSkip] Обработано: 271, Пропущено: 158 (36.8%), Текущий интервал: 1/1, FPS: 32.5, Cache: 0.0% (0/17) size=17, TrackedSkip: 17/34 (50.0%), OCR Cache: 0.0% (0/0) size=0
+08:01:11 [DEBUG] processing.video_reader.video_debug:   Progress: 700 frames read, local=3500/63601, abs=3500
+08:01:11 [INFO] processing.video_reader: [VIDEO 0] Прогресс: 700 кадров, local_frame=3500/63601
+08:01:12 [INFO] processing.detector_thread: [SmartSkip] Обработано: 310, Пропущено: 193 (38.4%), Текущий интервал: 1/2, FPS: 39.0, Cache: 0.0% (0/17) size=17, TrackedSkip: 17/34 (50.0%), OCR Cache: 0.0% (0/0) size=0
+08:01:13 [DEBUG] processing.video_reader.video_debug:   Progress: 800 frames read, local=4000/63601, abs=4000
+08:01:13 [INFO] processing.video_reader: [VIDEO 0] Прогресс: 800 кадров, local_frame=4000/63601
+08:01:13 [INFO] processing.detector_thread: [SmartSkip] Обработано: 348, Пропущено: 231 (39.9%), Текущий интервал: 1/2, FPS: 38.0, Cache: 0.0% (0/17) size=17, TrackedSkip: 17/34 (50.0%), OCR Cache: 0.0% (0/0) size=0
+08:01:14 [DEBUG] processing.video_reader.video_debug:   Progress: 900 frames read, local=4500/63601, abs=4500
+08:01:14 [INFO] processing.video_reader: [VIDEO 0] Прогресс: 900 кадров, local_frame=4500/63601
+08:01:14 [INFO] processing.detector_thread: [SmartSkip] Обработано: 387, Пропущено: 270 (41.1%), Текущий интервал: 1/2, FPS: 38.4, Cache: 0.0% (0/17) size=17, TrackedSkip: 17/34 (50.0%), OCR Cache: 0.0% (0/0) size=0
+08:01:15 [DEBUG] processing.video_reader.video_debug:   Progress: 1000 frames read, local=5000/63601, abs=5000
+08:01:15 [INFO] processing.video_reader: [VIDEO 0] Прогресс: 1000 кадров, local_frame=5000/63601
+08:01:15 [INFO] processing.detector_thread: [SmartSkip] Обработано: 427, Пропущено: 310 (42.1%), Текущий интервал: 1/2, FPS: 39.4, Cache: 0.0% (0/17) size=17, TrackedSkip: 17/34 (50.0%), OCR Cache: 0.0% (0/0) size=0
+08:01:16 [INFO] configs.sign_models: [sign_models] Загружена PyTorch-модель: blue.pt на device=cuda:0
+08:01:16 [INFO] processing.detector_thread: [SmartSkip] Обработано: 458, Пропущено: 319 (41.1%), Текущий интервал: 1/1, FPS: 30.5, Cache: 0.0% (0/22) size=22, TrackedSkip: 35/57 (61.4%), OCR Cache: 0.0% (0/0) size=0
+08:01:17 [INFO] processing.detector_thread: [SmartSkip] Обработано: 493, Пропущено: 319 (39.3%), Текущий интервал: 1/1, FPS: 35.0, Cache: 0.0% (0/22) size=22, TrackedSkip: 70/92 (76.1%), OCR Cache: 0.0% (0/0) size=0
+08:01:18 [DEBUG] processing.video_reader.video_debug:   Progress: 1100 frames read, local=5500/63601, abs=5500
+08:01:18 [INFO] processing.video_reader: [VIDEO 0] Прогресс: 1100 кадров, local_frame=5500/63601
+08:01:19 [DEBUG] processing.video_reader.video_debug:   Progress: 1200 frames read, local=6000/63601, abs=6000
+08:01:19 [INFO] processing.video_reader: [VIDEO 0] Прогресс: 1200 кадров, local_frame=6000/63601
+08:01:20 [DEBUG] processing.video_reader.video_debug:   Progress: 1300 frames read, local=6500/63601, abs=6500
+08:01:20 [INFO] processing.video_reader: [VIDEO 0] Прогресс: 1300 кадров, local_frame=6500/63601
+08:01:21 [DEBUG] processing.video_reader.video_debug:   Progress: 1400 frames read, local=7000/63601, abs=7000
+08:01:21 [INFO] processing.video_reader: [VIDEO 0] Прогресс: 1400 кадров, local_frame=7000/63601
+08:01:22 [DEBUG] processing.video_reader.video_debug:   Progress: 1500 frames read, local=7500/63601, abs=7500
+08:01:22 [INFO] processing.video_reader: [VIDEO 0] Прогресс: 1500 кадров, local_frame=7500/63601
+08:01:23 [DEBUG] processing.video_reader.video_debug:   Progress: 1600 frames read, local=8000/63601, abs=8000
+08:01:23 [INFO] processing.video_reader: [VIDEO 0] Прогресс: 1600 кадров, local_frame=8000/63601
+08:01:23 [INFO] processing.detector_thread: [SmartSkip] Обработано: 510, Пропущено: 319 (38.5%), Текущий интервал: 1/1, FPS: 3.1, Cache: 0.0% (0/22) size=22, TrackedSkip: 86/109 (78.9%), OCR Cache: 0.0% (0/0) size=0
+08:01:24 [DEBUG] processing.video_reader.video_debug:   Progress: 1700 frames read, local=8500/63601, abs=8500
+08:01:24 [INFO] processing.video_reader: [VIDEO 0] Прогресс: 1700 кадров, local_frame=8500/63601
+08:01:24 [INFO] processing.detector_thread: [SmartSkip] Обработано: 539, Пропущено: 320 (37.3%), Текущий интервал: 1/1, FPS: 28.1, Cache: 0.0% (0/25) size=25, TrackedSkip: 96/126 (76.2%), OCR Cache: 0.0% (0/0) size=0
+08:01:24 [INFO] processing.processing_controller: [ProcessingController] finish_and_save: сигнал остановки чтения видео
+08:01:25 [INFO] processing.detector_thread: [SmartSkip] Обработано: 572, Пропущено: 320 (35.9%), Текущий интервал: 1/1, FPS: 32.5, Cache: 0.0% (0/27) size=27, TrackedSkip: 173/205 (84.4%), OCR Cache: 0.0% (0/0) size=0
+08:01:25 [INFO] configs.sign_models: [sign_models] Загружена PyTorch-модель: tabl l.pt на device=cuda:0
+08:01:26 [INFO] processing.detector_thread: [SmartSkip] Обработано: 600, Пропущено: 320 (34.8%), Текущий интервал: 1/1, FPS: 28.0, Cache: 0.0% (0/34) size=34, TrackedSkip: 271/312 (86.9%), OCR Cache: 0.0% (0/0) size=0
+08:01:26 [INFO] configs.sign_models: [sign_models] Загружена PyTorch-модель: arrow_detect.pt на device=cuda:0
+08:01:27 [INFO] configs.sign_models: [sign_models] Загружена PyTorch-модель: arrow_segment.pt на device=cuda:0
+08:01:27 [INFO] processing.detector_thread: [SmartSkip] Обработано: 621, Пропущено: 322 (34.1%), Текущий интервал: 1/2, FPS: 13.9, Cache: 0.0% (0/41) size=41, TrackedSkip: 273/327 (83.5%), OCR Cache: 0.0% (0/0) size=0
+08:01:28 [INFO] processing.detector_thread: [DetectorThread] Финализация оставшихся активных знаков...
+08:01:28 [INFO] core.sign_handler: [SignHandler] Финализировано 1 активных знаков в конце видео
+08:01:28 [INFO] processing.processing_controller: [ProcessingController] Получено 7 знаков из очереди
+08:01:28 [INFO] server.map_server: [MapServer] emit_processing_finished вызван
+08:01:28 [INFO] core.final_handler: [FinalHandler] Инициализирован: DEDUP_RADIUS_M=20.0m, DEDUP_AZIMUTH_DEG=45.0°, GRID_CELL_M=10.0m
+08:01:28 [INFO] server.map_server: [MapServer] PATH_TO_GEOJSON = E:\Urban\vid\test\test_new_algo.geojson
+08:01:28 [INFO] core.final_handler: [FinalHandler] save_result вызван:
+08:01:28 [INFO] core.final_handler:   - Знаков: 7
+08:01:28 [INFO] server.map_server: [MapServer] Файл существует: True
+08:01:28 [INFO] core.final_handler:   - Поворотов: 0
+08:01:28 [INFO] server.map_server: [MapServer] События отправлены клиентам
+08:01:28 [INFO] core.final_handler:   - Путь: E:\Urban\vid\test\test_new_algo.geojson
+08:01:28 [INFO] core.final_handler: [FinalHandler] Начинаем обработку прямолинейных знаков...
+08:01:28 [INFO] core.final_handler: [FinalHandler] _process_straight_signs: обрабатываем 7 знаков
+08:01:28 [INFO] core.final_handler: [FinalHandler] После merge дубликатов: 7 → 7 знаков
+08:01:28 [INFO] core.final_handler: [FinalHandler] Сгруппировано в 7 групп
+08:01:28 [INFO] core.final_handler: [FinalHandler] Выполняем batch OSM snap...
+08:01:28 [INFO] server.map_server: [API /api/track] Запрос получен
+08:01:28 [INFO] server.map_server: [API /api/track] PATH_TO_GPX = E:\Urban\vid\test\07,07,20211.gpx
+08:01:28 [INFO] server.map_server: [API /api/track] Загружаем GPX из E:\Urban\vid\test\07,07,20211.gpx
+08:01:28 [INFO] server.map_server: [API /api/signs] Запрос получен
+08:01:28 [INFO] server.map_server: [API /api/signs] PATH_TO_GEOJSON = E:\Urban\vid\test\test_new_algo.geojson
+08:01:28 [INFO] server.map_server: [API /api/signs] Загружаем GeoJSON из E:\Urban\vid\test\test_new_algo.geojson
+08:01:28 [INFO] server.map_server: [API /api/signs] Найдено 1 features в GeoJSON
+08:01:28 [INFO] server.map_server: [API /api/signs] Возвращаем 1 знаков клиенту
+08:01:28 [INFO] server.map_server: [API /api/signs] Запрос получен
+08:01:28 [INFO] server.map_server: [API /api/track] Найдено 13887 точек трека
+08:01:28 [INFO] server.map_server: [API /api/signs] PATH_TO_GEOJSON = E:\Urban\vid\test\test_new_algo.geojson
+08:01:28 [INFO] server.map_server: [API /api/signs] Загружаем GeoJSON из E:\Urban\vid\test\test_new_algo.geojson
+08:01:28 [INFO] server.map_server: [API /api/signs] Найдено 1 features в GeoJSON
+08:01:28 [INFO] server.map_server: [API /api/signs] Возвращаем 1 знаков клиенту
+08:01:28 [INFO] core.final_handler: [FinalHandler] Второй проход мержа дублей (post-snap)...
+08:01:28 [INFO] core.final_handler: [FinalHandler] Второй проход мержа дублей: 7 знаков
+08:01:28 [INFO] core.final_handler: [FinalHandler] После post-snap merge: 7 → 7 знаков
+08:01:28 [INFO] core.final_handler: [FinalHandler] Перегруппировка и сортировка по cross-track distance...
+08:01:29 [INFO] core.final_handler: [FinalHandler] _process_straight_signs завершён: 6 features
+08:01:29 [INFO] core.final_handler: [FinalHandler] Обработано 6 прямолинейных знаков
+08:01:29 [INFO] core.final_handler: [FinalHandler] Начинаем обработку знаков на поворотах...
+08:01:29 [INFO] core.final_handler: [FinalHandler] Обработано 0 знаков на поворотах
+08:01:29 [INFO] core.final_handler: [FinalHandler] После обработки: 6 features
+08:01:29 [INFO] core.final_handler: [FinalHandler] Начинаем дедупликацию...
+08:01:29 [INFO] core.final_handler: [FinalHandler] _deduplicate начат, features: 6
+08:01:29 [INFO] core.final_handler: [FinalHandler] _deduplicate завершён: 5 знаков (0.0s)
+08:01:29 [INFO] core.final_handler: [FinalHandler] После дедупликации: 5 features
+08:01:29 [INFO] core.final_handler: [FinalHandler] Сохраняем GeoJSON...
+08:01:29 [INFO] core.final_handler: [FinalHandler] Сохранено 5 знаков → E:\Urban\vid\test\test_new_algo.geojson
+08:01:29 [INFO] core.final_handler: [FinalHandler] ИТОГ: на входе знаков≈7, после обработки и дедупликации записано 5 features → E:\Urban\vid\test\test_new_algo.geojson
+08:01:29 [INFO] server.map_server: [API /api/track] Запрос получен
+08:01:29 [INFO] server.map_server: [API /api/signs] Запрос получен
+08:01:29 [INFO] server.map_server: [API /api/track] PATH_TO_GPX = E:\Urban\vid\test\07,07,20211.gpx
+08:01:29 [INFO] server.map_server: [API /api/signs] PATH_TO_GEOJSON = E:\Urban\vid\test\test_new_algo.geojson
+08:01:29 [INFO] server.map_server: [API /api/track] Загружаем GPX из E:\Urban\vid\test\07,07,20211.gpx
+08:01:29 [INFO] server.map_server: [API /api/signs] Загружаем GeoJSON из E:\Urban\vid\test\test_new_algo.geojson
+08:01:29 [INFO] server.map_server: [API /api/signs] Найдено 5 features в GeoJSON
+08:01:29 [INFO] server.map_server: [API /api/signs] Возвращаем 5 знаков клиенту
+08:01:30 [INFO] server.map_server: [API /api/track] Найдено 13887 точек трека
+08:01:32 [INFO] server.map_server: [API /api/track] Запрос получен
+08:01:32 [INFO] server.map_server: [API /api/track] PATH_TO_GPX = E:\Urban\vid\test\07,07,20211.gpx
+08:01:32 [INFO] server.map_server: [API /api/signs] Запрос получен
+08:01:32 [INFO] server.map_server: [API /api/track] Загружаем GPX из E:\Urban\vid\test\07,07,20211.gpx
+08:01:32 [INFO] server.map_server: [API /api/signs] PATH_TO_GEOJSON = E:\Urban\vid\test\test_new_algo.geojson
+08:01:32 [INFO] server.map_server: [API /api/signs] Загружаем GeoJSON из E:\Urban\vid\test\test_new_algo.geojson
+08:01:32 [INFO] server.map_server: [API /api/signs] Найдено 5 features в GeoJSON
+08:01:32 [INFO] server.map_server: [API /api/signs] Возвращаем 5 знаков клиенту
+08:01:32 [INFO] server.map_server: [API /api/track] Найдено 13887 точек трека
+08:01:32 [INFO] server.map_server: [API /api/signs] Запрос получен
+08:01:32 [INFO] server.map_server: [API /api/signs] PATH_TO_GEOJSON = E:\Urban\vid\test\test_new_algo.geojson
+08:01:32 [INFO] server.map_server: [API /api/signs] Загружаем GeoJSON из E:\Urban\vid\test\test_new_algo.geojson
+08:01:32 [INFO] server.map_server: [API /api/signs] Найдено 5 features в GeoJSON
+08:01:32 [INFO] server.map_server: [API /api/signs] Возвращаем 5 знаков клиенту
+08:01:43 [INFO] server.map_server: [API /api/sign/aca66a35-6c63-4d7f-90ab-557cc992e49e] Запрос получен
+08:01:43 [INFO] server.map_server: [API /api/sign/aca66a35-6c63-4d7f-90ab-557cc992e49e] Найдено 5 features в GeoJSON
+08:01:43 [INFO] server.map_server: [API /api/sign/aca66a35-6c63-4d7f-90ab-557cc992e49e] Знак найден
+08:01:43 [INFO] server.map_server: [API /api/video_clip/0] start=71.94653333333333, duration=16.0
+08:01:43 [INFO] server.map_server: [API /api/video_clip] Cache hit: E:\Urban\vid\test\GOPR0064\GOPR0064_clip_72_16.webm
+08:01:43 [INFO] server.map_server: [API /api/video_clip/0] start=71.94653333333333, duration=16.0
+08:01:43 [INFO] server.map_server: [API /api/video_clip] Cache hit: E:\Urban\vid\test\GOPR0064\GOPR0064_clip_72_16.webm
+08:01:43 [INFO] server.map_server: [API /api/video_clip/0] start=71.94653333333333, duration=16.0
+08:01:43 [INFO] server.map_server: [API /api/video_clip] Cache hit: E:\Urban\vid\test\GOPR0064\GOPR0064_clip_72_16.webm
+08:01:43 [INFO] server.map_server: [API /api/video_clip/0] start=71.94653333333333, duration=16.0
+08:01:43 [INFO] server.map_server: [API /api/video_clip] Cache hit: E:\Urban\vid\test\GOPR0064\GOPR0064_clip_72_16.webm
+08:01:45 [INFO] server.map_server: [API /api/signs] Запрос получен
+08:01:45 [INFO] server.map_server: [API /api/signs] PATH_TO_GEOJSON = E:\Urban\vid\test\test_new_algo.geojson
+08:01:45 [INFO] server.map_server: [API /api/signs] Загружаем GeoJSON из E:\Urban\vid\test\test_new_algo.geojson
+08:01:45 [INFO] server.map_server: [API /api/signs] Найдено 5 features в GeoJSON
+08:01:45 [INFO] server.map_server: [API /api/signs] Возвращаем 5 знаков клиенту
+08:01:45 [INFO] server.map_server: [API /api/sign/aca66a35-6c63-4d7f-90ab-557cc992e49e] Запрос получен
+08:01:45 [INFO] server.map_server: [API /api/sign/aca66a35-6c63-4d7f-90ab-557cc992e49e] Найдено 5 features в GeoJSON
+08:01:45 [INFO] server.map_server: [API /api/sign/aca66a35-6c63-4d7f-90ab-557cc992e49e] Знак найден
+08:01:45 [INFO] server.map_server: [API /api/video_clip/0] start=71.94653333333333, duration=16.0
+08:01:45 [INFO] server.map_server: [API /api/video_clip] Cache hit: E:\Urban\vid\test\GOPR0064\GOPR0064_clip_72_16.webm
+08:01:46 [INFO] server.map_server: [API /api/signs] Запрос получен
+08:01:46 [INFO] server.map_server: [API /api/signs] PATH_TO_GEOJSON = E:\Urban\vid\test\test_new_algo.geojson
+08:01:46 [INFO] server.map_server: [API /api/signs] Загружаем GeoJSON из E:\Urban\vid\test\test_new_algo.geojson
+08:01:46 [INFO] server.map_server: [API /api/signs] Найдено 5 features в GeoJSON
+08:01:46 [INFO] server.map_server: [API /api/signs] Возвращаем 5 знаков клиенту
+08:01:46 [INFO] server.map_server: [API /api/sign/aca66a35-6c63-4d7f-90ab-557cc992e49e] Запрос получен
+08:01:46 [INFO] server.map_server: [API /api/sign/aca66a35-6c63-4d7f-90ab-557cc992e49e] Найдено 5 features в GeoJSON
+08:01:46 [INFO] server.map_server: [API /api/sign/aca66a35-6c63-4d7f-90ab-557cc992e49e] Знак найден
+08:01:46 [INFO] server.map_server: [API /api/video_clip/0] start=71.94653333333333, duration=16.0
+08:01:46 [INFO] server.map_server: [API /api/video_clip] Cache hit: E:\Urban\vid\test\GOPR0064\GOPR0064_clip_72_16.webm
+08:01:49 [INFO] server.map_server: [API /api/sign/4150d4f8-3039-41c3-b7b1-2f3a76b511b6] Запрос получен
+08:01:49 [INFO] server.map_server: [API /api/sign/4150d4f8-3039-41c3-b7b1-2f3a76b511b6] Найдено 5 features в GeoJSON
+08:01:49 [INFO] server.map_server: [API /api/sign/4150d4f8-3039-41c3-b7b1-2f3a76b511b6] Знак найден
+08:01:49 [INFO] server.map_server: [API /api/video_clip/0] start=130.68855, duration=16.0
+08:01:49 [INFO] server.map_server: [API /api/video_clip] Cache hit: E:\Urban\vid\test\GOPR0064\GOPR0064_clip_131_16.webm
+08:01:49 [INFO] server.map_server: [API /api/video_clip/0] start=130.68855, duration=16.0
+08:01:49 [INFO] server.map_server: [API /api/video_clip] Cache hit: E:\Urban\vid\test\GOPR0064\GOPR0064_clip_131_16.webm
+08:01:49 [INFO] server.map_server: [API /api/video_clip/0] start=130.68855, duration=16.0
+08:01:49 [INFO] server.map_server: [API /api/video_clip] Cache hit: E:\Urban\vid\test\GOPR0064\GOPR0064_clip_131_16.webm
+08:01:49 [INFO] server.map_server: [API /api/video_clip/0] start=130.68855, duration=16.0
+08:01:49 [INFO] server.map_server: [API /api/video_clip] Cache hit: E:\Urban\vid\test\GOPR0064\GOPR0064_clip_131_16.webm
+08:01:51 [INFO] server.map_server: [API /api/signs] Запрос получен
+08:01:51 [INFO] server.map_server: [API /api/signs] PATH_TO_GEOJSON = E:\Urban\vid\test\test_new_algo.geojson
+08:01:51 [INFO] server.map_server: [API /api/signs] Загружаем GeoJSON из E:\Urban\vid\test\test_new_algo.geojson
+08:01:51 [INFO] server.map_server: [API /api/signs] Найдено 5 features в GeoJSON
+08:01:51 [INFO] server.map_server: [API /api/signs] Возвращаем 5 знаков клиенту
+08:01:51 [INFO] server.map_server: [API /api/sign/4150d4f8-3039-41c3-b7b1-2f3a76b511b6] Запрос получен
+08:01:51 [INFO] server.map_server: [API /api/sign/4150d4f8-3039-41c3-b7b1-2f3a76b511b6] Найдено 5 features в GeoJSON
+08:01:51 [INFO] server.map_server: [API /api/sign/4150d4f8-3039-41c3-b7b1-2f3a76b511b6] Знак найден
+08:01:51 [INFO] server.map_server: [API /api/video_clip/0] start=130.68855, duration=16.0
+08:01:51 [INFO] server.map_server: [API /api/video_clip] Cache hit: E:\Urban\vid\test\GOPR0064\GOPR0064_clip_131_16.webm
+08:01:52 [INFO] server.map_server: [API /api/sign/1f28076e-82e5-4ef6-aff0-5c51e79efef2] Запрос получен
+08:01:52 [INFO] server.map_server: [API /api/sign/1f28076e-82e5-4ef6-aff0-5c51e79efef2] Найдено 5 features в GeoJSON
+08:01:52 [INFO] server.map_server: [API /api/sign/1f28076e-82e5-4ef6-aff0-5c51e79efef2] Знак найден
+08:01:52 [INFO] server.map_server: [API /api/video_clip/0] start=133.00753333333333, duration=16.0
+08:01:52 [INFO] server.map_server: [API /api/video_clip] Cache hit: E:\Urban\vid\test\GOPR0064\GOPR0064_clip_133_16.webm
+08:01:52 [INFO] server.map_server: [API /api/video_clip/0] start=133.00753333333333, duration=16.0
+08:01:52 [INFO] server.map_server: [API /api/video_clip] Cache hit: E:\Urban\vid\test\GOPR0064\GOPR0064_clip_133_16.webm
+08:01:52 [INFO] server.map_server: [API /api/video_clip/0] start=133.00753333333333, duration=16.0
+08:01:52 [INFO] server.map_server: [API /api/video_clip] Cache hit: E:\Urban\vid\test\GOPR0064\GOPR0064_clip_133_16.webm
+08:01:52 [INFO] server.map_server: [API /api/video_clip/0] start=133.00753333333333, duration=16.0
+08:01:52 [INFO] server.map_server: [API /api/video_clip] Cache hit: E:\Urban\vid\test\GOPR0064\GOPR0064_clip_133_16.webm
+08:01:52 [INFO] server.map_server: [API /api/video_clip/0] start=133.00753333333333, duration=16.0
+08:01:52 [INFO] server.map_server: [API /api/video_clip] Cache hit: E:\Urban\vid\test\GOPR0064\GOPR0064_clip_133_16.webm
+08:01:53 [INFO] server.map_server: [API /api/signs] Запрос получен
+08:01:53 [INFO] server.map_server: [API /api/signs] PATH_TO_GEOJSON = E:\Urban\vid\test\test_new_algo.geojson
+08:01:53 [INFO] server.map_server: [API /api/signs] Загружаем GeoJSON из E:\Urban\vid\test\test_new_algo.geojson
+08:01:53 [INFO] server.map_server: [API /api/signs] Найдено 5 features в GeoJSON
+08:01:53 [INFO] server.map_server: [API /api/signs] Возвращаем 5 знаков клиенту
+08:01:53 [INFO] server.map_server: [API /api/sign/1f28076e-82e5-4ef6-aff0-5c51e79efef2] Запрос получен
+08:01:53 [INFO] server.map_server: [API /api/sign/1f28076e-82e5-4ef6-aff0-5c51e79efef2] Найдено 5 features в GeoJSON
+08:01:53 [INFO] server.map_server: [API /api/sign/1f28076e-82e5-4ef6-aff0-5c51e79efef2] Знак найден
+08:01:53 [INFO] server.map_server: [API /api/video_clip/0] start=133.00753333333333, duration=16.0
+08:01:53 [INFO] server.map_server: [API /api/video_clip] Cache hit: E:\Urban\vid\test\GOPR0064\GOPR0064_clip_133_16.webm
+08:01:53 [INFO] server.map_server: [API /api/video_clip/0] start=133.00753333333333, duration=16.0
+08:01:53 [INFO] server.map_server: [API /api/video_clip] Cache hit: E:\Urban\vid\test\GOPR0064\GOPR0064_clip_133_16.webm
+08:01:58 [INFO] server.map_server: [API /api/signs] Запрос получен
+08:01:58 [INFO] server.map_server: [API /api/signs] PATH_TO_GEOJSON = E:\Urban\vid\test\test_new_algo.geojson
+08:01:58 [INFO] server.map_server: [API /api/signs] Загружаем GeoJSON из E:\Urban\vid\test\test_new_algo.geojson
+08:01:58 [INFO] server.map_server: [API /api/signs] Найдено 5 features в GeoJSON
+08:01:58 [INFO] server.map_server: [API /api/signs] Возвращаем 5 знаков клиенту
+08:01:58 [INFO] server.map_server: [API /api/sign/1f28076e-82e5-4ef6-aff0-5c51e79efef2] Запрос получен
+08:01:58 [INFO] server.map_server: [API /api/sign/1f28076e-82e5-4ef6-aff0-5c51e79efef2] Найдено 5 features в GeoJSON
+08:01:58 [INFO] server.map_server: [API /api/sign/1f28076e-82e5-4ef6-aff0-5c51e79efef2] Знак найден
+08:01:58 [INFO] server.map_server: [API /api/video_clip/0] start=133.00753333333333, duration=16.0
+08:01:58 [INFO] server.map_server: [API /api/video_clip] Cache hit: E:\Urban\vid\test\GOPR0064\GOPR0064_clip_133_16.webm
+08:02:01 [INFO] server.map_server: [API /api/signs] Запрос получен
+08:02:01 [INFO] server.map_server: [API /api/signs] PATH_TO_GEOJSON = E:\Urban\vid\test\test_new_algo.geojson
+08:02:01 [INFO] server.map_server: [API /api/signs] Загружаем GeoJSON из E:\Urban\vid\test\test_new_algo.geojson
+08:02:01 [INFO] server.map_server: [API /api/signs] Найдено 5 features в GeoJSON
+08:02:01 [INFO] server.map_server: [API /api/signs] Возвращаем 5 знаков клиенту
+08:02:02 [INFO] server.map_server: [API /api/signs] Запрос получен
+08:02:02 [INFO] server.map_server: [API /api/signs] PATH_TO_GEOJSON = E:\Urban\vid\test\test_new_algo.geojson
+08:02:02 [INFO] server.map_server: [API /api/signs] Загружаем GeoJSON из E:\Urban\vid\test\test_new_algo.geojson
+08:02:02 [INFO] server.map_server: [API /api/signs] Найдено 5 features в GeoJSON
+08:02:02 [INFO] server.map_server: [API /api/signs] Возвращаем 5 знаков клиенту
+08:02:02 [INFO] server.map_server: [API /api/sign/1f28076e-82e5-4ef6-aff0-5c51e79efef2] Запрос получен
+08:02:02 [INFO] server.map_server: [API /api/sign/1f28076e-82e5-4ef6-aff0-5c51e79efef2] Найдено 5 features в GeoJSON
+08:02:02 [INFO] server.map_server: [API /api/sign/1f28076e-82e5-4ef6-aff0-5c51e79efef2] Знак найден
+08:02:02 [INFO] server.map_server: [API /api/video_clip/0] start=133.00753333333333, duration=16.0
+08:02:02 [INFO] server.map_server: [API /api/video_clip] Cache hit: E:\Urban\vid\test\GOPR0064\GOPR0064_clip_133_16.webm
+08:02:06 [INFO] server.map_server: [API /api/signs] Запрос получен
+08:02:06 [INFO] server.map_server: [API /api/signs] PATH_TO_GEOJSON = E:\Urban\vid\test\test_new_algo.geojson
+08:02:06 [INFO] server.map_server: [API /api/signs] Загружаем GeoJSON из E:\Urban\vid\test\test_new_algo.geojson
+08:02:06 [INFO] server.map_server: [API /api/signs] Найдено 5 features в GeoJSON
+08:02:06 [INFO] server.map_server: [API /api/signs] Возвращаем 5 знаков клиенту
+08:03:24 [INFO] server.map_server: [API /api/sign/e22fb253-f777-41cf-94a1-d9d849f38c68] Запрос получен
+08:03:24 [INFO] server.map_server: [API /api/sign/e22fb253-f777-41cf-94a1-d9d849f38c68] Найдено 5 features в GeoJSON
+08:03:24 [INFO] server.map_server: [API /api/sign/e22fb253-f777-41cf-94a1-d9d849f38c68] Знак найден
+08:03:24 [INFO] server.map_server: [API /api/video_clip/0] start=130.5384, duration=16.0
+08:03:24 [INFO] server.map_server: [API /api/video_clip] Cache hit: E:\Urban\vid\test\GOPR0064\GOPR0064_clip_131_16.webm
+08:03:24 [INFO] server.map_server: [API /api/video_clip/0] start=130.5384, duration=16.0
+08:03:24 [INFO] server.map_server: [API /api/video_clip] Cache hit: E:\Urban\vid\test\GOPR0064\GOPR0064_clip_131_16.webm
+08:03:24 [INFO] server.map_server: [API /api/video_clip/0] start=130.5384, duration=16.0
+08:03:24 [INFO] server.map_server: [API /api/video_clip] Cache hit: E:\Urban\vid\test\GOPR0064\GOPR0064_clip_131_16.webm
+08:03:24 [INFO] server.map_server: [API /api/video_clip/0] start=130.5384, duration=16.0
+08:03:24 [INFO] server.map_server: [API /api/video_clip] Cache hit: E:\Urban\vid\test\GOPR0064\GOPR0064_clip_131_16.webm
+08:03:32 [INFO] server.map_server: [API /api/sign/1f28076e-82e5-4ef6-aff0-5c51e79efef2] Запрос получен
+08:03:32 [INFO] server.map_server: [API /api/sign/1f28076e-82e5-4ef6-aff0-5c51e79efef2] Найдено 5 features в GeoJSON
+08:03:32 [INFO] server.map_server: [API /api/sign/1f28076e-82e5-4ef6-aff0-5c51e79efef2] Знак найден
+08:03:32 [INFO] server.map_server: [API /api/video_clip/0] start=133.00753333333333, duration=16.0
+08:03:32 [INFO] server.map_server: [API /api/video_clip] Cache hit: E:\Urban\vid\test\GOPR0064\GOPR0064_clip_133_16.webm
+08:03:32 [INFO] server.map_server: [API /api/video_clip/0] start=133.00753333333333, duration=16.0
+08:03:32 [INFO] server.map_server: [API /api/video_clip] Cache hit: E:\Urban\vid\test\GOPR0064\GOPR0064_clip_133_16.webm
+08:03:32 [INFO] server.map_server: [API /api/video_clip/0] start=133.00753333333333, duration=16.0
+08:03:32 [INFO] server.map_server: [API /api/video_clip] Cache hit: E:\Urban\vid\test\GOPR0064\GOPR0064_clip_133_16.webm
+08:03:32 [INFO] server.map_server: [API /api/video_clip/0] start=133.00753333333333, duration=16.0
+08:03:32 [INFO] server.map_server: [API /api/video_clip] Cache hit: E:\Urban\vid\test\GOPR0064\GOPR0064_clip_133_16.webm
+08:03:32 [INFO] server.map_server: [API /api/video_clip/0] start=133.00753333333333, duration=16.0
+08:03:32 [INFO] server.map_server: [API /api/video_clip] Cache hit: E:\Urban\vid\test\GOPR0064\GOPR0064_clip_133_16.webm
+08:03:42 [INFO] ui.main_window: [MainWindow] Кадр загружен: видео 0, кадр 8452
+08:04:46 [INFO] server.map_server: [API /api/signs] Запрос получен
+08:04:46 [INFO] server.map_server: [API /api/signs] PATH_TO_GEOJSON = E:\Urban\vid\test\test_new_algo.geojson
+08:04:46 [INFO] server.map_server: [API /api/signs] Загружаем GeoJSON из E:\Urban\vid\test\test_new_algo.geojson
+08:04:46 [INFO] server.map_server: [API /api/signs] Найдено 5 features в GeoJSON
+08:04:46 [INFO] server.map_server: [API /api/signs] Возвращаем 5 знаков клиенту
+08:04:47 [INFO] server.map_server: [API /api/sign/1f28076e-82e5-4ef6-aff0-5c51e79efef2] Запрос получен
+08:04:47 [INFO] server.map_server: [API /api/sign/1f28076e-82e5-4ef6-aff0-5c51e79efef2] Найдено 5 features в GeoJSON
+08:04:47 [INFO] server.map_server: [API /api/sign/1f28076e-82e5-4ef6-aff0-5c51e79efef2] Знак найден
+08:04:47 [INFO] server.map_server: [API /api/video_clip/0] start=133.00753333333333, duration=16.0
+08:04:47 [INFO] server.map_server: [API /api/video_clip] Cache hit: E:\Urban\vid\test\GOPR0064\GOPR0064_clip_133_16.webm
+08:04:47 [INFO] server.map_server: [API /api/video_clip/0] start=133.00753333333333, duration=16.0
+08:04:47 [INFO] server.map_server: [API /api/video_clip] Cache hit: E:\Urban\vid\test\GOPR0064\GOPR0064_clip_133_16.webm
+08:04:47 [INFO] server.map_server: [API /api/video_clip/0] start=133.00753333333333, duration=16.0
+08:04:47 [INFO] server.map_server: [API /api/video_clip] Cache hit: E:\Urban\vid\test\GOPR0064\GOPR0064_clip_133_16.webm
+08:04:47 [INFO] server.map_server: [API /api/video_clip/0] start=133.00753333333333, duration=16.0
+08:04:47 [INFO] server.map_server: [API /api/video_clip] Cache hit: E:\Urban\vid\test\GOPR0064\GOPR0064_clip_133_16.webm
+08:04:47 [INFO] server.map_server: [API /api/video_clip/0] start=133.00753333333333, duration=16.0
+08:04:47 [INFO] server.map_server: [API /api/video_clip] Cache hit: E:\Urban\vid\test\GOPR0064\GOPR0064_clip_133_16.webm
+08:04:53 [INFO] server.map_server: [API /api/sign/19e58804-ea94-4272-bee7-4860987ac0e6] Запрос получен
+08:04:53 [INFO] server.map_server: [API /api/sign/19e58804-ea94-4272-bee7-4860987ac0e6] Найдено 5 features в GeoJSON
+08:04:53 [INFO] server.map_server: [API /api/sign/19e58804-ea94-4272-bee7-4860987ac0e6] Знак найден
+08:04:53 [INFO] server.map_server: [API /api/video_clip/0] start=38.93021666666667, duration=16.0
+08:04:53 [INFO] server.map_server: [API /api/video_clip] Cache hit: E:\Urban\vid\test\GOPR0064\GOPR0064_clip_39_16.webm
+08:04:53 [INFO] server.map_server: [API /api/video_clip/0] start=38.93021666666667, duration=16.0
+08:04:53 [INFO] server.map_server: [API /api/video_clip] Cache hit: E:\Urban\vid\test\GOPR0064\GOPR0064_clip_39_16.webm
+08:04:53 [INFO] server.map_server: [API /api/video_clip/0] start=38.93021666666667, duration=16.0
+08:04:53 [INFO] server.map_server: [API /api/video_clip] Cache hit: E:\Urban\vid\test\GOPR0064\GOPR0064_clip_39_16.webm
+08:04:53 [INFO] server.map_server: [API /api/video_clip/0] start=38.93021666666667, duration=16.0
+08:04:53 [INFO] server.map_server: [API /api/video_clip] Cache hit: E:\Urban\vid\test\GOPR0064\GOPR0064_clip_39_16.webm
+08:04:53 [INFO] server.map_server: [API /api/video_clip/0] start=38.93021666666667, duration=16.0
+08:04:53 [INFO] server.map_server: [API /api/video_clip] Cache hit: E:\Urban\vid\test\GOPR0064\GOPR0064_clip_39_16.webm
+08:04:57 [INFO] server.map_server: [API /api/signs] Запрос получен
+08:04:57 [INFO] server.map_server: [API /api/signs] PATH_TO_GEOJSON = E:\Urban\vid\test\test_new_algo.geojson
+08:04:57 [INFO] server.map_server: [API /api/signs] Загружаем GeoJSON из E:\Urban\vid\test\test_new_algo.geojson
+08:04:57 [INFO] server.map_server: [API /api/signs] Найдено 5 features в GeoJSON
+08:04:57 [INFO] server.map_server: [API /api/signs] Возвращаем 5 знаков клиенту
+08:04:57 [INFO] server.map_server: [API /api/sign/19e58804-ea94-4272-bee7-4860987ac0e6] Запрос получен
+08:04:57 [INFO] server.map_server: [API /api/sign/19e58804-ea94-4272-bee7-4860987ac0e6] Найдено 5 features в GeoJSON
+08:04:57 [INFO] server.map_server: [API /api/sign/19e58804-ea94-4272-bee7-4860987ac0e6] Знак найден
+08:04:57 [INFO] server.map_server: [API /api/video_clip/0] start=38.93021666666667, duration=16.0
+08:04:57 [INFO] server.map_server: [API /api/video_clip] Cache hit: E:\Urban\vid\test\GOPR0064\GOPR0064_clip_39_16.webm
+08:05:03 [INFO] server.map_server: [API /api/sign/1f28076e-82e5-4ef6-aff0-5c51e79efef2] Запрос получен
+08:05:03 [INFO] server.map_server: [API /api/sign/1f28076e-82e5-4ef6-aff0-5c51e79efef2] Найдено 4 features в GeoJSON
+08:05:03 [INFO] server.map_server: [API /api/sign/1f28076e-82e5-4ef6-aff0-5c51e79efef2] Знак найден
+08:05:03 [INFO] server.map_server: [API /api/video_clip/0] start=133.00753333333333, duration=16.0
+08:05:03 [INFO] server.map_server: [API /api/video_clip] Cache hit: E:\Urban\vid\test\GOPR0064\GOPR0064_clip_133_16.webm
+08:05:03 [INFO] server.map_server: [API /api/video_clip/0] start=133.00753333333333, duration=16.0
+08:05:03 [INFO] server.map_server: [API /api/video_clip] Cache hit: E:\Urban\vid\test\GOPR0064\GOPR0064_clip_133_16.webm
+08:05:05 [INFO] server.map_server: [API /api/sign/1f28076e-82e5-4ef6-aff0-5c51e79efef2] Запрос получен
+08:05:05 [INFO] server.map_server: [API /api/sign/1f28076e-82e5-4ef6-aff0-5c51e79efef2] Найдено 4 features в GeoJSON
+08:05:05 [INFO] server.map_server: [API /api/sign/1f28076e-82e5-4ef6-aff0-5c51e79efef2] Знак найден
+08:05:05 [INFO] server.map_server: [API /api/video_clip/0] start=133.00753333333333, duration=16.0
+08:05:05 [INFO] server.map_server: [API /api/video_clip] Cache hit: E:\Urban\vid\test\GOPR0064\GOPR0064_clip_133_16.webm
+08:05:07 [INFO] server.map_server: [API /api/video_clip/0] start=0.0, duration=0.0
+08:05:07 [INFO] server.map_server: [API /api/video_clip] Cache hit: E:\Urban\vid\test\GOPR0064\GOPR0064_full.webm
+08:05:07 [INFO] server.map_server: [API /api/video_clip/0] start=0.0, duration=0.0
+08:05:07 [INFO] server.map_server: [API /api/video_clip] Cache hit: E:\Urban\vid\test\GOPR0064\GOPR0064_full.webm
+08:05:07 [INFO] server.map_server: [API /api/video_clip/0] start=0.0, duration=0.0
+08:05:07 [INFO] server.map_server: [API /api/video_clip] Cache hit: E:\Urban\vid\test\GOPR0064\GOPR0064_full.webm
+08:05:27 [INFO] server.map_server: [MapServer] emit_theme_changed: light
+08:06:32 [INFO] server.map_server: [API /api/signs] Запрос получен
+08:06:32 [INFO] server.map_server: [API /api/signs] PATH_TO_GEOJSON = E:\Urban\vid\test\test_new_algo.geojson
+08:06:32 [INFO] server.map_server: [API /api/signs] Загружаем GeoJSON из E:\Urban\vid\test\test_new_algo.geojson
+08:06:32 [INFO] server.map_server: [API /api/signs] Найдено 4 features в GeoJSON
+08:06:32 [INFO] server.map_server: [API /api/signs] Возвращаем 4 знаков клиенту
+08:06:32 [INFO] server.map_server: [API /api/sign/1f28076e-82e5-4ef6-aff0-5c51e79efef2] Запрос получен
+08:06:32 [INFO] server.map_server: [API /api/sign/1f28076e-82e5-4ef6-aff0-5c51e79efef2] Найдено 4 features в GeoJSON
+08:06:32 [INFO] server.map_server: [API /api/sign/1f28076e-82e5-4ef6-aff0-5c51e79efef2] Знак найден
+08:06:32 [INFO] server.map_server: [API /api/video_clip/0] start=133.00753333333333, duration=16.0
+08:06:32 [INFO] server.map_server: [API /api/video_clip] Cache hit: E:\Urban\vid\test\GOPR0064\GOPR0064_clip_133_16.webm
+08:06:32 [INFO] server.map_server: [API /api/video_clip/0] start=133.00753333333333, duration=16.0
+08:06:32 [INFO] server.map_server: [API /api/video_clip] Cache hit: E:\Urban\vid\test\GOPR0064\GOPR0064_clip_133_16.webm
+08:06:32 [INFO] server.map_server: [API /api/video_clip/0] start=133.00753333333333, duration=16.0
+08:06:32 [INFO] server.map_server: [API /api/video_clip] Cache hit: E:\Urban\vid\test\GOPR0064\GOPR0064_clip_133_16.webm
+08:06:32 [INFO] server.map_server: [API /api/video_clip/0] start=133.00753333333333, duration=16.0
+08:06:32 [INFO] server.map_server: [API /api/video_clip] Cache hit: E:\Urban\vid\test\GOPR0064\GOPR0064_clip_133_16.webm
+08:06:32 [INFO] server.map_server: [API /api/video_clip/0] start=133.00753333333333, duration=16.0
+08:06:32 [INFO] server.map_server: [API /api/video_clip] Cache hit: E:\Urban\vid\test\GOPR0064\GOPR0064_clip_133_16.webm
+08:06:33 [INFO] server.map_server: [API /api/signs] Запрос получен
+08:06:33 [INFO] server.map_server: [API /api/signs] PATH_TO_GEOJSON = E:\Urban\vid\test\test_new_algo.geojson
+08:06:33 [INFO] server.map_server: [API /api/signs] Загружаем GeoJSON из E:\Urban\vid\test\test_new_algo.geojson
+08:06:33 [INFO] server.map_server: [API /api/signs] Найдено 4 features в GeoJSON
+08:06:33 [INFO] server.map_server: [API /api/signs] Возвращаем 4 знаков клиенту
+08:06:33 [INFO] server.map_server: [API /api/sign/1f28076e-82e5-4ef6-aff0-5c51e79efef2] Запрос получен
+08:06:33 [INFO] server.map_server: [API /api/sign/1f28076e-82e5-4ef6-aff0-5c51e79efef2] Найдено 4 features в GeoJSON
+08:06:33 [INFO] server.map_server: [API /api/sign/1f28076e-82e5-4ef6-aff0-5c51e79efef2] Знак найден
+08:06:33 [INFO] server.map_server: [API /api/video_clip/0] start=133.00753333333333, duration=16.0
+08:06:33 [INFO] server.map_server: [API /api/video_clip] Cache hit: E:\Urban\vid\test\GOPR0064\GOPR0064_clip_133_16.webm
+08:06:33 [INFO] server.map_server: [API /api/signs] Запрос получен
+08:06:33 [INFO] server.map_server: [API /api/signs] PATH_TO_GEOJSON = E:\Urban\vid\test\test_new_algo.geojson
+08:06:33 [INFO] server.map_server: [API /api/signs] Загружаем GeoJSON из E:\Urban\vid\test\test_new_algo.geojson
+08:06:33 [INFO] server.map_server: [API /api/signs] Найдено 4 features в GeoJSON
+08:06:33 [INFO] server.map_server: [API /api/signs] Возвращаем 4 знаков клиенту
+08:06:34 [INFO] server.map_server: [API /api/signs] Запрос получен
+08:06:34 [INFO] server.map_server: [API /api/signs] PATH_TO_GEOJSON = E:\Urban\vid\test\test_new_algo.geojson
+08:06:34 [INFO] server.map_server: [API /api/signs] Загружаем GeoJSON из E:\Urban\vid\test\test_new_algo.geojson
+08:06:34 [INFO] server.map_server: [API /api/signs] Найдено 4 features в GeoJSON
+08:06:34 [INFO] server.map_server: [API /api/signs] Возвращаем 4 знаков клиенту
+08:06:35 [INFO] server.map_server: [API /api/signs] Запрос получен
+08:06:35 [INFO] server.map_server: [API /api/signs] PATH_TO_GEOJSON = E:\Urban\vid\test\test_new_algo.geojson
+08:06:35 [INFO] server.map_server: [API /api/signs] Загружаем GeoJSON из E:\Urban\vid\test\test_new_algo.geojson
+08:06:35 [INFO] server.map_server: [API /api/signs] Найдено 4 features в GeoJSON
+08:06:35 [INFO] server.map_server: [API /api/signs] Возвращаем 4 знаков клиенту
+08:06:37 [INFO] server.map_server: [API /api/signs] Запрос получен
+08:06:37 [INFO] server.map_server: [API /api/signs] PATH_TO_GEOJSON = E:\Urban\vid\test\test_new_algo.geojson
+08:06:37 [INFO] server.map_server: [API /api/signs] Загружаем GeoJSON из E:\Urban\vid\test\test_new_algo.geojson
+08:06:37 [INFO] server.map_server: [API /api/signs] Найдено 4 features в GeoJSON
+08:06:37 [INFO] server.map_server: [API /api/signs] Возвращаем 4 знаков клиенту
+08:06:37 [INFO] server.map_server: [API /api/sign/1f28076e-82e5-4ef6-aff0-5c51e79efef2] Запрос получен
+08:06:37 [INFO] server.map_server: [API /api/sign/1f28076e-82e5-4ef6-aff0-5c51e79efef2] Найдено 4 features в GeoJSON
+08:06:37 [INFO] server.map_server: [API /api/sign/1f28076e-82e5-4ef6-aff0-5c51e79efef2] Знак найден
+08:06:37 [INFO] server.map_server: [API /api/video_clip/0] start=133.00753333333333, duration=16.0
+08:06:37 [INFO] server.map_server: [API /api/video_clip] Cache hit: E:\Urban\vid\test\GOPR0064\GOPR0064_clip_133_16.webm
+08:06:38 [INFO] server.map_server: [API /api/signs] Запрос получен
+08:06:38 [INFO] server.map_server: [API /api/signs] PATH_TO_GEOJSON = E:\Urban\vid\test\test_new_algo.geojson
+08:06:38 [INFO] server.map_server: [API /api/signs] Загружаем GeoJSON из E:\Urban\vid\test\test_new_algo.geojson
+08:06:38 [INFO] server.map_server: [API /api/signs] Найдено 4 features в GeoJSON
+08:06:38 [INFO] server.map_server: [API /api/signs] Возвращаем 4 знаков клиенту
+08:06:40 [INFO] server.map_server: [API /api/signs] Запрос получен
+08:06:40 [INFO] server.map_server: [API /api/signs] PATH_TO_GEOJSON = E:\Urban\vid\test\test_new_algo.geojson
+08:06:40 [INFO] server.map_server: [API /api/signs] Загружаем GeoJSON из E:\Urban\vid\test\test_new_algo.geojson
+08:06:40 [INFO] server.map_server: [API /api/signs] Найдено 4 features в GeoJSON
+08:06:40 [INFO] server.map_server: [API /api/signs] Возвращаем 4 знаков клиенту

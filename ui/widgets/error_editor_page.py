@@ -261,11 +261,13 @@ class SignListModel(QAbstractListModel):
         super().__init__(parent)
         self._records: list[SignRecord] = []
 
-    def load(self, records: list[SignRecord]) -> None:
+    def load(self, records: list[SignRecord], ascending: bool = True) -> None:
         self.beginResetModel()
-        # Сортировка: сначала наименее уверенные (по общей уверенности)
-        self._records = sorted(records, key=lambda r: r.total_confidence)
-        print(f"[SignListModel] Загружено {len(self._records)} записей")
+        # ЗАДАЧА 3 (P2): Сортировка с учётом направления
+        self._records = sorted(
+            records, key=lambda r: r.total_confidence, reverse=not ascending
+        )
+        print(f"[SignListModel] Загружено {len(self._records)} записей (ascending={ascending})")
         if self._records:
             print(f"[SignListModel] Диапазон уверенности: {self._records[0].total_confidence:.3f} - {self._records[-1].total_confidence:.3f}")
             print(f"[SignListModel] Первые 3 знака:")
@@ -410,6 +412,7 @@ class SignItemDelegate(QStyledItemDelegate):
 
 class ErrorEditorPage(QWidget):
     jump_to_frame = pyqtSignal(int, int)  # video_idx, frame_in_video
+    show_on_map = pyqtSignal(str)  # ЗАДАЧА 4 (P2): sign_id
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -419,6 +422,7 @@ class ErrorEditorPage(QWidget):
         self._current_row: int = -1
         self._current_rec: Optional[SignRecord] = None
         self._cap: Optional[cv2.VideoCapture] = None
+        self._sort_ascending: bool = True  # ЗАДАЧА 3 (P2): Состояние направления сортировки
 
         root = QVBoxLayout(self)
         root.setContentsMargins(0, 0, 0, 0)
@@ -608,6 +612,17 @@ class ErrorEditorPage(QWidget):
         
         fb_lay.addWidget(self._filter_combo)
 
+        # ЗАДАЧА 3 (P2): Кнопка переключения направления сортировки
+        self._sort_dir_btn = QPushButton("↑ По возрастанию")
+        self._sort_dir_btn.setObjectName("BtnSecondary")
+        self._sort_dir_btn.setCheckable(True)
+        self._sort_dir_btn.setChecked(False)  # False = по возрастанию (дефолт)
+        self._sort_dir_btn.setFixedHeight(28)
+        self._sort_dir_btn.setMinimumWidth(140)
+        self._sort_dir_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        self._sort_dir_btn.clicked.connect(self._on_sort_direction_toggled)
+        fb_lay.addWidget(self._sort_dir_btn)
+
         lay.addWidget(filter_bar)
 
         # Список
@@ -774,8 +789,12 @@ class ErrorEditorPage(QWidget):
         edit_col.addStretch()
 
         # Кнопки действий
-        actions = QHBoxLayout()
+        actions = QVBoxLayout()  # ЗАДАЧА 4 (P2): Меняем на вертикальный layout для двух рядов
         actions.setSpacing(8)
+
+        # Ряд 1: основные действия
+        row1 = QHBoxLayout()
+        row1.setSpacing(8)
 
         self._btn_jump_frame = QPushButton("⏩  К кадру")
         self._btn_apply      = QPushButton("✓  Применить")
@@ -797,9 +816,24 @@ class ErrorEditorPage(QWidget):
         self._btn_apply.clicked.connect(self._on_apply)
         self._btn_delete.clicked.connect(self._on_delete)
 
-        actions.addWidget(self._btn_jump_frame)
-        actions.addWidget(self._btn_apply)
-        actions.addWidget(self._btn_delete)
+        row1.addWidget(self._btn_jump_frame)
+        row1.addWidget(self._btn_apply)
+        row1.addWidget(self._btn_delete)
+        
+        actions.addLayout(row1)
+        
+        # ЗАДАЧА 4 (P2): Ряд 2: "Показать на карте"
+        self._btn_show_on_map = QPushButton("🗺  Показать на карте")
+        self._btn_show_on_map.setObjectName("BtnSecondary")
+        self._btn_show_on_map.setMinimumHeight(36)
+        self._btn_show_on_map.setSizePolicy(
+            QSizePolicy.Policy.MinimumExpanding, QSizePolicy.Policy.Fixed
+        )
+        self._btn_show_on_map.setCursor(Qt.CursorShape.PointingHandCursor)
+        self._btn_show_on_map.setEnabled(False)
+        self._btn_show_on_map.clicked.connect(self._on_show_on_map)
+        actions.addWidget(self._btn_show_on_map)
+        
         edit_col.addLayout(actions)
 
         bottom_lay.addLayout(edit_col, stretch=2)
@@ -853,7 +887,8 @@ class ErrorEditorPage(QWidget):
             
             print(f"[ErrorEditor] Создано {len(records)} SignRecord объектов")
 
-            self._model.load(records)
+            # ЗАДАЧА 3 (P2): Передаём ascending при первичной загрузке
+            self._model.load(records, ascending=self._sort_ascending)
             self._populate_type_combo("")
             self._update_counters()
             self._btn_save.setEnabled(True)
@@ -966,7 +1001,8 @@ class ErrorEditorPage(QWidget):
         self._text_input.setText(rec.new_text)
 
         # Кнопки
-        for btn in (self._btn_apply, self._btn_delete, self._btn_jump_frame):
+        # ЗАДАЧА 4 (P2): Добавляем _btn_show_on_map в список включаемых кнопок
+        for btn in (self._btn_apply, self._btn_delete, self._btn_jump_frame, self._btn_show_on_map):
             btn.setEnabled(not rec.deleted)
 
     def _load_frame(self, rec: SignRecord) -> None:
@@ -1064,7 +1100,19 @@ class ErrorEditorPage(QWidget):
             f"{config.VIDEOS[video_idx]}  ·  кадр {frame_num}"
         )
 
-    # ── Фильтрация ────────────────────────────────────────────────
+    # ── Фильтрация и сортировка ───────────────────────────────────
+
+    def _on_sort_direction_toggled(self) -> None:
+        """ЗАДАЧА 3 (P2): Обработчик переключения направления сортировки."""
+        self._sort_ascending = not self._sort_dir_btn.isChecked()
+        self._sort_dir_btn.setText("↑ По возрастанию" if self._sort_ascending else "↓ По убыванию")
+        self._resort_model()
+
+    def _resort_model(self) -> None:
+        """ЗАДАЧА 3 (P2): Пересортировывает текущие записи без перезагрузки из файла."""
+        records = self._model.all_records()
+        self._model.load(records, ascending=self._sort_ascending)
+        self._apply_filter()  # переприменяем текущий текст/чипы фильтра после пересортировки
 
     def _apply_filter(self) -> None:
         text        = self._search.text().lower()
@@ -1191,6 +1239,12 @@ class ErrorEditorPage(QWidget):
         info = self._current_rec.abs_frame_for_video()
         if info:
             self.jump_to_frame.emit(info[0], info[1])
+    
+    def _on_show_on_map(self) -> None:
+        """ЗАДАЧА 4 (P2): Переключает на вкладку "Карта" и показывает выбранный знак."""
+        if not self._current_rec:
+            return
+        self.show_on_map.emit(self._current_rec.id)
 
     # ── Счётчики ─────────────────────────────────────────────────
 
