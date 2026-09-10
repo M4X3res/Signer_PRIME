@@ -19,6 +19,8 @@ SolidCompression=yes
 SetupIconFile=assets\ico.ico
 ArchitecturesAllowed=x64compatible
 ArchitecturesInstallIn64BitMode=x64compatible
+WizardImageFile=assets\wizard.bmp
+WizardSmallImageFile=assets\wizard-small.bmp
 
 [Languages]
 Name: "russian"; MessagesFile: "compiler:Languages\Russian.isl"
@@ -185,6 +187,12 @@ begin
     if Pos('K-LITE', Item) > 0 then
       WizardForm.TasksList.Checked[I] := not HasKLite;
   end;
+  WizardForm.WelcomeLabel1.Caption :=
+  'Добро пожаловать в установщик Signer';
+
+WizardForm.WelcomeLabel2.Caption :=
+  'Signer автоматически загрузит последнюю версию программы, ' +
+  'установит необходимые компоненты и подготовит приложение к работе.';
 end;
 
 procedure CurStepChanged(CurStep: TSetupStep);
