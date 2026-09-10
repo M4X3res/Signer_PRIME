@@ -75,7 +75,8 @@ def setup_environment():
     
     logger = logging.getLogger(__name__)
     logger.info("=" * 60)
-    logger.info("RoadScanner v2 запускается...")
+    from version import APP_VERSION
+    logger.info(f"RoadScanner v{APP_VERSION} запускается...")
     
     # ════════════════════════════════════════════════════════════════
     # КРИТИЧНО: Защита от STATUS_STACK_BUFFER_OVERRUN (0xC0000409)
@@ -155,6 +156,7 @@ def main():
     """Главная функция приложения."""
     from ui.main_window import MainWindow
     from ui.themes.theme_manager import theme_manager, Theme
+    from version import APP_VERSION
     
     logger = logging.getLogger(__name__)
     
@@ -179,7 +181,7 @@ def main():
 
         app = QApplication(sys.argv)
         app.setApplicationName("Signer")
-        app.setApplicationVersion("2.0")
+        app.setApplicationVersion(APP_VERSION)
 
         font = QFont("Segoe UI", 13)
         app.setFont(font)
@@ -197,6 +199,78 @@ def main():
         window.show()
 
         logger.info("Приложение готово к работе")
+        
+        # ════════════════════════════════════════════════════════════════
+        # Проверка обновлений в фоне (только в frozen build)
+        # ════════════════════════════════════════════════════════════════
+        # ВРЕМЕННО: всегда проверяем обновления для тестирования
+        if True:  # getattr(sys, "frozen", False) or os.environ.get("SIGNER_FORCE_UPDATE_CHECK") == "1":
+            from ui.widgets.update_worker import UpdateCheckWorker
+            from ui.widgets.update_dialog import UpdateDialog
+            from PyQt6.QtCore import QSettings
+            
+            logger.info("Запуск фоновой проверки обновлений...")
+            
+            # Проверяем, изменилась ли версия после обновления
+            settings = QSettings("Signer", "RoadScanner")
+            last_known_version = settings.value("last_known_version", "")
+            
+            if last_known_version and last_known_version != APP_VERSION:
+                # Версия изменилась - показываем уведомление
+                logger.info(f"Версия изменилась: {last_known_version} -> {APP_VERSION}")
+                # Показываем в статус-баре главного окна
+                if hasattr(window, 'status_bar'):
+                    window.status_bar.set_status(f"Signer обновлён до версии {APP_VERSION}", 10000)
+                
+                # Обновляем сохранённую версию
+                settings.setValue("last_known_version", APP_VERSION)
+            
+            # Функция для обработки результата проверки обновлений
+            def _on_update_check_finished(update_info):
+                if update_info:
+                    try:
+                        logger.info(f"Найдено обновление: {update_info.version}")
+                        dialog = UpdateDialog(update_info, window)
+                        
+                        # Подключаем сигнал для применения обновления
+                        def _apply_update():
+                            try:
+                                import updater
+                                from pathlib import Path
+                                
+                                # Сохраняем текущую версию перед обновлением
+                                settings.setValue("last_known_version", APP_VERSION)
+                                
+                                # Определяем директорию установки
+                                if getattr(sys, "frozen", False):
+                                    install_dir = Path(sys.executable).parent
+                                else:
+                                    install_dir = Path(__file__).parent / "dist" / "Signer"
+                                
+                                # Запускаем Updater и закрываем приложение
+                                updater.launch_updater_and_exit(dialog.temp_dir, install_dir)
+                                app.quit()
+                                
+                            except Exception as e:
+                                logger.error(f"Ошибка при применении обновления: {e}", exc_info=True)
+                        
+                        dialog.update_applied.connect(_apply_update)
+                        dialog.exec()
+                        
+                    except Exception as e:
+                        logger.error(f"Ошибка при показе диалога обновления: {e}", exc_info=True)
+                else:
+                    logger.info("Обновлений не найдено")
+            
+            def _on_update_check_error(error_msg):
+                logger.warning(f"Ошибка проверки обновлений: {error_msg}")
+            
+            # Запускаем воркер проверки
+            update_worker = UpdateCheckWorker()
+            update_worker.finished_check.connect(_on_update_check_finished)
+            update_worker.error.connect(_on_update_check_error)
+            update_worker.start()
+        
         sys.exit(app.exec())
         
     except Exception as e:
