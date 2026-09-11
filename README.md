@@ -19,7 +19,7 @@ python main.py
 ### Быстрая тестовая сборка
 
 ```bash
-build_test.bat
+scripts\build\build_test.bat
 ```
 
 Быстрая сборка без архивации для локального тестирования.
@@ -27,7 +27,7 @@ build_test.bat
 ### Полная сборка релиза
 
 ```bash
-build_release.bat
+scripts\build\build_release.bat
 ```
 
 Автоматически:
@@ -39,26 +39,41 @@ build_release.bat
 ### Загрузка на GitHub
 
 ```powershell
-.\upload_release.ps1
+.\scripts\build\upload_release.ps1
 ```
 
 Автоматическая публикация релиза на GitHub (требует GitHub CLI).
 
-📚 **Подробнее:** [QUICK_RELEASE_GUIDE.md](QUICK_RELEASE_GUIDE.md) | [SCRIPTS_README.md](SCRIPTS_README.md)
+📚 **Подробнее:** [docs/QUICK_RELEASE_GUIDE.md](docs/QUICK_RELEASE_GUIDE.md) | [docs/SCRIPTS_README.md](docs/SCRIPTS_README.md)
 
 ## Документация
 
 Подробная документация по архитектуре и функциональности проекта находится в директории `docs/`.
 
+Для быстрого доступа к документации используйте:
+```bash
+scripts\build\docs.bat
+```
+
 ## Структура проекта
 
+### Основные файлы
 - `main.py` — точка входа в приложение
+- `version.json` — версия приложения
+- `signer.spec`, `updater.spec` — конфигурация PyInstaller
+
+### Пакеты
+- `app/` — утилиты и версионирование
+- `updater/` — система автообновлений
 - `core/` — ядро системы: детекторы, обработчики знаков, GPS
 - `configs/` — конфигурация моделей и настройки
 - `processing/` — потоки обработки видео, OCR, детекция
 - `server/` — Flask-сервер для карты
 - `ui/` — графический интерфейс (PyQt6)
 - `templates/` — HTML-шаблоны для карты
-- `scripts/` — утилиты для экспорта моделей, бенчмарки
+- `scripts/` — утилиты для экспорта моделей, бенчмарки, сборки
+  - `scripts/build/` — скрипты сборки и релиза
+  - `scripts/dev/` — скрипты для разработки
 - `tests/` — тесты
+- `docs/` — документация
 - `docs/` — документация
