@@ -31,7 +31,7 @@ def setup_logging():
         if getattr(sys, "frozen", False):
             log_path = Path(sys.executable).parent / "updater.log"
         else:
-            log_path = Path(__file__).parent / "updater.log"
+            log_path = Path(__file__).parent.parent / "updater.log"
         
         logging.basicConfig(
             level=logging.INFO,

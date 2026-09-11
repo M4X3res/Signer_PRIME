@@ -459,12 +459,12 @@ def launch_updater_and_exit(
     """
     try:
         # Определяем путь к Updater.exe
-        if getattr(sys, "frozen", False):
+        if getattr(sys, "frozen", false):
             # Frozen build: Updater.exe лежит рядом с Signer.exe
             updater_exe = Path(sys.executable).parent / "Updater.exe"
         else:
-            # Dev-режим: для тестирования
-            updater_exe = Path(__file__).parent / "dist" / "Updater" / "Updater.exe"
+            # Dev-режим: для тестирования (updater теперь в подпапке)
+            updater_exe = Path(__file__).parent.parent / "dist" / "Updater" / "Updater.exe"
         
         if not updater_exe.exists():
             logger.error(f"Updater.exe не найден: {updater_exe}")
@@ -474,13 +474,13 @@ def launch_updater_and_exit(
         if getattr(sys, "frozen", False):
             signer_exe = Path(sys.executable)
         else:
-            signer_exe = Path(__file__).parent / "dist" / "Signer" / "Signer.exe"
+            signer_exe = Path(__file__).parent.parent / "dist" / "Signer" / "Signer.exe"
         
         # Путь к 7z.exe (рядом с Updater.exe)
         if getattr(sys, "frozen", False):
             seven_zip_exe = Path(sys.executable).parent / SEVEN_ZIP_EXE
         else:
-            seven_zip_exe = Path(__file__).parent / "installer" / SEVEN_ZIP_EXE
+            seven_zip_exe = Path(__file__).parent.parent / "installer" / SEVEN_ZIP_EXE
         
         # Формируем аргументы
         args = [
