@@ -53,7 +53,7 @@ goto menu
 
 :cheatsheet
 cls
-type CHEATSHEET.txt
+type ..\..\docs\CHEATSHEET.txt
 echo.
 echo.
 pause
@@ -62,27 +62,27 @@ goto menu
 :quick_guide
 cls
 echo Открытие в браузере/редакторе...
-start QUICK_RELEASE_GUIDE.md
+start ..\..\docs\QUICK_RELEASE_GUIDE.md
 timeout /t 1 >nul
 goto menu
 
 :full_docs
 cls
 echo Открытие в браузере/редакторе...
-start SCRIPTS_README.md
+start ..\..\docs\SCRIPTS_README.md
 timeout /t 1 >nul
 goto menu
 
 :workflow
 cls
 echo Открытие в браузере/редакторе...
-start WORKFLOW_DIAGRAM.md
+start ..\..\docs\WORKFLOW_DIAGRAM.md
 timeout /t 1 >nul
 goto menu
 
 :setup
 cls
-type SETUP_COMPLETE.txt
+type ..\..\docs\SETUP_COMPLETE.txt
 echo.
 echo.
 pause
@@ -91,7 +91,7 @@ goto menu
 :readme
 cls
 echo Открытие в браузере/редакторе...
-start README.md
+start ..\..\README.md
 timeout /t 1 >nul
 goto menu
 

@@ -236,22 +236,22 @@ cd ..
 
 REM Копируем дополнительные файлы для релиза
 copy /Y "README.md" "release\README.md" >nul
-copy /Y "BUILD_AUTOUPDATE.md" "release\BUILD_AUTOUPDATE.md" >nul
+copy /Y "docs\BUILD_AUTOUPDATE.md" "release\BUILD_AUTOUPDATE.md" >nul
 
 REM Создаем release notes если их нет
-if not exist "release_notes.txt" (
-    echo Signer PRIME v%VERSION% > release_notes.txt
-    echo. >> release_notes.txt
-    echo Изменения в этой версии: >> release_notes.txt
-    echo - Исправлен KeyError с textSecondary в настройках темы >> release_notes.txt
-    echo - Улучшена стабильность приложения >> release_notes.txt
-    echo. >> release_notes.txt
-    echo Системные требования: >> release_notes.txt
-    echo - Windows 10/11 ^(64-bit^) >> release_notes.txt
-    echo - 8+ GB RAM >> release_notes.txt
-    echo - 5+ GB свободного места на диске >> release_notes.txt
+if not exist "docs\release_notes.txt" (
+    echo Signer PRIME v%VERSION% > docs\release_notes.txt
+    echo. >> docs\release_notes.txt
+    echo Изменения в этой версии: >> docs\release_notes.txt
+    echo - Реорганизована структура проекта >> docs\release_notes.txt
+    echo - Улучшена стабильность приложения >> docs\release_notes.txt
+    echo. >> docs\release_notes.txt
+    echo Системные требования: >> docs\release_notes.txt
+    echo - Windows 10/11 ^(64-bit^) >> docs\release_notes.txt
+    echo - 8+ GB RAM >> docs\release_notes.txt
+    echo - 5+ GB свободного места на диске >> docs\release_notes.txt
 )
-copy /Y "release_notes.txt" "release\release_notes.txt" >nul
+copy /Y "docs\release_notes.txt" "release\release_notes.txt" >nul
 
 echo ✅ Все файлы подготовлены в папке release\
 echo.
