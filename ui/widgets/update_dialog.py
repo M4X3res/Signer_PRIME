@@ -17,7 +17,7 @@ from PyQt6.QtGui import QFont
 
 from ui.themes.theme_manager import theme_manager
 from ui.widgets.update_worker import UpdateDownloadWorker
-import updater
+from updater import updater
 
 logger = logging.getLogger(__name__)
 
@@ -228,7 +228,7 @@ class UpdateDialog(QDialog):
     
     def _show_offer_state(self):
         """Показывает состояние предложения обновиться."""
-        from version import APP_VERSION
+        from app.version import APP_VERSION
         
         self.title_label.setText("Доступно обновление Signer")
         self.version_label.setText(

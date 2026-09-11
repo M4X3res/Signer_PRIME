@@ -17,7 +17,7 @@ from pathlib import Path
 # Добавляем корень проекта в sys.path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from utils import resource_path
+from app.utils import resource_path
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
 logger = logging.getLogger(__name__)

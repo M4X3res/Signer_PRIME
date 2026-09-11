@@ -75,7 +75,7 @@ def setup_environment():
     
     logger = logging.getLogger(__name__)
     logger.info("=" * 60)
-    from version import APP_VERSION
+    from app.version import APP_VERSION
     logger.info(f"RoadScanner v{APP_VERSION} запускается...")
     
     # ════════════════════════════════════════════════════════════════
@@ -156,7 +156,7 @@ def main():
     """Главная функция приложения."""
     from ui.main_window import MainWindow
     from ui.themes.theme_manager import theme_manager, Theme
-    from version import APP_VERSION
+    from app.version import APP_VERSION
     
     logger = logging.getLogger(__name__)
     
@@ -201,7 +201,7 @@ def main():
         # Очистка старых временных файлов обновления
         logger.info("Очистка старых временных файлов обновления...")
         try:
-            import updater
+            from updater import updater
             updater.cleanup_stale_update_temp()
         except Exception as e:
             logger.warning(f"Ошибка при очистке временных файлов: {e}")
@@ -243,7 +243,7 @@ def main():
                         # Подключаем сигнал для применения обновления
                         def _apply_update():
                             try:
-                                import updater
+                                from updater import updater
                                 from pathlib import Path
                                 
                                 # Сохраняем текущую версию перед обновлением

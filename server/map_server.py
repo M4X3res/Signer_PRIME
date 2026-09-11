@@ -24,7 +24,7 @@ from configs.sign_data import (
     SIGNS_WITH_TEXT as signs_with_various_text,  # BLOCK FIX-1.1: было SIGNS_WITH_VARIOUS_TEXT
     TYPE_SIGNS_CITY as type_signs_city,
 )
-from utils import resource_path
+from app.utils import resource_path
 
 logger = logging.getLogger(__name__)
 

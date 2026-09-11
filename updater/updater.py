@@ -16,7 +16,7 @@ from typing import Callable, Optional
 
 import requests
 
-from version import APP_VERSION
+from app.version import APP_VERSION
 
 logger = logging.getLogger(__name__)
 

@@ -1785,8 +1785,8 @@ class SettingsPage(QWidget):
                     try:
                         import sys
                         from pathlib import Path
-                        import updater
-                        from version import APP_VERSION
+                        from updater import updater
+                        from app.version import APP_VERSION
                         
                         # Определяем директорию установки
                         if getattr(sys, "frozen", False):
@@ -1819,7 +1819,7 @@ class SettingsPage(QWidget):
                 dialog.update_applied.connect(apply_update)
                 dialog.exec()
             else:
-                from version import APP_VERSION
+                from app.version import APP_VERSION
                 self._update_status_label.setText(
                     f"✅ Обновлений нет. Текущая версия {APP_VERSION} актуальна."
                 )

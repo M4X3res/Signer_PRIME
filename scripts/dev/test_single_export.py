@@ -5,7 +5,7 @@ import sys
 sys.path.insert(0, '.')
 
 from ultralytics import YOLO
-from utils import resource_path
+from app.utils import resource_path
 
 # Конвертируем одну модель
 pt_path = resource_path("small_models/blue.pt")

@@ -9,7 +9,7 @@ from typing import Optional
 
 from PyQt6.QtCore import QThread, pyqtSignal
 
-import updater
+from updater import updater
 
 logger = logging.getLogger(__name__)
 

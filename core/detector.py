@@ -37,7 +37,7 @@ from configs.sign_models import (
     sub_models,
 )
 from core.profiler import profiler
-from utils import resource_path
+from app.utils import resource_path
 
 logger = logging.getLogger(__name__)
 
