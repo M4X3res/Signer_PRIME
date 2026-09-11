@@ -15,8 +15,8 @@ def _get_version_file_path() -> Path:
         # Frozen build: version.json лежит рядом с exe
         return Path(sys.executable).parent / "version.json"
     else:
-        # Dev режим: version.json в корне проекта
-        return Path(__file__).parent / "version.json"
+        # Dev режим: version.json в корне проекта (на уровень выше app/)
+        return Path(__file__).parent.parent / "version.json"
 
 
 def _load_version() -> str:
