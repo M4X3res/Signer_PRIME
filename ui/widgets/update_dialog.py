@@ -235,8 +235,15 @@ class UpdateDialog(QDialog):
             f"Текущая версия: <b>{APP_VERSION}</b> → Новая версия: <b>{self.update_info.version}</b>"
         )
         self.notes_edit.setPlainText(self.update_info.release_notes)
+        
+        # Определяем тип обновления
+        if self.update_info.is_delta:
+            update_type_text = "Быстрое обновление"
+        else:
+            update_type_text = "Полное обновление"
+        
         self.size_label.setText(
-            f"Размер загрузки: {_format_size(self.update_info.total_size_bytes)}"
+            f"{update_type_text}: {_format_size(self.update_info.total_size_bytes)}"
         )
         self.status_label.setText("")
         

@@ -81,8 +81,21 @@ class UpdateDownloadWorker(QThread):
             
             logger.info("[UpdateDownloadWorker] Проверка целостности...")
             
-            # Проверка чексумм
-            if not updater.verify_checksum(self.temp_dir):
+            # Для дельта-обновления нужно прочитать delta_manifest.json
+            delta_manifest_data = None
+            if self.update_info.is_delta:
+                delta_manifest_path = self.temp_dir / "delta_manifest.json"
+                if delta_manifest_path.exists():
+                    import json
+                    with open(delta_manifest_path, "r", encoding="utf-8") as f:
+                        delta_manifest_data = json.load(f)
+            
+            # Проверка целостности
+            if not updater.verify_downloaded_assets(
+                self.temp_dir,
+                self.update_info.is_delta,
+                delta_manifest_data
+            ):
                 self.checksum_failed.emit()
                 return
             

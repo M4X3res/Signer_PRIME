@@ -483,6 +483,66 @@ class SettingsPage(QWidget):
 
         content_layout.addWidget(log_group)
         
+        # ── Group: Обновления ───────────────────────────────────
+        update_group = SettingsGroup("Обновления")
+        
+        self._auto_check_updates_toggle = ToggleButton(self._settings.auto_check_updates)
+        self._auto_check_updates_toggle.setToolTip(
+            "Автоматически проверять наличие новых версий при запуске приложения.\n"
+            "Вы всегда можете обновиться вручную кнопкой 'Проверить сейчас'."
+        )
+        update_group.add_row(
+            "Автопроверка обновлений",
+            "Проверять обновления при запуске",
+            self._auto_check_updates_toggle,
+        )
+        
+        self._update_channel_combo = QComboBox()
+        self._update_channel_combo.setFixedWidth(140)
+        self._update_channel_combo.addItems(["Стабильный", "Бета"])
+        self._update_channel_combo.setCurrentIndex(0 if self._settings.update_channel == "stable" else 1)
+        self._update_channel_combo.setToolTip(
+            "Стабильный: только финальные релизы\n"
+            "Бета: ранний доступ к новым функциям (может быть нестабильно)"
+        )
+        update_group.add_row(
+            "Канал обновлений",
+            "Выбор типа релизов для установки",
+            self._update_channel_combo,
+        )
+        
+        # Кнопка проверки + статус
+        check_updates_layout = QVBoxLayout()
+        check_updates_layout.setSpacing(8)
+        
+        self._check_updates_btn = QPushButton("🔄  Проверить сейчас")
+        self._check_updates_btn.setObjectName("BtnSecondary")
+        self._check_updates_btn.setMinimumHeight(36)
+        self._check_updates_btn.setMinimumWidth(160)
+        self._check_updates_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        self._check_updates_btn.clicked.connect(self._check_updates_manually)
+        check_updates_layout.addWidget(self._check_updates_btn)
+        
+        self._update_status_label = QLabel()
+        self._update_status_label.setObjectName("SettingsHint")
+        self._update_status_label.setWordWrap(True)
+        check_updates_layout.addWidget(self._update_status_label)
+        
+        # Обновляем текст после создания виджета
+        self._update_last_check_label()
+        
+        check_updates_widget = QWidget()
+        check_updates_widget.setStyleSheet("background: transparent;")
+        check_updates_widget.setLayout(check_updates_layout)
+        
+        update_group.add_row(
+            "Проверка обновлений",
+            "Ручная проверка наличия новой версии",
+            check_updates_widget,
+        )
+        
+        content_layout.addWidget(update_group)
+        
         # ── Group: Геометрия перекрёстков (BLOCK H) ─────────────
         turn_group = SettingsGroup("Перекрёстки и повороты")
         
@@ -925,6 +985,13 @@ class SettingsPage(QWidget):
             # Theme
             theme_idx = self._theme_combo.currentIndex()
             self._settings.theme = "dark" if theme_idx == 0 else "light"
+            
+            # Updates (новые настройки)
+            if hasattr(self, '_auto_check_updates_toggle'):
+                self._settings.auto_check_updates = self._auto_check_updates_toggle.is_checked()
+            if hasattr(self, '_update_channel_combo'):
+                channel_idx = self._update_channel_combo.currentIndex()
+                self._settings.update_channel = "stable" if channel_idx == 0 else "beta"
             
         except Exception as e:
             print(f"[SettingsPage] ОШИБКА в _collect_settings: {e}")
@@ -1655,3 +1722,123 @@ class SettingsPage(QWidget):
         msg_box.setWindowTitle("Ошибка")
         msg_box.setText(message)
         msg_box.exec()
+    
+    def _update_last_check_label(self):
+        """Обновляет метку времени последней проверки обновлений."""
+        from datetime import datetime
+        from ui.themes.theme_manager import theme_manager
+        
+        # Проверяем, что виджет уже создан
+        if not hasattr(self, '_update_status_label'):
+            return
+        
+        last_check_ts = self._settings.last_update_check_ts
+        
+        if last_check_ts == 0.0:
+            status_text = "Последняя проверка: никогда"
+        else:
+            try:
+                last_check_dt = datetime.fromtimestamp(last_check_ts)
+                status_text = f"Последняя проверка: {last_check_dt.strftime('%d.%m.%Y %H:%M')}"
+            except Exception:
+                status_text = "Последняя проверка: неизвестно"
+        
+        self._update_status_label.setText(status_text)
+        self._update_status_label.setStyleSheet(f"color: {theme_manager.tokens['text_secondary']}; font-size: 11px;")
+    
+    def _check_updates_manually(self):
+        """Ручная проверка обновлений."""
+        from PyQt6.QtCore import QTimer
+        from ui.themes.theme_manager import theme_manager
+        import time
+        
+        # Отключаем кнопку на время проверки
+        self._check_updates_btn.setEnabled(False)
+        self._check_updates_btn.setText("⏳  Проверка...")
+        
+        self._update_status_label.setText("Проверка обновлений...")
+        self._update_status_label.setStyleSheet(f"color: {theme_manager.tokens['text_secondary']}; font-size: 11px;")
+        
+        # Обновляем timestamp
+        self._settings.last_update_check_ts = time.time()
+        self._settings.save()
+        
+        # Запускаем воркер проверки
+        from ui.widgets.update_worker import UpdateCheckWorker
+        
+        self._update_check_worker = UpdateCheckWorker()
+        
+        def on_check_finished(update_info):
+            if update_info:
+                from ui.widgets.update_dialog import UpdateDialog
+                
+                self._update_status_label.setText(
+                    f"✅ Найдено обновление: {update_info.version}"
+                )
+                self._update_status_label.setStyleSheet(f"color: {theme_manager.tokens['success']}; font-size: 11px;")
+                
+                # Показываем диалог обновления
+                dialog = UpdateDialog(update_info, self)
+                
+                # Подключаем обработчик применения обновления
+                def apply_update():
+                    try:
+                        import sys
+                        from pathlib import Path
+                        import updater
+                        from version import APP_VERSION
+                        
+                        # Определяем директорию установки
+                        if getattr(sys, "frozen", False):
+                            install_dir = Path(sys.executable).parent
+                        else:
+                            install_dir = Path(__file__).parent.parent.parent / "dist" / "Signer"
+                        
+                        # Подготавливаем параметры для дельта-режима
+                        is_delta = dialog.update_info.is_delta
+                        delta_manifest_path = None
+                        if is_delta:
+                            delta_manifest_path = dialog.temp_dir / "delta_manifest.json"
+                        
+                        # Запускаем Updater и закрываем приложение
+                        updater.launch_updater_and_exit(
+                            dialog.temp_dir,
+                            install_dir,
+                            is_delta=is_delta,
+                            delta_manifest_path=delta_manifest_path
+                        )
+                        
+                        from PyQt6.QtWidgets import QApplication
+                        QApplication.instance().quit()
+                    
+                    except Exception as e:
+                        print(f"[SettingsPage] Ошибка при применении обновления: {e}")
+                        self._update_status_label.setText(f"❌ Ошибка: {str(e)}")
+                        self._update_status_label.setStyleSheet(f"color: {theme_manager.tokens['error']}; font-size: 11px;")
+                
+                dialog.update_applied.connect(apply_update)
+                dialog.exec()
+            else:
+                from version import APP_VERSION
+                self._update_status_label.setText(
+                    f"✅ Обновлений нет. Текущая версия {APP_VERSION} актуальна."
+                )
+                self._update_status_label.setStyleSheet(f"color: {theme_manager.tokens['success']}; font-size: 11px;")
+            
+            # Восстанавливаем кнопку
+            self._check_updates_btn.setEnabled(True)
+            self._check_updates_btn.setText("🔄  Проверить сейчас")
+            self._update_last_check_label()
+        
+        def on_check_error(error_msg):
+            self._update_status_label.setText(f"❌ Ошибка: {error_msg}")
+            self._update_status_label.setStyleSheet(f"color: {theme_manager.tokens['error']}; font-size: 11px;")
+            
+            # Восстанавливаем кнопку
+            self._check_updates_btn.setEnabled(True)
+            self._check_updates_btn.setText("🔄  Проверить сейчас")
+            self._update_last_check_label()
+        
+        self._update_check_worker.finished_check.connect(on_check_finished)
+        self._update_check_worker.error.connect(on_check_error)
+        self._update_check_worker.start()

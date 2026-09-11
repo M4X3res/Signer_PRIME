@@ -197,6 +197,14 @@ def main():
         logger.info("Создание главного окна...")
         window = MainWindow()
         window.show()
+        
+        # Очистка старых временных файлов обновления
+        logger.info("Очистка старых временных файлов обновления...")
+        try:
+            import updater
+            updater.cleanup_stale_update_temp()
+        except Exception as e:
+            logger.warning(f"Ошибка при очистке временных файлов: {e}")
 
         logger.info("Приложение готово к работе")
         
@@ -247,8 +255,19 @@ def main():
                                 else:
                                     install_dir = Path(__file__).parent / "dist" / "Signer"
                                 
+                                # Подготавливаем параметры для дельта-режима
+                                is_delta = dialog.update_info.is_delta
+                                delta_manifest_path = None
+                                if is_delta:
+                                    delta_manifest_path = dialog.temp_dir / "delta_manifest.json"
+                                
                                 # Запускаем Updater и закрываем приложение
-                                updater.launch_updater_and_exit(dialog.temp_dir, install_dir)
+                                updater.launch_updater_and_exit(
+                                    dialog.temp_dir,
+                                    install_dir,
+                                    is_delta=is_delta,
+                                    delta_manifest_path=delta_manifest_path
+                                )
                                 app.quit()
                                 
                             except Exception as e:

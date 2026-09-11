@@ -97,6 +97,11 @@ class AppSettings:
     map_tile_attribution: str = "© OpenStreetMap"
     map_tile_max_zoom: int = 19
     
+    # ── Обновления ────────────────────────────────────────────────
+    auto_check_updates: bool = True
+    update_channel: Literal["stable", "beta"] = "stable"
+    last_update_check_ts: float = 0.0  # timestamp последней проверки
+    
     @classmethod
     def load(cls) -> "AppSettings":
         """Загрузить настройки из QSettings."""
