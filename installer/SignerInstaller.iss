@@ -53,7 +53,7 @@ ArchitecturesAllowed=x64compatible
 ArchitecturesInstallIn64BitMode=x64compatible
 DisableProgramGroupPage=yes
 WizardResizable=no
-UninstallDisplayIcon={app}\Signer.exe
+UninstallDisplayIcon={app}\Signer\Signer.exe
 UninstallDisplayName={#AppName}
 MinVersion=10.0.17763
 ExtraDiskSpaceRequired=4300000000
@@ -150,16 +150,16 @@ Source: "https://github.com/BtbN/FFmpeg-Builds/releases/latest/download/ffmpeg-m
 Source: "https://files2.codecguide.com/K-Lite_Codec_Pack_1995_Standard.exe"; DestDir: "{tmp}"; DestName: "klite.exe"; ExternalSize: 60000000; Flags: external download ignoreversion; Components: klite
 
 [Icons]
-Name: "{group}\Signer"; Filename: "{app}\Signer.exe"
+Name: "{group}\Signer"; Filename: "{app}\Signer\Signer.exe"
 Name: "{group}\Удалить Signer"; Filename: "{uninstallexe}"
-Name: "{autodesktop}\Signer"; Filename: "{app}\Signer.exe"; Tasks: desktopicon
+Name: "{autodesktop}\Signer"; Filename: "{app}\Signer\Signer.exe"; Tasks: desktopicon
 
 [UninstallDelete]
 Type: filesandordirs; Name: "{tmp}\Signer_extract"
 Type: files; Name: "{app}\*.log"
 
 [Run]
-Filename: "{app}\Signer.exe"; Description: "Запустить Signer сейчас"; Flags: postinstall nowait skipifsilent
+Filename: "{app}\Signer\Signer.exe"; Description: "Запустить Signer сейчас"; Flags: postinstall nowait skipifsilent
 
 [Code]
 const
