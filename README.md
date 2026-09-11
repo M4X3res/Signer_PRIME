@@ -16,23 +16,15 @@ python main.py
 
 ## Сборка и релиз
 
-### Быстрая тестовая сборка
+### Подготовка релиза
 
 ```bash
-scripts\build\build_test.bat
-```
-
-Быстрая сборка без архивации для локального тестирования.
-
-### Полная сборка релиза
-
-```bash
-scripts\build\build_release.bat
+scripts\build\prepare_release.bat
 ```
 
 Автоматически:
 - Собирает `Signer.exe` и `Updater.exe`
-- Создает многотомный архив (100MB части)
+- Создаёт многотомный архив (100MB части)
 - Вычисляет SHA-256 чексуммы
 - Подготавливает файлы в папке `release\`
 
@@ -44,16 +36,11 @@ scripts\build\build_release.bat
 
 Автоматическая публикация релиза на GitHub (требует GitHub CLI).
 
-📚 **Подробнее:** [docs/QUICK_RELEASE_GUIDE.md](docs/QUICK_RELEASE_GUIDE.md) | [docs/SCRIPTS_README.md](docs/SCRIPTS_README.md)
+📚 **Подробнее:** [RELEASE.md](RELEASE.md)
 
 ## Документация
 
-Подробная документация по архитектуре и функциональности проекта находится в директории `docs/`.
-
-Для быстрого доступа к документации используйте:
-```bash
-scripts\build\docs.bat
-```
+Подробная документация находится в директории `docs/`.
 
 ## Структура проекта
 
