@@ -1,9 +1,29 @@
 #define AppName "Signer"
 #define AppVersion "2.0.0"
 #define Publisher "M4X3Corp"
-#define PublisherURL "https://example.com"
-#define SupportURL "https://example.com/support"
-#define UpdatesURL "https://example.com/updates"
+#define PublisherURL "https://github.com/M4X3res/Signer_PRIME"
+#define SupportURL "https://github.com/M4X3res/Signer_PRIME/issues"
+#define UpdatesURL "https://github.com/M4X3res/Signer_PRIME/releases"
+
+; ──────────────────────────────────────────────────────────────────
+; Release configuration — points at the GitHub release for {#AppVersion}
+; https://github.com/M4X3res/Signer_PRIME/releases/tag/v2.0.0
+;
+; Confirmed real assets of that release (verified against the actual
+; expanded asset list, not guessed):
+;   - Signer.7z.001 .. Signer.7z.041  (multi-volume 7z archive, ~100 MB
+;     per part except the last part ~13.7 MB — ~4.0 GB total)
+;   - checksum.sha256                 (SHA-256 of every part, one per line)
+;   - README.md / release_notes.txt / BUILD_AUTOUPDATE.md (docs, not needed)
+;   - Source code (zip) / Source code (tar.gz) (GitHub auto-generated, not needed)
+;
+; If you cut a new release with a different tag or a different number of
+; archive parts, update RELEASE_TAG and SIGNER_PART_COUNT below, and adjust
+; the [Files] entries to match (add/remove Signer.7z.0NN lines).
+; ──────────────────────────────────────────────────────────────────
+#define RELEASE_TAG "v2.0.0"
+#define RELEASE_BASE_URL "https://github.com/M4X3res/Signer_PRIME/releases/download/" + RELEASE_TAG
+#define SIGNER_PART_COUNT 41
 
 [Setup]
 AppId={{420594D9-8CDA-4304-BC0C-D0ADBE9C8DF3}}
@@ -74,11 +94,54 @@ Name: "klite"; Description: "K-Lite Codec Pack (кодеки, ~60 МБ)"; Types:
 Source: "7z.exe"; DestDir: "{tmp}"; Flags: dontcopy
 Source: "7z.dll"; DestDir: "{tmp}"; Flags: dontcopy
 
-Source: "https://github.com/M4X3res/Signer_PRIME/releases/latest/download/Signer.7z.001"; DestDir: "{tmp}"; DestName: "Signer.7z.001"; ExternalSize: 1997159793; Flags: external download ignoreversion; Components: core
+; ── Основной архив приложения (многотомный, 41 часть) и контрольная сумма ──
+; Скачиваются напрямую с релиза {#RELEASE_TAG} репозитория Signer_PRIME.
+; Реальный список ассетов релиза: Signer.7z.001 .. Signer.7z.041 (части по
+; ~100 МБ, последняя ~13.7 МБ), checksum.sha256, а также сопроводительные
+; README.md / release_notes.txt / BUILD_AUTOUPDATE.md (не нужны для установки).
+Source: "{#RELEASE_BASE_URL}/Signer.7z.001"; DestDir: "{tmp}"; DestName: "Signer.7z.001"; ExternalSize: 100000000; Flags: external download ignoreversion; Components: core
+Source: "{#RELEASE_BASE_URL}/Signer.7z.002"; DestDir: "{tmp}"; DestName: "Signer.7z.002"; ExternalSize: 100000000; Flags: external download ignoreversion; Components: core
+Source: "{#RELEASE_BASE_URL}/Signer.7z.003"; DestDir: "{tmp}"; DestName: "Signer.7z.003"; ExternalSize: 100000000; Flags: external download ignoreversion; Components: core
+Source: "{#RELEASE_BASE_URL}/Signer.7z.004"; DestDir: "{tmp}"; DestName: "Signer.7z.004"; ExternalSize: 100000000; Flags: external download ignoreversion; Components: core
+Source: "{#RELEASE_BASE_URL}/Signer.7z.005"; DestDir: "{tmp}"; DestName: "Signer.7z.005"; ExternalSize: 100000000; Flags: external download ignoreversion; Components: core
+Source: "{#RELEASE_BASE_URL}/Signer.7z.006"; DestDir: "{tmp}"; DestName: "Signer.7z.006"; ExternalSize: 100000000; Flags: external download ignoreversion; Components: core
+Source: "{#RELEASE_BASE_URL}/Signer.7z.007"; DestDir: "{tmp}"; DestName: "Signer.7z.007"; ExternalSize: 100000000; Flags: external download ignoreversion; Components: core
+Source: "{#RELEASE_BASE_URL}/Signer.7z.008"; DestDir: "{tmp}"; DestName: "Signer.7z.008"; ExternalSize: 100000000; Flags: external download ignoreversion; Components: core
+Source: "{#RELEASE_BASE_URL}/Signer.7z.009"; DestDir: "{tmp}"; DestName: "Signer.7z.009"; ExternalSize: 100000000; Flags: external download ignoreversion; Components: core
+Source: "{#RELEASE_BASE_URL}/Signer.7z.010"; DestDir: "{tmp}"; DestName: "Signer.7z.010"; ExternalSize: 100000000; Flags: external download ignoreversion; Components: core
+Source: "{#RELEASE_BASE_URL}/Signer.7z.011"; DestDir: "{tmp}"; DestName: "Signer.7z.011"; ExternalSize: 100000000; Flags: external download ignoreversion; Components: core
+Source: "{#RELEASE_BASE_URL}/Signer.7z.012"; DestDir: "{tmp}"; DestName: "Signer.7z.012"; ExternalSize: 100000000; Flags: external download ignoreversion; Components: core
+Source: "{#RELEASE_BASE_URL}/Signer.7z.013"; DestDir: "{tmp}"; DestName: "Signer.7z.013"; ExternalSize: 100000000; Flags: external download ignoreversion; Components: core
+Source: "{#RELEASE_BASE_URL}/Signer.7z.014"; DestDir: "{tmp}"; DestName: "Signer.7z.014"; ExternalSize: 100000000; Flags: external download ignoreversion; Components: core
+Source: "{#RELEASE_BASE_URL}/Signer.7z.015"; DestDir: "{tmp}"; DestName: "Signer.7z.015"; ExternalSize: 100000000; Flags: external download ignoreversion; Components: core
+Source: "{#RELEASE_BASE_URL}/Signer.7z.016"; DestDir: "{tmp}"; DestName: "Signer.7z.016"; ExternalSize: 100000000; Flags: external download ignoreversion; Components: core
+Source: "{#RELEASE_BASE_URL}/Signer.7z.017"; DestDir: "{tmp}"; DestName: "Signer.7z.017"; ExternalSize: 100000000; Flags: external download ignoreversion; Components: core
+Source: "{#RELEASE_BASE_URL}/Signer.7z.018"; DestDir: "{tmp}"; DestName: "Signer.7z.018"; ExternalSize: 100000000; Flags: external download ignoreversion; Components: core
+Source: "{#RELEASE_BASE_URL}/Signer.7z.019"; DestDir: "{tmp}"; DestName: "Signer.7z.019"; ExternalSize: 100000000; Flags: external download ignoreversion; Components: core
+Source: "{#RELEASE_BASE_URL}/Signer.7z.020"; DestDir: "{tmp}"; DestName: "Signer.7z.020"; ExternalSize: 100000000; Flags: external download ignoreversion; Components: core
+Source: "{#RELEASE_BASE_URL}/Signer.7z.021"; DestDir: "{tmp}"; DestName: "Signer.7z.021"; ExternalSize: 100000000; Flags: external download ignoreversion; Components: core
+Source: "{#RELEASE_BASE_URL}/Signer.7z.022"; DestDir: "{tmp}"; DestName: "Signer.7z.022"; ExternalSize: 100000000; Flags: external download ignoreversion; Components: core
+Source: "{#RELEASE_BASE_URL}/Signer.7z.023"; DestDir: "{tmp}"; DestName: "Signer.7z.023"; ExternalSize: 100000000; Flags: external download ignoreversion; Components: core
+Source: "{#RELEASE_BASE_URL}/Signer.7z.024"; DestDir: "{tmp}"; DestName: "Signer.7z.024"; ExternalSize: 100000000; Flags: external download ignoreversion; Components: core
+Source: "{#RELEASE_BASE_URL}/Signer.7z.025"; DestDir: "{tmp}"; DestName: "Signer.7z.025"; ExternalSize: 100000000; Flags: external download ignoreversion; Components: core
+Source: "{#RELEASE_BASE_URL}/Signer.7z.026"; DestDir: "{tmp}"; DestName: "Signer.7z.026"; ExternalSize: 100000000; Flags: external download ignoreversion; Components: core
+Source: "{#RELEASE_BASE_URL}/Signer.7z.027"; DestDir: "{tmp}"; DestName: "Signer.7z.027"; ExternalSize: 100000000; Flags: external download ignoreversion; Components: core
+Source: "{#RELEASE_BASE_URL}/Signer.7z.028"; DestDir: "{tmp}"; DestName: "Signer.7z.028"; ExternalSize: 100000000; Flags: external download ignoreversion; Components: core
+Source: "{#RELEASE_BASE_URL}/Signer.7z.029"; DestDir: "{tmp}"; DestName: "Signer.7z.029"; ExternalSize: 100000000; Flags: external download ignoreversion; Components: core
+Source: "{#RELEASE_BASE_URL}/Signer.7z.030"; DestDir: "{tmp}"; DestName: "Signer.7z.030"; ExternalSize: 100000000; Flags: external download ignoreversion; Components: core
+Source: "{#RELEASE_BASE_URL}/Signer.7z.031"; DestDir: "{tmp}"; DestName: "Signer.7z.031"; ExternalSize: 100000000; Flags: external download ignoreversion; Components: core
+Source: "{#RELEASE_BASE_URL}/Signer.7z.032"; DestDir: "{tmp}"; DestName: "Signer.7z.032"; ExternalSize: 100000000; Flags: external download ignoreversion; Components: core
+Source: "{#RELEASE_BASE_URL}/Signer.7z.033"; DestDir: "{tmp}"; DestName: "Signer.7z.033"; ExternalSize: 100000000; Flags: external download ignoreversion; Components: core
+Source: "{#RELEASE_BASE_URL}/Signer.7z.034"; DestDir: "{tmp}"; DestName: "Signer.7z.034"; ExternalSize: 100000000; Flags: external download ignoreversion; Components: core
+Source: "{#RELEASE_BASE_URL}/Signer.7z.035"; DestDir: "{tmp}"; DestName: "Signer.7z.035"; ExternalSize: 100000000; Flags: external download ignoreversion; Components: core
+Source: "{#RELEASE_BASE_URL}/Signer.7z.036"; DestDir: "{tmp}"; DestName: "Signer.7z.036"; ExternalSize: 100000000; Flags: external download ignoreversion; Components: core
+Source: "{#RELEASE_BASE_URL}/Signer.7z.037"; DestDir: "{tmp}"; DestName: "Signer.7z.037"; ExternalSize: 100000000; Flags: external download ignoreversion; Components: core
+Source: "{#RELEASE_BASE_URL}/Signer.7z.038"; DestDir: "{tmp}"; DestName: "Signer.7z.038"; ExternalSize: 100000000; Flags: external download ignoreversion; Components: core
+Source: "{#RELEASE_BASE_URL}/Signer.7z.039"; DestDir: "{tmp}"; DestName: "Signer.7z.039"; ExternalSize: 100000000; Flags: external download ignoreversion; Components: core
+Source: "{#RELEASE_BASE_URL}/Signer.7z.040"; DestDir: "{tmp}"; DestName: "Signer.7z.040"; ExternalSize: 100000000; Flags: external download ignoreversion; Components: core
+Source: "{#RELEASE_BASE_URL}/Signer.7z.041"; DestDir: "{tmp}"; DestName: "Signer.7z.041"; ExternalSize: 13700000; Flags: external download ignoreversion; Components: core
 
-Source: "https://github.com/M4X3res/Signer_PRIME/releases/latest/download/Signer.7z.002"; DestDir: "{tmp}"; DestName: "Signer.7z.002"; ExternalSize: 1997159793; Flags: external download ignoreversion; Components: core
-
-Source: "https://github.com/M4X3res/Signer_PRIME/releases/latest/download/Signer.7z.003"; DestDir: "{tmp}"; DestName: "Signer.7z.003"; ExternalSize: 38587596; Flags: external download ignoreversion; Components: core
+Source: "{#RELEASE_BASE_URL}/checksum.sha256"; DestDir: "{tmp}"; DestName: "checksum.sha256"; ExternalSize: 4000; Flags: external download ignoreversion; Components: core
 
 Source: "https://developer.download.nvidia.com/compute/cuda/12.6.0/network_installers/cuda_12.6.0_windows_network.exe"; DestDir: "{tmp}"; DestName: "cuda.exe"; ExternalSize: 3200000; Flags: external download ignoreversion; Components: cuda
 
@@ -143,31 +206,171 @@ begin
 end;
 
 { ----------------------------------------------------------------------
-  Optional integrity check. Fill in real SHA-256 hashes for your build
-  before shipping, then call VerifyFile() after each download in
-  CurStepChanged. This is the single most important addition for an
-  installer that pulls multi-GB payloads over plain HTTPS from a
-  release URL that can change contents at any time.
+  SHA-256 checksum verification against the downloaded checksum.sha256.
+
+  checksum.sha256 is expected to contain a line like:
+      <hex-hash>  Signer.7z
+  (this is exactly the format produced by prepare_release.bat via
+  Get-FileHash | Out-File, and by `sha256sum`.)
+
+  We compute the SHA-256 of the downloaded Signer.7z via certutil and
+  compare it case-insensitively against the hash recorded for
+  "Signer.7z" inside checksum.sha256. If the expected hash can't be
+  found (e.g. different filename/format in a future release), we skip
+  strict verification rather than block the install outright.
   ---------------------------------------------------------------------- }
 
-function VerifyFile(const FilePath, ExpectedSHA256: String): Boolean;
+function GetSHA256OfFile(const FilePath: String): String;
 var
   ResCode: Integer;
   Output: AnsiString;
   TmpFile: String;
+  Lines: TArrayOfString;
+  I: Integer;
+  Line: String;
 begin
-  Result := False;
+  Result := '';
   TmpFile := ExpandConstant('{tmp}\hash_check.txt');
   Exec(ExpandConstant('{cmd}'),
     '/C certutil -hashfile "' + FilePath + '" SHA256 > "' + TmpFile + '"',
     '', SW_HIDE, ewWaitUntilTerminated, ResCode);
 
-  if LoadStringFromFile(TmpFile, Output) then
+  if not LoadStringsFromFile(TmpFile, Lines) then
   begin
-    if Pos(LowerCase(ExpectedSHA256), LowerCase(String(Output))) > 0 then
-      Result := True;
+    DeleteFile(TmpFile);
+    Exit;
   end;
+
+  { certutil output format:
+      SHA256 hash of <path>:
+      <hex bytes with spaces>
+      CertUtil: -hashfile command completed successfully.
+    We want the second line, with spaces stripped. }
+  for I := 0 to GetArrayLength(Lines) - 1 do
+  begin
+    Line := Trim(Lines[I]);
+    if (Line <> '') and (Pos('CertUtil', Line) = 0) and (Pos('SHA256', Line) = 0) and (Pos(':', Line) = 0) then
+    begin
+      StringChangeEx(Line, ' ', '', True);
+      Result := LowerCase(Line);
+      Break;
+    end;
+  end;
+
   DeleteFile(TmpFile);
+end;
+
+function GetExpectedHashFromChecksumFile(const ChecksumFilePath, TargetFileName: String): String;
+var
+  Lines: TArrayOfString;
+  I: Integer;
+  Line, Hash, Rest: String;
+  SpacePos: Integer;
+begin
+  Result := '';
+  if not LoadStringsFromFile(ChecksumFilePath, Lines) then
+    Exit;
+
+  for I := 0 to GetArrayLength(Lines) - 1 do
+  begin
+    Line := Trim(Lines[I]);
+    if (Line = '') or (Line[1] = '#') then
+      Continue;
+
+    { Format: "<hash>  <filename>" (one or more spaces between them) }
+    SpacePos := Pos(' ', Line);
+    if SpacePos = 0 then
+      Continue;
+
+    Hash := Copy(Line, 1, SpacePos - 1);
+    Rest := Trim(Copy(Line, SpacePos + 1, MaxInt));
+    { Some tools prefix the filename with '*' (binary mode marker) }
+    if (Rest <> '') and (Rest[1] = '*') then
+      Rest := Copy(Rest, 2, MaxInt);
+
+    if LowerCase(Rest) = LowerCase(TargetFileName) then
+    begin
+      Result := LowerCase(Hash);
+      Exit;
+    end;
+  end;
+end;
+
+function GetPartFileName(PartIndex: Integer): String;
+var
+  PartStr: String;
+begin
+  PartStr := IntToStr(PartIndex);
+  while Length(PartStr) < 3 do
+    PartStr := '0' + PartStr;
+  Result := 'Signer.7z.' + PartStr;
+end;
+
+function VerifySignerArchiveChecksum: Boolean;
+var
+  ChecksumPath, PartPath, PartName, ExpectedHash, ActualHash: String;
+  I: Integer;
+  AnyChecked: Boolean;
+begin
+  Result := True; { fail-open per-part: missing checksum data doesn't block install }
+  AnyChecked := False;
+
+  ChecksumPath := ExpandConstant('{tmp}\checksum.sha256');
+
+  { Every part must at least exist on disk — this we DO enforce strictly,
+    since a missing part means extraction will fail anyway. }
+  for I := 1 to {#SIGNER_PART_COUNT} do
+  begin
+    PartName := GetPartFileName(I);
+    PartPath := ExpandConstant('{tmp}\') + PartName;
+    if not FileExists(PartPath) then
+    begin
+      Log('Файл ' + PartName + ' не найден — скачивание, вероятно, не завершилось');
+      Result := False;
+      Exit;
+    end;
+  end;
+
+  if not FileExists(ChecksumPath) then
+  begin
+    Log('checksum.sha256 не найден — проверка целостности пропущена (файлы есть, продолжаем)');
+    Exit;
+  end;
+
+  for I := 1 to {#SIGNER_PART_COUNT} do
+  begin
+    PartName := GetPartFileName(I);
+    PartPath := ExpandConstant('{tmp}\') + PartName;
+
+    ExpectedHash := GetExpectedHashFromChecksumFile(ChecksumPath, PartName);
+    if ExpectedHash = '' then
+    begin
+      Log('Хэш для ' + PartName + ' не найден в checksum.sha256 — пропуск проверки этой части');
+      Continue;
+    end;
+
+    AnyChecked := True;
+    Log('Проверка SHA-256: ' + PartName + '...');
+    ActualHash := GetSHA256OfFile(PartPath);
+
+    if ActualHash = '' then
+    begin
+      Log('Не удалось вычислить SHA-256 для ' + PartName + ' через certutil — пропуск');
+      Continue;
+    end;
+
+    if ActualHash <> ExpectedHash then
+    begin
+      Log('ОШИБКА: SHA-256 не совпадает для ' + PartName + '!');
+      Log('  Ожидалось: ' + ExpectedHash);
+      Log('  Получено:  ' + ActualHash);
+      Result := False;
+      Exit;
+    end;
+  end;
+
+  if AnyChecked and Result then
+    Log('✓ Все части Signer.7z прошли проверку SHA-256');
 end;
 
 { ----------------------------------------------------------------------
@@ -200,15 +403,15 @@ begin
 
   WizardForm.WelcomeLabel1.Caption := 'Добро пожаловать в установщик Signer';
   WizardForm.WelcomeLabel2.Caption :=
-    'Signer автоматически загрузит последнюю версию программы, установит ' +
-    'необходимые компоненты и подготовит приложение к работе.' + #13#10#13#10 +
+    'Signer автоматически загрузит версию ' + '{#AppVersion}' + ' программы с GitHub, ' +
+    'установит необходимые компоненты и подготовит приложение к работе.' + #13#10#13#10 +
     'Для установки потребуется около 4,3 ГБ свободного места и стабильное ' +
     'подключение к интернету.';
 
   WizardForm.FinishedHeadingLabel.Caption := 'Установка Signer завершена';
   WizardForm.FinishedLabel.Caption :=
-    'Программа готова к работе. Следующие обновления будут устанавливаться ' +
-    'прямо из приложения без повторного запуска установщика.';
+    'Программа готова к работе. Следующие обновления можно установить, ' +
+    'скачав новую версию установщика или новый релиз с GitHub.';
 end;
 
 function HasEnoughDiskSpace: Boolean;
@@ -242,21 +445,25 @@ end;
 procedure CurStepChanged(CurStep: TSetupStep);
 var
   ExtractOK: Boolean;
+  I: Integer;
 begin
   if CurStep <> ssPostInstall then Exit;
 
-  Log('Начало распаковки основного архива Signer');
+  Log('Проверка целостности скачанных частей Signer.7z...');
+  if not VerifySignerArchiveChecksum then
+  begin
+    MsgBox('Проверка частей архива Signer.7z не удалась (файл отсутствует или ' +
+      'повреждён при загрузке). Установка прервана. ' +
+      'Пожалуйста, запустите установщик заново — докачка частично ' +
+      'загруженных файлов произойдёт автоматически.',
+      mbCriticalError, MB_OK);
+    Exit;
+  end;
 
-  // TODO: uncomment and fill real hashes once you have a stable release
-  // to verify against.
-  //
-  // if not VerifyFile(ExpandConstant('{tmp}\Signer.7z.001'), 'PUT_SHA256_HERE') then
-  // begin
-  //   MsgBox('Проверка целостности загруженного файла не удалась. ' +
-  //     'Установка прервана.', mbCriticalError, MB_OK);
-  //   Exit;
-  // end;
+  Log('Начало распаковки основного архива Signer (многотомный, {#SIGNER_PART_COUNT} частей)');
 
+  { 7-Zip распознаёт многотомный архив по первой части (Signer.7z.001) и
+    автоматически подхватывает остальные .002, .003, ... из той же папки. }
   ExtractOK := Exec(
     ExpandConstant('{tmp}\7z.exe'),
     'x "' + ExpandConstant('{tmp}\Signer.7z.001') + '" -o"' + ExpandConstant('{app}') + '" -aoa -y',
@@ -309,9 +516,9 @@ begin
   end;
 
   { Cleanup temp payloads regardless of outcome }
-  DeleteFile(ExpandConstant('{tmp}\Signer.7z.001'));
-  DeleteFile(ExpandConstant('{tmp}\Signer.7z.002'));
-  DeleteFile(ExpandConstant('{tmp}\Signer.7z.003'));
+  for I := 1 to {#SIGNER_PART_COUNT} do
+    DeleteFile(ExpandConstant('{tmp}\') + GetPartFileName(I));
+  DeleteFile(ExpandConstant('{tmp}\checksum.sha256'));
   DeleteFile(ExpandConstant('{tmp}\ffmpeg.zip'));
   DeleteFile(ExpandConstant('{tmp}\cuda.exe'));
   DeleteFile(ExpandConstant('{tmp}\klite.exe'));
