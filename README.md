@@ -14,6 +14,38 @@ pip install -r requirements.txt
 python main.py
 ```
 
+## Сборка и релиз
+
+### Быстрая тестовая сборка
+
+```bash
+build_test.bat
+```
+
+Быстрая сборка без архивации для локального тестирования.
+
+### Полная сборка релиза
+
+```bash
+build_release.bat
+```
+
+Автоматически:
+- Собирает `Signer.exe` и `Updater.exe`
+- Создает многотомный архив (100MB части)
+- Вычисляет SHA-256 чексуммы
+- Подготавливает файлы в папке `release\`
+
+### Загрузка на GitHub
+
+```powershell
+.\upload_release.ps1
+```
+
+Автоматическая публикация релиза на GitHub (требует GitHub CLI).
+
+📚 **Подробнее:** [QUICK_RELEASE_GUIDE.md](QUICK_RELEASE_GUIDE.md) | [SCRIPTS_README.md](SCRIPTS_README.md)
+
 ## Документация
 
 Подробная документация по архитектуре и функциональности проекта находится в директории `docs/`.
