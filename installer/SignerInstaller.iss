@@ -54,7 +54,7 @@ AppMutex=SignerAppMutex_420594D9
 
 [Languages]
 Name: "russian"; MessagesFile: "compiler:Languages\Russian.isl"
-Name: "english"; MessagesFile: "compiler:Languages\Default.isl"
+
 
 [Tasks]
 Name: desktopicon; Description: "Создать ярлык на рабочем столе"
