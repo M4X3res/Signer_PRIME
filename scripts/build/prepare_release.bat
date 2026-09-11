@@ -1,211 +1,227 @@
 @echo off
 chcp 65001 >nul
-REM ============================================================================
-REM Подготовка релиза Signer PRIME
-REM Собирает приложение и создаёт архив для GitHub Release
-REM ============================================================================
-
 setlocal enabledelayedexpansion
 
 echo.
-echo ════════════════════════════════════════════════════════════════
-echo   📦 Подготовка релиза Signer PRIME
-echo ════════════════════════════════════════════════════════════════
+echo ================================================================
+echo   Preparing Signer PRIME Release
+echo ================================================================
 echo.
 
-REM Получение версии
+REM Get version from version.json
 for /f "tokens=2 delims=:, " %%a in ('type version.json ^| findstr "version"') do (
     set VERSION=%%~a
 )
-echo Версия: %VERSION%
+echo Version: %VERSION%
 echo.
 
-REM ============================================================================
-REM Проверка зависимостей
-REM ============================================================================
+REM ================================================================
+REM [1/5] Check dependencies
+REM ================================================================
 
-echo [1/5] Проверка зависимостей...
+echo [1/5] Checking dependencies...
 echo.
 
 python --version >nul 2>&1
 if errorlevel 1 (
-    echo ❌ Python не найден
+    echo ERROR: Python not found
     pause
     exit /b 1
 )
 
 python -c "import PyInstaller" >nul 2>&1
 if errorlevel 1 (
-    echo ❌ PyInstaller не установлен (pip install pyinstaller)
+    echo ERROR: PyInstaller not installed
+    echo Run: pip install pyinstaller
     pause
     exit /b 1
 )
 
 if not exist "installer\7z.exe" (
-    echo ❌ 7z.exe не найден в installer\
-    echo    Скачайте: https://www.7-zip.org/
+    echo ERROR: 7z.exe not found in installer\
+    echo Download: https://www.7-zip.org/
     pause
     exit /b 1
 )
 
-echo ✅ Все зависимости в порядке
+echo OK: All dependencies ready
 echo.
 
-REM ============================================================================
-REM Очистка
-REM ============================================================================
+REM ================================================================
+REM [2/5] Clean old builds
+REM ================================================================
 
-echo [2/5] Очистка старых сборок...
+echo [2/5] Cleaning old builds...
 rmdir /s /q "dist\Signer" 2>nul
 rmdir /s /q "dist\Updater" 2>nul
 rmdir /s /q "build" 2>nul
 rmdir /s /q "release" 2>nul
-echo ✅ Очистка завершена
+echo OK: Cleaned
 echo.
 
-REM ============================================================================
-REM Сборка
-REM ============================================================================
+REM ================================================================
+REM [3/5] Build application
+REM ================================================================
 
-echo [3/5] Сборка приложения...
+echo [3/5] Building application...
 echo.
 
-echo    - Сборка Signer.exe...
+echo    Building Signer.exe...
 pyinstaller signer.spec --noconfirm
 if errorlevel 1 (
-    echo ❌ Ошибка сборки Signer.exe
+    echo ERROR: Failed to build Signer.exe
     pause
     exit /b 1
 )
 
-echo    - Сборка Updater.exe...
+echo    Building Updater.exe...
 pyinstaller updater.spec --noconfirm
 if errorlevel 1 (
-    echo ❌ Ошибка сборки Updater.exe
+    echo ERROR: Failed to build Updater.exe
     pause
     exit /b 1
 )
 
-echo    - Копирование файлов...
-copy /Y "dist\Updater\Updater.exe" "dist\Signer\Updater.exe" >nul
+echo    Copying files...
+
+REM Check if files exist before copying
+if not exist "dist\Signer\Signer.exe" (
+    echo ERROR: Signer.exe not found in dist\Signer\
+    pause
+    exit /b 1
+)
+
+REM Check both possible locations for Updater.exe
+if exist "dist\Updater.exe" (
+    set UPDATER_PATH=dist\Updater.exe
+) else if exist "dist\Updater\Updater.exe" (
+    set UPDATER_PATH=dist\Updater\Updater.exe
+) else (
+    echo ERROR: Updater.exe not found
+    pause
+    exit /b 1
+)
+
+copy /Y "%UPDATER_PATH%" "dist\Signer\Updater.exe" >nul
+if errorlevel 1 (
+    echo ERROR: Failed to copy Updater.exe
+    pause
+    exit /b 1
+)
+
 copy /Y "installer\7z.exe" "dist\Signer\7z.exe" >nul
 copy /Y "installer\7z.dll" "dist\Signer\7z.dll" >nul
 copy /Y "version.json" "dist\Signer\version.json" >nul
 
-echo ✅ Сборка завершена
+echo    Files copied successfully
+echo OK: Build completed
 echo.
 
-REM ============================================================================
-REM Создание архива
-REM ============================================================================
+REM ================================================================
+REM [4/5] Create archive
+REM ================================================================
 
-echo [4/5] Создание архива...
+echo [4/5] Creating archive...
 echo.
 
 mkdir release 2>nul
 cd dist
 
-REM Удаляем старые архивы
+REM Remove old archives
 del /q Signer.7z.* 2>nul
 
-REM Создаём многотомный архив (100MB части)
-..\installer\7z.exe a -v100m -mx=5 Signer.7z Signer\* -xr!*.pyc -xr!__pycache__
+REM Create multi-volume archive (100MB parts)
+..\installer\7z.exe a -v100m -mx=5 Signer.7z Signer\
 if errorlevel 1 (
-    echo ❌ Ошибка создания архива
+    echo ERROR: Failed to create archive
     cd ..
     pause
     exit /b 1
 )
 
-echo ✅ Архив создан
+echo OK: Archive created
 echo.
 
-REM ============================================================================
-REM Вычисление чексумм
-REM ============================================================================
+REM ================================================================
+REM [5/5] Calculate checksums
+REM ================================================================
 
-echo [5/5] Вычисление SHA-256 чексумм...
+echo [5/5] Calculating SHA-256 checksums...
 echo.
 
-del /q checksum.sha256 2>nul
+powershell -Command "Get-ChildItem 'Signer.7z.*' | ForEach-Object { $hash = (Get-FileHash $_.FullName -Algorithm SHA256).Hash; \"$hash  $($_.Name)\" } | Out-File -Encoding utf8 'checksum.sha256'"
 
-for %%f in (Signer.7z.*) do (
-    echo    %%f...
-    for /f "skip=1 tokens=*" %%h in ('certutil -hashfile "%%f" SHA256') do (
-        if not "%%h"=="" (
-            if not "%%h"=="CertUtil: -hashfile команда успешно выполнена." (
-                echo %%h  %%f >> checksum.sha256
-                goto :next_file
-            )
-        )
-    )
-    :next_file
+if errorlevel 1 (
+    echo ERROR: Failed to calculate checksums
+    cd ..
+    pause
+    exit /b 1
 )
 
-echo ✅ Чексуммы вычислены
+echo OK: Checksums calculated
 echo.
 
-REM ============================================================================
-REM Подготовка release/
-REM ============================================================================
+REM ================================================================
+REM Prepare release/ folder
+REM ================================================================
 
-echo Перемещение файлов в release\...
+echo Moving files to release\...
 move /Y Signer.7z.* ..\release\ >nul
 move /Y checksum.sha256 ..\release\ >nul
 
 cd ..
 
-REM Копируем дополнительные файлы
+REM Copy additional files
 copy /Y "README.md" "release\README.md" >nul
-copy /Y "docs\BUILD_AUTOUPDATE.md" "release\BUILD_AUTOUPDATE.md" >nul
+if exist "docs\BUILD_AUTOUPDATE.md" copy /Y "docs\BUILD_AUTOUPDATE.md" "release\BUILD_AUTOUPDATE.md" >nul
 
-REM Создаём release notes если их нет
+REM Create release notes if not exists
 if not exist "docs\release_notes.txt" (
     echo Signer PRIME v%VERSION% > docs\release_notes.txt
     echo. >> docs\release_notes.txt
-    echo Изменения в этой версии: >> docs\release_notes.txt
-    echo - Оптимизирована структура проекта >> docs\release_notes.txt
-    echo - Упрощены скрипты сборки >> docs\release_notes.txt
+    echo Changes in this version: >> docs\release_notes.txt
+    echo - Optimized project structure >> docs\release_notes.txt
+    echo - Simplified build scripts >> docs\release_notes.txt
     echo. >> docs\release_notes.txt
-    echo Системные требования: >> docs\release_notes.txt
+    echo System requirements: >> docs\release_notes.txt
     echo - Windows 10/11 ^(64-bit^) >> docs\release_notes.txt
     echo - 8+ GB RAM >> docs\release_notes.txt
-    echo - 5+ GB свободного места на диске >> docs\release_notes.txt
+    echo - 5+ GB free disk space >> docs\release_notes.txt
 )
 copy /Y "docs\release_notes.txt" "release\release_notes.txt" >nul
 
-echo ✅ Файлы подготовлены
+echo OK: Files prepared
 echo.
 
-REM ============================================================================
-REM Финальная информация
-REM ============================================================================
+REM ================================================================
+REM Final summary
+REM ================================================================
 
-echo ════════════════════════════════════════════════════════════════
-echo   ✅ Релиз готов!
-echo ════════════════════════════════════════════════════════════════
+echo ================================================================
+echo   Release is ready!
+echo ================================================================
 echo.
-echo 📦 Версия: %VERSION%
-echo 📁 Файлы в: release\
+echo Version: %VERSION%
+echo Location: release\
 echo.
-echo Содержимое:
+echo Contents:
 dir /b release\
 echo.
-echo ════════════════════════════════════════════════════════════════
-echo   Следующие шаги:
-echo ════════════════════════════════════════════════════════════════
+echo ================================================================
+echo   Next steps:
+echo ================================================================
 echo.
-echo 1. Проверьте файлы в release\
+echo 1. Check files in release\
 echo.
-echo 2. Загрузите на GitHub:
+echo 2. Upload to GitHub:
 echo    .\scripts\build\upload_release.ps1
 echo.
-echo    Или вручную:
+echo    Or manually:
 echo    https://github.com/YOUR_REPO/releases/new
-echo    - Тег: v%VERSION%
-echo    - Загрузите ВСЕ файлы из release\
+echo    - Tag: v%VERSION%
+echo    - Upload ALL files from release\
 echo.
-echo ════════════════════════════════════════════════════════════════
+echo ================================================================
 echo.
 
 pause

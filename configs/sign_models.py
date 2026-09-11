@@ -319,7 +319,7 @@ class _LazyModel:
 def _p(rel: str):
     """Фабрика callable для resource_path."""
     def _get():
-        from utils import resource_path
+        from app.utils import resource_path
         return resource_path(rel)
     return _get
 
@@ -327,7 +327,7 @@ def _p(rel: str):
 def _p_onnx(rel: str):
     """Фабрика callable для ONNX-пути (замена .pt на .onnx)."""
     def _get():
-        from utils import resource_path
+        from app.utils import resource_path
         base = os.path.splitext(rel)[0]
         return resource_path(f"{base}.onnx")
     return _get
@@ -339,7 +339,7 @@ def _p_openvino(rel: str):
     Ultralytics принимает путь к ДИРЕКТОРИИ *_openvino_model, а не к .xml файлу внутри.
     """
     def _get():
-        from utils import resource_path
+        from app.utils import resource_path
         base = os.path.splitext(rel)[0]
         # Возвращаем путь к директории, а не к .xml файлу
         ov_dir = f"{base}_openvino_model"

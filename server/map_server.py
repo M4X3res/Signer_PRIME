@@ -544,6 +544,7 @@ def api_video_clip(video_idx: int):
     """
     import shutil
     import subprocess
+    import sys
     
     start = float(request.args.get('start', 0))
     duration = float(request.args.get('duration', 15))
@@ -629,12 +630,18 @@ def api_video_clip(video_idx: int):
         
         logger.info(f"[API /api/video_clip] Запуск ffmpeg: {' '.join(cmd)}")
         
-        result = subprocess.run(
-            cmd,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-            timeout=60  # таймаут 60 секунд
-        )
+        # Создаём параметры для subprocess
+        run_kwargs = {
+            'stdout': subprocess.PIPE,
+            'stderr': subprocess.PIPE,
+            'timeout': 60  # таймаут 60 секунд
+        }
+        
+        # На Windows скрываем окно консоли
+        if sys.platform == 'win32':
+            run_kwargs['creationflags'] = subprocess.CREATE_NO_WINDOW
+        
+        result = subprocess.run(cmd, **run_kwargs)
         
         if result.returncode != 0:
             stderr_output = result.stderr.decode('utf-8', errors='ignore')

@@ -124,7 +124,7 @@ def _ocr_city(crop: np.ndarray) -> str:
         
         # Загружаем список городов (TODO: кэшировать)
         try:
-            from utils import resource_path
+            from app.utils import resource_path
             cities_path = resource_path("static/cities_be.txt")
             with open(cities_path, encoding="utf-8") as f:
                 cities = [line.strip().lower() for line in f if line.strip()]

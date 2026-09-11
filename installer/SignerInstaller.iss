@@ -74,35 +74,17 @@ Name: "klite"; Description: "K-Lite Codec Pack (кодеки, ~60 МБ)"; Types:
 Source: "7z.exe"; DestDir: "{tmp}"; Flags: dontcopy
 Source: "7z.dll"; DestDir: "{tmp}"; Flags: dontcopy
 
-Source: "https://github.com/M4X3res/Signer_PRIME/releases/latest/download/Signer.7z.001"; \
-    DestDir: "{tmp}"; DestName: "Signer.7z.001"; \
-    ExternalSize: 1997159793; Flags: external download ignoreversion; \
-    Components: core
+Source: "https://github.com/M4X3res/Signer_PRIME/releases/latest/download/Signer.7z.001"; DestDir: "{tmp}"; DestName: "Signer.7z.001"; ExternalSize: 1997159793; Flags: external download ignoreversion; Components: core
 
-Source: "https://github.com/M4X3res/Signer_PRIME/releases/latest/download/Signer.7z.002"; \
-    DestDir: "{tmp}"; DestName: "Signer.7z.002"; \
-    ExternalSize: 1997159793; Flags: external download ignoreversion; \
-    Components: core
+Source: "https://github.com/M4X3res/Signer_PRIME/releases/latest/download/Signer.7z.002"; DestDir: "{tmp}"; DestName: "Signer.7z.002"; ExternalSize: 1997159793; Flags: external download ignoreversion; Components: core
 
-Source: "https://github.com/M4X3res/Signer_PRIME/releases/latest/download/Signer.7z.003"; \
-    DestDir: "{tmp}"; DestName: "Signer.7z.003"; \
-    ExternalSize: 38587596; Flags: external download ignoreversion; \
-    Components: core
+Source: "https://github.com/M4X3res/Signer_PRIME/releases/latest/download/Signer.7z.003"; DestDir: "{tmp}"; DestName: "Signer.7z.003"; ExternalSize: 38587596; Flags: external download ignoreversion; Components: core
 
-Source: "https://developer.download.nvidia.com/compute/cuda/12.6.0/network_installers/cuda_12.6.0_windows_network.exe"; \
-    DestDir: "{tmp}"; DestName: "cuda.exe"; \
-    ExternalSize: 3200000; Flags: external download ignoreversion; \
-    Components: cuda
+Source: "https://developer.download.nvidia.com/compute/cuda/12.6.0/network_installers/cuda_12.6.0_windows_network.exe"; DestDir: "{tmp}"; DestName: "cuda.exe"; ExternalSize: 3200000; Flags: external download ignoreversion; Components: cuda
 
-Source: "https://github.com/BtbN/FFmpeg-Builds/releases/latest/download/ffmpeg-master-latest-win64-gpl.zip"; \
-    DestDir: "{tmp}"; DestName: "ffmpeg.zip"; \
-    ExternalSize: 115000000; Flags: external download ignoreversion; \
-    Components: ffmpeg
+Source: "https://github.com/BtbN/FFmpeg-Builds/releases/latest/download/ffmpeg-master-latest-win64-gpl.zip"; DestDir: "{tmp}"; DestName: "ffmpeg.zip"; ExternalSize: 115000000; Flags: external download ignoreversion; Components: ffmpeg
 
-Source: "https://files2.codecguide.com/K-Lite_Codec_Pack_Standard.exe"; \
-    DestDir: "{tmp}"; DestName: "klite.exe"; \
-    ExternalSize: 60000000; Flags: external download ignoreversion; \
-    Components: klite
+Source: "https://files2.codecguide.com/K-Lite_Codec_Pack_1995_Standard.exe"; DestDir: "{tmp}"; DestName: "klite.exe"; ExternalSize: 60000000; Flags: external download ignoreversion; Components: klite
 
 [Icons]
 Name: "{group}\Signer"; Filename: "{app}\Signer.exe"
@@ -114,9 +96,7 @@ Type: filesandordirs; Name: "{tmp}\Signer_extract"
 Type: files; Name: "{app}\*.log"
 
 [Run]
-Filename: "{app}\Signer.exe"; \
-Description: "Запустить Signer сейчас"; \
-Flags: postinstall nowait skipifsilent
+Filename: "{app}\Signer.exe"; Description: "Запустить Signer сейчас"; Flags: postinstall nowait skipifsilent
 
 [Code]
 const

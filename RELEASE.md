@@ -1,180 +1,196 @@
-# 🚀 Быстрое руководство по релизу
+# Процесс релиза Signer PRIME
 
-## Два простых скрипта
+## Подготовка релиза
 
-### 1️⃣ Подготовка релиза
+### 1. Обновите версию
 
-```cmd
+Отредактируйте `version.json`:
+```json
+{
+  "version": "1.0.5"
+}
+```
+
+### 2. Подготовьте release notes
+
+Создайте/обновите `docs/release_notes.txt`:
+```
+Signer PRIME v1.0.5
+
+Новые возможности:
+- Добавлена функция X
+- Улучшена производительность Y
+
+Исправления:
+- Исправлена ошибка Z
+
+Системные требования:
+- Windows 10/11 (64-bit)
+- 8+ GB RAM
+- 5+ GB свободного места на диске
+```
+
+### 3. Запустите сборку
+
+```bash
 scripts\build\prepare_release.bat
 ```
 
-**Что делает:**
-- ✅ Проверяет зависимости (Python, PyInstaller, 7-Zip)
-- ✅ Очищает старые сборки
-- ✅ Собирает Signer.exe и Updater.exe
-- ✅ Создаёт многотомный архив (100MB части)
-- ✅ Вычисляет SHA-256 чексуммы
-- ✅ Готовит все файлы в папке `release\`
+**Скрипт автоматически:**
+- Проверит зависимости (Python, PyInstaller, 7z)
+- Очистит старые сборки
+- Соберёт `Signer.exe` и `Updater.exe`
+- Создаст многотомный архив (части по 100MB)
+- Вычислит SHA-256 чексуммы
+- Подготовит файлы в папке `release/`
 
-**Результат:** папка `release\` со всеми файлами для GitHub Release
+**Результат:**
+```
+release/
+├── Signer.7z.001      # Часть 1 архива
+├── Signer.7z.002      # Часть 2 архива
+├── Signer.7z.003      # ...
+├── checksum.sha256    # Чексуммы всех частей
+├── release_notes.txt  # Описание релиза
+├── README.md          # Общая документация
+└── BUILD_AUTOUPDATE.md # Документация по автообновлению
+```
+
+### 4. Проверьте сборку
+
+1. Убедитесь, что все файлы созданы в `release/`
+2. Проверьте размеры архивов (части по ~100MB)
+3. Просмотрите `release_notes.txt`
 
 ---
 
-### 2️⃣ Загрузка на GitHub (опционально)
+## Публикация релиза на GitHub
+
+### Автоматическая загрузка (рекомендуется)
 
 ```powershell
 .\scripts\build\upload_release.ps1
 ```
 
-**Что делает:**
-- ✅ Создаёт GitHub Release
-- ✅ Загружает все файлы из `release\`
-- ✅ Открывает страницу релиза
+**Требования:**
+- [GitHub CLI](https://cli.github.com/) установлен
+- Авторизация: `gh auth login`
 
-**Требования:** [GitHub CLI](https://cli.github.com/) + авторизация (`gh auth login`)
+**Скрипт автоматически:**
+- Определит версию из `version.json`
+- Найдёт репозиторий из git remote
+- Создаст релиз с тегом `v1.0.5`
+- Загрузит все файлы из `release/`
+- Откроет страницу релиза в браузере
 
----
-
-## Быстрый workflow
-
-### Перед релизом
-
-1. **Обновите версию** в `version.json`:
-   ```json
-   {
-     "version": "2.0.1",
-     "build_date": "2026-09-11"
-   }
-   ```
-
-2. **Обновите release notes** в `docs\release_notes.txt`:
-   ```
-   Signer PRIME v2.0.1
-   
-   Изменения:
-   - Исправлен баг X
-   - Добавлена функция Y
-   ```
-
-### Создание релиза
-
-```cmd
-# 1. Подготовка
-scripts\build\prepare_release.bat
-
-# 2. Проверьте файлы в release\
-
-# 3. Загрузите на GitHub (автоматически)
-powershell -ExecutionPolicy Bypass -File scripts\build\upload_release.ps1
-
-# Или вручную:
-# - Откройте https://github.com/YOUR_REPO/releases/new
-# - Тег: v2.0.1
-# - Загрузите ВСЕ файлы из release\
-```
-
----
-
-## Требования
-
-### Первоначальная настройка
-
-1. **Python + PyInstaller:**
-   ```cmd
-   pip install -r requirements.txt
-   pip install pyinstaller
-   ```
-
-2. **7-Zip:**
-   ```cmd
-   # Скопируйте 7z.exe и 7z.dll в installer\
-   copy "C:\Program Files\7-Zip\7z.*" installer\
-   ```
-   Или скачайте: https://www.7-zip.org/
-
-3. **GitHub CLI** (только для автозагрузки):
-   ```cmd
-   winget install --id GitHub.cli
-   gh auth login
-   ```
-
----
-
-## Структура release\
-
-После выполнения `prepare_release.bat`:
-
-```
-release\
-├── Signer.7z.001           ← Часть 1 (100MB)
-├── Signer.7z.002           ← Часть 2 (100MB)
-├── Signer.7z.003           ← Часть 3 (остаток)
-├── ...
-├── checksum.sha256         ← SHA-256 всех частей
-├── release_notes.txt       ← Описание релиза
-├── README.md               ← Документация
-└── BUILD_AUTOUPDATE.md     ← Инструкции автообновления
-```
-
-**Все эти файлы** нужно загрузить на GitHub Release.
-
----
-
-## Опции upload_release.ps1
-
+**Опции:**
 ```powershell
-# Создать как черновик
+# Создать черновик
 .\scripts\build\upload_release.ps1 -Draft
 
-# Создать как пре-релиз
+# Пре-релиз
 .\scripts\build\upload_release.ps1 -PreRelease
 
 # Указать версию вручную
-.\scripts\build\upload_release.ps1 -Version "2.0.1"
+.\scripts\build\upload_release.ps1 -Version "1.0.5"
 ```
 
 ---
 
-## Checklist
+### Ручная загрузка
 
-Перед запуском `prepare_release.bat`:
-- [ ] Версия обновлена в `version.json`
-- [ ] Release notes актуализированы
-- [ ] Все изменения закоммичены
-- [ ] Код протестирован
+Если автоматический скрипт не работает, загрузите вручную:
 
-После `prepare_release.bat`:
-- [ ] Проверены файлы в `release\`
-- [ ] Релиз загружен на GitHub (вручную или через скрипт)
-- [ ] Автообновление протестировано
+1. **Откройте:** https://github.com/YOUR_USERNAME/YOUR_REPO/releases/new
+
+2. **Заполните:**
+   - Tag: `v1.0.5`
+   - Release title: `Signer PRIME v1.0.5`
+   - Description: содержимое из `release/release_notes.txt`
+
+3. **Загрузите ВСЕ файлы** из папки `release/`:
+   - `Signer.7z.001`, `Signer.7z.002`, `Signer.7z.003`, ...
+   - `checksum.sha256`
+   - `release_notes.txt`
+   - `README.md`
+   - `BUILD_AUTOUPDATE.md`
+
+4. **Опубликуйте** релиз
+
+---
+
+## Проверка после публикации
+
+1. **Откройте страницу релиза** и убедитесь, что все файлы загружены
+2. **Скачайте архивы** и проверьте чексуммы:
+   ```powershell
+   certutil -hashfile Signer.7z.001 SHA256
+   ```
+   Сравните с `checksum.sha256`
+
+3. **Распакуйте архив:**
+   ```bash
+   # Все части должны быть в одной папке
+   7z x Signer.7z.001
+   ```
+
+4. **Запустите `Signer.exe`** и проверьте работу автообновления:
+   - Откройте Settings → Check for updates
+   - Должна появиться информация о новой версии
 
 ---
 
 ## Устранение проблем
 
 ### PyInstaller не найден
-```cmd
+```bash
 pip install pyinstaller
 ```
 
-### 7-Zip не найден
-```cmd
-copy "C:\Program Files\7-Zip\7z.*" installer\
-```
+### 7z.exe не найден
+1. Скачайте 7-Zip: https://www.7-zip.org/download.html
+2. Скопируйте `7z.exe` и `7z.dll` в `installer/`
 
 ### GitHub CLI не авторизован
-```cmd
+```bash
 gh auth login
 ```
 
-### Очистка перед повторной сборкой
-```cmd
-rmdir /s /q build dist release
-scripts\build\prepare_release.bat
+### Релиз уже существует
+Скрипт предложит удалить существующий релиз. Или удалите вручную:
+```bash
+gh release delete v1.0.5 --yes
 ```
+
+### Ошибка загрузки файлов
+Проверьте права доступа к репозиторию и размер файлов (GitHub ограничивает до 2GB на файл).
 
 ---
 
-## Дополнительно
+## Контрольный чек-лист
 
-Полная документация: [docs/](../docs/)
+- [ ] Обновлена версия в `version.json`
+- [ ] Подготовлены release notes в `docs/release_notes.txt`
+- [ ] Запущен `prepare_release.bat`
+- [ ] Проверены файлы в `release/`
+- [ ] Релиз опубликован на GitHub (автоматически или вручную)
+- [ ] Скачаны и проверены архивы
+- [ ] Протестирована распаковка
+- [ ] Проверена работа автообновления
+
+---
+
+## Дополнительная информация
+
+### Структура проекта
+- `version.json` — версия приложения
+- `docs/release_notes.txt` — описание изменений
+- `scripts/build/prepare_release.bat` — сборка релиза
+- `scripts/build/upload_release.ps1` — загрузка на GitHub
+- `signer.spec`, `updater.spec` — конфигурация PyInstaller
+
+### Система автообновлений
+Подробнее: [docs/BUILD_AUTOUPDATE.md](docs/BUILD_AUTOUPDATE.md)
+
+### Архивные скрипты
+Старые скрипты разработки находятся в `scripts/archive/`
