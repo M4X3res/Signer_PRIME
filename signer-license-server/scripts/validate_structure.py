@@ -27,10 +27,13 @@ EXPECTED_FILES = {
     "tests/test_race_condition.py": "Тест #9 (SELECT FOR UPDATE)",
     "tests/test_stripe_webhook.py": "Тест #10 (signature verification)",
     "tests/test_admin_api.py": "Admin API тесты",
+    "tests/test_crypto.py": "Юнит-тесты криптографии",
+    "tests/test_license_service.py": "Юнит-тесты LicenseService",
     "scripts/deploy_gcloud.sh": "GCP деплой (идемпотентный)",
     "scripts/create_license_manual.py": "CLI создание лицензий",
     "scripts/generate_ed25519_keys.py": "Генератор ключей",
     "scripts/local_dev_up.sh": "Dev startup",
+    "scripts/validate_structure.py": "Валидация структуры",
     "docker/Dockerfile": "Multi-stage build",
     "docker/.dockerignore": "Исключение секретов",
     "docker-compose.dev.yml": "Dev окружение",
@@ -39,6 +42,7 @@ EXPECTED_FILES = {
     ".env.example": "Шаблон переменных",
     "README.md": "Полная документация",
     "STATUS.md": "Критерии приёмки",
+    "CLIENT_INTEGRATION.md": "Инструкции интеграции с клиентом",
 }
 
 # Файлы, которые должны быть УДАЛЕНЫ
@@ -50,6 +54,11 @@ DELETED_FILES = [
     "IMPLEMENTATION_REPORT.md",
     "IMPLEMENTATION_STATUS.md",
     "QUICKSTART.md",
+    "COMPLETION_SUMMARY.md",
+    "EXECUTION_COMPLETE.md",
+    "CHANGELOG.md",
+    "PRE_DEPLOYMENT_CHECKLIST.md",
+    "ARCHITECTURE.md",
 ]
 
 def main():

@@ -27,6 +27,9 @@ class Settings(BaseSettings):
     stripe_secret_key: str = ""
     stripe_webhook_secret: str = ""
     
+    # CORS
+    cors_allowed_origins: str = "*"
+    
     # Server
     port: int = 8080
     host: str = "0.0.0.0"

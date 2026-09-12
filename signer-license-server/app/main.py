@@ -88,9 +88,16 @@ app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
 # CORS middleware
+settings = get_settings()
+allowed_origins = [origin.strip() for origin in settings.cors_allowed_origins.split(",")]
+
+if "*" in allowed_origins:
+    logger.warning("⚠️  CORS configured with wildcard (*) - not recommended for production")
+    logger.warning("⚠️  Set CORS_ALLOWED_ORIGINS environment variable with specific domains")
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # В проде ограничьте конкретными доменами
+    allow_origins=allowed_origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

@@ -111,3 +111,29 @@ def test_refresh_invalid_token(client: TestClient):
     assert response.status_code == 401
     data = response.json()
     assert data["error_code"] == "INVALID_TOKEN"
+
+
+def test_rate_limiting_refresh(client: TestClient, test_license: License):
+    """Тест rate limiting на /refresh (лимит 20/minute)."""
+    # Активируем устройство
+    activate_response = client.post("/api/license/activate", json={
+        "license_key": test_license.license_key,
+        "fingerprint_hash": "e" * 64,
+        "device_label": "Test Device",
+        "app_version": "1.0.0"
+    })
+    assert activate_response.status_code == 200
+    token = activate_response.json()["token"]
+    
+    # Делаем 21 запрос (лимит 20/minute)
+    for i in range(21):
+        response = client.post("/api/license/refresh", json={
+            "token": token,
+            "fingerprint_hash": "e" * 64
+        })
+        
+        if i < 20:
+            assert response.status_code == 200, f"Request {i} failed unexpectedly"
+        else:
+            # 21-й запрос должен получить 429
+            assert response.status_code == 429, "Rate limit not enforced"
