@@ -194,6 +194,44 @@ def main():
         # (_load_saved_theme()) — здесь нужно её ПРИМЕНИТЬ, а не перезаписать.
         theme_manager.apply(app)
 
+        # ════════════════════════════════════════════════════════════════
+        # Проверка лицензии (ПЕРЕД созданием главного окна)
+        # ════════════════════════════════════════════════════════════════
+        logger.info("Проверка лицензии...")
+        from licensing.license_manager import LicenseManager, LicenseStatus
+        
+        license_manager = LicenseManager()
+        license_status = license_manager.check_local_status()
+        
+        logger.info(f"Статус лицензии: {license_status.value}")
+        
+        # Если лицензия не активна или истекла - показываем диалог
+        if license_status not in (LicenseStatus.VALID, LicenseStatus.GRACE_PERIOD):
+            from ui.widgets.license_dialog import LicenseDialog
+            
+            logger.info("Требуется активация лицензии, показываем диалог...")
+            license_dialog = LicenseDialog(license_manager)
+            
+            if license_dialog.exec() != LicenseDialog.DialogCode.Accepted:
+                logger.info("Пользователь отменил активацию лицензии, выход...")
+                return  # Выходим из приложения
+            
+            # После успешной активации - обновляем статус
+            license_status = license_manager.check_local_status()
+            logger.info(f"Лицензия активирована, статус: {license_status.value}")
+        
+        # Если статус GRACE_PERIOD - запускаем фоновое обновление токена
+        if license_status == LicenseStatus.GRACE_PERIOD:
+            logger.info("Лицензия в grace period, запускаем фоновое обновление...")
+            
+            def _on_refresh_done(success: bool):
+                if success:
+                    logger.info("Лицензия успешно обновлена в фоне")
+                else:
+                    logger.warning("Не удалось обновить лицензию в фоне")
+            
+            license_manager.refresh_async(_on_refresh_done)
+        
         logger.info("Создание главного окна...")
         window = MainWindow()
         window.show()

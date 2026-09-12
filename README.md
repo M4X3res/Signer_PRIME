@@ -42,6 +42,16 @@ scripts\build\prepare_release.bat
 
 Подробная документация находится в директории `docs/`.
 
+### Система лицензирования
+
+Приложение использует систему подписок (месяц / 3 месяца / год).
+
+- **Быстрый старт:** [QUICKSTART_LICENSING.md](QUICKSTART_LICENSING.md)
+- **Документация клиента:** [docs/LICENSING.md](docs/LICENSING.md)
+- **Документация сервера:** [docs/LICENSE_SERVER.md](docs/LICENSE_SERVER.md)
+
+Для разработки без сервера установите `LICENSE_MOCK_MODE = True` в `licensing/license_client.py`.
+
 ## Структура проекта
 
 ### Основные файлы
@@ -52,6 +62,7 @@ scripts\build\prepare_release.bat
 ### Пакеты
 - `app/` — утилиты и версионирование
 - `updater/` — система автообновлений
+- `licensing/` — система лицензирования по подписке
 - `core/` — ядро системы: детекторы, обработчики знаков, GPS
 - `configs/` — конфигурация моделей и настройки
 - `processing/` — потоки обработки видео, OCR, детекция

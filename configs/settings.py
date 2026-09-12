@@ -102,6 +102,11 @@ class AppSettings:
     update_channel: Literal["stable", "beta"] = "stable"
     last_update_check_ts: float = 0.0  # timestamp последней проверки
     
+    # ── Лицензирование ────────────────────────────────────────────
+    license_refresh_interval_days: int = 3   # Интервал обновления токена
+    license_grace_period_days: int = 10      # Grace period без онлайн-проверки
+    license_server_url: str = "https://license.signer-prime.com"  # URL сервера лицензий
+    
     @classmethod
     def load(cls) -> "AppSettings":
         """Загрузить настройки из QSettings."""
