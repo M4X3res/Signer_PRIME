@@ -1,0 +1,100 @@
+version: '3.8'
+
+services:
+  # ════════════════════════════════════════════════════════════════
+  # PostgreSQL 16 - база данных
+  # ════════════════════════════════════════════════════════════════
+  postgres:
+    image: postgres:16-alpine
+    container_name: signer-license-db
+    environment:
+      POSTGRES_USER: signer_app
+      POSTGRES_PASSWORD: dev_password_change_in_prod
+      POSTGRES_DB: signer_license
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U signer_app -d signer_license"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - signer-network
+
+  # ════════════════════════════════════════════════════════════════
+  # Adminer - веб-интерфейс для PostgreSQL (опционально)
+  # ════════════════════════════════════════════════════════════════
+  adminer:
+    image: adminer:latest
+    container_name: signer-license-adminer
+    ports:
+      - "8081:8080"
+    depends_on:
+      - postgres
+    networks:
+      - signer-network
+    environment:
+      ADMINER_DEFAULT_SERVER: postgres
+
+  # ════════════════════════════════════════════════════════════════
+  # License Server - FastAPI приложение
+  # ════════════════════════════════════════════════════════════════
+  app:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+    container_name: signer-license-server
+    ports:
+      - "8000:8080"
+    environment:
+      # Database
+      DATABASE_URL: postgresql+psycopg://signer_app:dev_password_change_in_prod@postgres:5432/signer_license
+      
+      # Ed25519 (для локальной разработки используйте тестовый ключ)
+      ED25519_PRIVATE_KEY_PEM: |
+        -----BEGIN PRIVATE KEY-----
+        MC4CAQAwBQYDK2VwBCIEIDevKeyForLocalDevelopmentOnly123456789012345=
+        -----END PRIVATE KEY-----
+      
+      # Admin API
+      ADMIN_API_KEY: dev_admin_key_change_in_prod
+      
+      # Stripe (test mode)
+      STRIPE_SECRET_KEY: sk_test_placeholder
+      STRIPE_WEBHOOK_SECRET: whsec_placeholder
+      
+      # Logging
+      LOG_LEVEL: DEBUG
+    
+    depends_on:
+      postgres:
+        condition: service_healthy
+    
+    networks:
+      - signer-network
+    
+    # Применение миграций при старте
+    command: >
+      sh -c "
+        echo 'Waiting for PostgreSQL...' &&
+        sleep 2 &&
+        echo 'Running migrations...' &&
+        alembic upgrade head &&
+        echo 'Starting server...' &&
+        uvicorn app.main:app --host 0.0.0.0 --port 8080 --reload
+      "
+    
+    volumes:
+      # Mount для live reload в разработке
+      - ../app:/app/app
+      - ../migrations:/app/migrations
+
+volumes:
+  postgres_data:
+    driver: local
+
+networks:
+  signer-network:
+    driver: bridge

@@ -1,0 +1,11 @@
+# Test dependencies для signer-license-server
+
+# Main dependencies (должны быть установлены из основного requirements.txt)
+-r ../requirements.txt
+
+# Testing
+pytest>=7.4.3
+pytest-asyncio>=0.21.1
+httpx>=0.25.2
+testcontainers[postgres]>=3.7.1
+requests>=2.31.0

@@ -3,8 +3,10 @@ app/routes/license.py
 Production эндпоинты для управления лицензиями.
 """
 import logging
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy.orm import Session
+from slowapi import Limiter
+from slowapi.util import get_remote_address
 
 from app.db import get_db
 from app.schemas import (
@@ -16,14 +18,18 @@ from app.services.license_service import LicenseService
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/license", tags=["license"])
+limiter = Limiter(key_func=get_remote_address)
 
 
 @router.post("/activate", response_model=LicenseResponse, responses={
     404: {"model": ErrorResponse},
     403: {"model": ErrorResponse},
-    409: {"model": ErrorResponse}
+    409: {"model": ErrorResponse},
+    429: {"description": "Too Many Requests"}
 })
+@limiter.limit("10/minute")
 async def activate_license(
+    request: Request,
     req: ActivateRequest,
     db: Session = Depends(get_db)
 ):
@@ -52,9 +58,12 @@ async def activate_license(
 
 @router.post("/refresh", response_model=LicenseResponse, responses={
     401: {"model": ErrorResponse},
-    403: {"model": ErrorResponse}
+    403: {"model": ErrorResponse},
+    429: {"description": "Too Many Requests"}
 })
+@limiter.limit("20/minute")
 async def refresh_license(
+    request: Request,
     req: RefreshRequest,
     db: Session = Depends(get_db)
 ):

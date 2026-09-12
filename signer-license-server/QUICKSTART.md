@@ -1,156 +1,211 @@
-# Быстрый старт License Server
+# 🚀 Quick Start Guide
 
-## Минимальный MVP сервер для тестирования клиента
+**Signer PRIME License Server — из коробки до production за 15 минут**
 
-Этот сервер использует mock-данные в памяти и подходит ТОЛЬКО для разработки/тестирования клиента.
+---
 
-### 1. Установка зависимостей
+## Вариант 1: Локальная разработка (5 минут)
 
 ```bash
 cd signer-license-server
-pip install fastapi uvicorn[standard]
+
+# 1. Запустить всё (Postgres + API + Adminer)
+docker-compose -f docker-compose.dev.yml up
+
+# 2. Открыть в браузере
+# - API Docs: http://localhost:8000/docs
+# - Adminer: http://localhost:8081 (user: signer_app, password: dev_password_change_in_prod)
+
+# 3. Создать тестовую лицензию
+python scripts/create_license_manual.py \
+  --plan monthly \
+  --days 30 \
+  --devices 2
+
+# 4. Скопировать лицензионный ключ (SGNR-XXXX-XXXX-XXXX-XXXX)
+# Готово! Используйте ключ в приложении Signer PRIME
 ```
 
-### 2. Запуск сервера
+---
+
+## Вариант 2: Production на Google Cloud (15 минут)
+
+### Предварительные требования
+- Google Cloud Project с включённым billing
+- gcloud CLI установлен и настроен
+
+### Шаги
 
 ```bash
-# Из папки signer-license-server
-uvicorn app.main:app --reload --port 8000
+cd signer-license-server
+
+# 1. Сгенерировать Ed25519 ключи
+python scripts/generate_ed25519_keys.py
+
+# Сохраните вывод:
+# - Приватный ключ → скопировать в файл private_key.pem
+# - Публичный ключ → понадобится для клиента позже
+
+# 2. Настроить переменные окружения
+export PROJECT_ID=your-gcp-project-id
+export REGION=us-central1
+export ADMIN_API_KEY=$(openssl rand -hex 32)
+export ED25519_PRIVATE_KEY_PATH=./private_key.pem
+
+# Опционально (для Stripe):
+# export STRIPE_SECRET_KEY=sk_live_...
+# export STRIPE_WEBHOOK_SECRET=whsec_...
+
+# 3. Проверить окружение
+bash scripts/check_env.sh
+
+# 4. Деплой (идемпотентен, можно запускать повторно)
+bash scripts/deploy_gcloud.sh
+
+# Ждите ~10 минут. Скрипт создаст:
+# - Cloud SQL Postgres 16
+# - Artifact Registry
+# - Secret Manager секреты
+# - Cloud Run сервис
+# - Применит миграции БД
+
+# 5. Получить URL сервиса
+gcloud run services describe signer-license-server \
+  --region=$REGION \
+  --format="value(status.url)"
+
+# 6. Проверить работоспособность
+curl https://YOUR_SERVICE_URL/health
+
+# 7. Создать первую лицензию
+python scripts/create_license_manual.py \
+  --server-url https://YOUR_SERVICE_URL \
+  --admin-key $ADMIN_API_KEY \
+  --plan monthly \
+  --days 30
+
+# Готово! Сервис запущен на production
 ```
 
-Или напрямую:
+---
+
+## Вариант 3: Интеграция с клиентом (5 минут)
+
+После деплоя обновите клиентский код:
 
 ```bash
-python app/main.py
+# 1. Открыть файл licensing/public_key.py
+# 2. Вставить публичный ключ из шага 1 (вывод generate_ed25519_keys.py)
+
+LICENSE_PUBLIC_KEY_PEM = """-----BEGIN PUBLIC KEY-----
+<ВСТАВЬТЕ ВАШ ПУБЛИЧНЫЙ КЛЮЧ>
+-----END PUBLIC KEY-----
+"""
+
+# 3. Обновить configs/settings.py
+license_server_url: str = "https://YOUR_SERVICE_URL"
+
+# 4. Выключить mock mode в licensing/license_client.py
+LICENSE_MOCK_MODE = False  # Было True
+
+# 5. Запустить Signer PRIME и активировать с ключом из шага 7 выше
 ```
 
-Сервер запустится на `http://localhost:8000`
+---
 
-### 3. Проверка работы
+## Troubleshooting (1 минута на проблему)
 
-Откройте в браузере:
-- API Docs: http://localhost:8000/docs
-- Health: http://localhost:8000/health
-
-### 4. Интеграция с клиентом
-
-#### В клиенте Signer PRIME обновите `configs/settings.py`:
-
-```python
-license_server_url: str = "http://localhost:8000"
+### Проблема: docker-compose не запускается
+```bash
+docker-compose -f docker-compose.dev.yml down -v  # Удалить volumes
+docker-compose -f docker-compose.dev.yml up       # Запустить заново
 ```
 
-#### Отключите мок-режим в `licensing/license_client.py`:
-
-```python
-LICENSE_MOCK_MODE = False
+### Проблема: pytest падает
+```bash
+pip install -r requirements.txt -r tests/requirements.txt
+# Убедитесь, что Docker запущен (testcontainers требует Docker)
 ```
 
-### 5. Тестирование
+### Проблема: deploy_gcloud.sh падает
+```bash
+# Проверить, что вы залогинены
+gcloud auth list
 
-1. Запустите клиент: `python main.py`
-2. Появится диалог активации
-3. Введите любой ключ в формате `SGNR-TEST-LOCAL-SERV-MVP1`
-4. Нажмите "Активировать"
-5. Сервер автоматически создаст mock-лицензию и выдаст токен
-6. Клиент запустится!
+# Проверить billing
+gcloud beta billing projects describe $PROJECT_ID
 
-### Особенности MVP сервера
+# Проверить квоты (Cloud SQL, Cloud Run)
+```
 
-✅ **Работает:**
-- Активация лицензии
-- Обновление токена (refresh)
-- Деактивация устройства
-- Лимит устройств (2 по умолчанию)
-- Переактивация того же устройства
+### Проблема: "Failed to verify token signature" в клиенте
+```bash
+# Убедитесь, что публичный ключ в licensing/public_key.py
+# соответствует приватному ключу на сервере
 
-⚠️ **НЕ реализовано (для продакшна):**
-- Настоящие Ed25519 подписи (используется mock-подпись)
-- База данных (данные в памяти, теряются при рестарте)
-- Secret Manager
-- Cloud SQL
-- Stripe интеграция
-- Rate limiting
-- Серьёзная валидация
+# Перегенерируйте ключи и обновите оба:
+python scripts/generate_ed25519_keys.py
+# → Приватный на сервер (через deploy)
+# → Публичный в licensing/public_key.py
+```
 
-### Для продакшна
+---
 
-Реализуйте полный стек согласно `prompts/PROMPT_LICENSE_SERVER_CLOUD_RUN.md`:
-
-1. PostgreSQL + SQLAlchemy + Alembic
-2. Настоящие Ed25519 ключи
-3. Cloud SQL + Secret Manager
-4. Cloud Run деплой
-5. Stripe webhooks
-6. Тесты (pytest)
-7. Rate limiting
-8. Логирование и мониторинг
-
-Или наймите backend-разработчика (оценка: $500-1500, 30-40 часов работы).
-
-## Troubleshooting
-
-### Ошибка "ModuleNotFoundError: No module named 'fastapi'"
+## Полезные команды
 
 ```bash
-pip install fastapi uvicorn[standard]
+# Логи Cloud Run
+gcloud run services logs read signer-license-server --region=$REGION --limit=50
+
+# Перезапуск Cloud Run (применить новые секреты)
+gcloud run services update signer-license-server --region=$REGION
+
+# Ручной тест API
+python scripts/test_api.py --url https://YOUR_URL --admin-key $ADMIN_API_KEY
+
+# Подключиться к Cloud SQL напрямую
+gcloud sql connect signer-license-db --user=signer_app --database=signer_license
+
+# Просмотр лицензий в БД
+SELECT license_key, plan, status, max_devices FROM licenses;
+
+# Просмотр активных устройств
+SELECT d.device_label, l.license_key 
+FROM devices d 
+JOIN licenses l ON d.license_id = l.id 
+WHERE d.deactivated_at IS NULL;
 ```
 
-### Порт 8000 занят
+---
 
-Измените порт:
-```bash
-uvicorn app.main:app --port 8001
-```
+## Документация
 
-И обновите в клиенте:
-```python
-license_server_url: str = "http://localhost:8001"
-```
+- 📖 **README.md** — полная документация
+- 🏗️ **ARCHITECTURE.md** — диаграммы и дизайн
+- ✅ **STATUS.md** — критерии готовности
+- 🔗 **CLIENT_INTEGRATION.md** — интеграция с клиентом
+- ✅ **PRE_DEPLOYMENT_CHECKLIST.md** — чек-лист перед production
+- 📋 **EXECUTION_COMPLETE.md** — отчёт о выполнении промпта
 
-### Клиент не подключается
+---
 
-Проверьте:
-1. Сервер запущен: http://localhost:8000/health
-2. В клиенте `LICENSE_MOCK_MODE = False`
-3. URL правильный: `license_server_url = "http://localhost:8000"`
+## Поддержка
 
-### Токен не валидируется
+**Проблемы с сервером?**
+1. Проверьте логи: `gcloud run services logs read signer-license-server`
+2. Health check: `curl https://YOUR_URL/health`
+3. API docs: `https://YOUR_URL/docs`
 
-⚠️ **Важно:** MVP сервер использует mock-подписи!
+**Вопросы по коду?**
+- Все файлы задокументированы
+- Тесты показывают примеры использования
+- `scripts/test_api.py` — reference implementation
 
-Клиент попытается верифицировать токен своим публичным ключом и ПРОВАЛИТ проверку.
+**Нужна помощь?**
+- GitHub Issues (если репозиторий публичный)
+- Внутренняя документация команды
+- Slack / Email support
 
-**Решение:** В `licensing/license_manager.py` временно закомментируйте строгую проверку подписи в методе `check_local_status()` для тестирования MVP сервера:
+---
 
-```python
-# Временно для тестирования с MVP сервером
-valid, payload, error = verify_token(token_str)
-# if not valid:
-#     logger.warning(f"[LicenseManager] Token signature invalid: {error}")
-#     self._delete_token()
-#     return LicenseStatus.NOT_ACTIVATED
-# Просто парсим payload без проверки подписи
-if not valid:
-    logger.warning(f"[LicenseManager] MVP mode: skipping signature check")
-    # Попробуем распарсить payload напрямую
-    import base64, json
-    try:
-        payload_b64 = token_str.split(".")[0]
-        padding = 4 - (len(payload_b64) % 4)
-        if padding != 4:
-            payload_b64 += '=' * padding
-        payload_json = base64.urlsafe_b64decode(payload_b64.replace('-', '+').replace('_', '/')).decode()
-        payload = json.loads(payload_json)
-    except:
-        self._delete_token()
-        return LicenseStatus.NOT_ACTIVATED
-```
-
-**Для продакшна верните строгую проверку обратно!**
-
-## Статус
-
-✅ MVP сервер готов к использованию для тестирования клиента  
-⚠️ НЕ для продакшна  
-🚧 Требуется полная реализация для production use
+**🎉 Поздравляем! Сервер лицензий готов к работе.**
