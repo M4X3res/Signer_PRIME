@@ -17,17 +17,8 @@ from app.config import get_settings
 
 logger = logging.getLogger(__name__)
 
-# Маппинг Stripe Price ID на планы подписки
-# TODO: Заполните реальными Price ID из Stripe Dashboard после создания продуктов
-STRIPE_PRICE_TO_PLAN = {
-    "price_monthly_prod": "monthly",      # Замените на реальный Price ID
-    "price_quarterly_prod": "quarterly",  # Замените на реальный Price ID
-    "price_yearly_prod": "yearly",        # Замените на реальный Price ID
-    # Test mode цены
-    "price_monthly_test": "monthly",
-    "price_quarterly_test": "quarterly",
-    "price_yearly_test": "yearly",
-}
+# ЗАДАЧА 4: Маппинг теперь строится динамически из Settings
+# Старый хардкод удалён
 
 PLAN_TO_DEVICES = {
     "monthly": 2,
@@ -47,8 +38,11 @@ class StripeService:
     
     def __init__(self, db: Session):
         self.db = db
-        settings = get_settings()
-        stripe.api_key = settings.stripe_secret_key
+        self.settings = get_settings()
+        stripe.api_key = self.settings.stripe_secret_key
+        
+        # ЗАДАЧА 4: Получаем маппинг Price ID из конфигурации
+        self.price_to_plan = self.settings.get_stripe_price_to_plan_map()
     
     def handle_checkout_completed(self, session: dict) -> Optional[License]:
         """
@@ -71,10 +65,10 @@ class StripeService:
         try:
             subscription = stripe.Subscription.retrieve(subscription_id)
             price_id = subscription["items"]["data"][0]["price"]["id"]
-            plan = STRIPE_PRICE_TO_PLAN.get(price_id)
+            plan = self.price_to_plan.get(price_id)
             
             if not plan:
-                logger.error(f"Unknown Stripe Price ID: {price_id}")
+                logger.error(f"Unknown Stripe Price ID: {price_id}. Доступные: {list(self.price_to_plan.keys())}")
                 return None
             
             # Дата окончания текущего периода

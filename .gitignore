@@ -41,3 +41,6 @@ configs/lane_guidance_models/
 # BLOCK M: Экспортированные модели (генерируемые артефакты)
 *.onnx
 *_openvino_model/
+
+# ЗАДАЧА 2: Production конфигурация (содержит реальный URL сервера лицензий)
+build_config.json

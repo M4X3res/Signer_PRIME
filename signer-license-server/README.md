@@ -107,6 +107,39 @@ python scripts/generate_ed25519_keys.py
 - Публичный ключ → `licensing/public_key.py` в клиентском коде
 - НЕ коммитьте приватный ключ в Git
 
+### Настройка Stripe Price ID (ЗАДАЧА 4)
+
+После создания продуктов в Stripe Dashboard необходимо настроить маппинг Price ID на планы подписки.
+
+**Шаги:**
+
+1. Откройте [Stripe Dashboard](https://dashboard.stripe.com/)
+2. Перейдите в **Products** → **Product catalog**
+3. Для каждого плана (Monthly, Quarterly, Yearly):
+   - Выберите продукт
+   - Скопируйте **Price ID** (начинается с `price_...`)
+4. Добавьте в `.env` или переменные окружения Cloud Run:
+   ```bash
+   STRIPE_PRICE_ID_MONTHLY=price_1234567890abcdef
+   STRIPE_PRICE_ID_QUARTERLY=price_abcdef1234567890
+   STRIPE_PRICE_ID_YEARLY=price_fedcba0987654321
+   ```
+
+**Примечания:**
+- Price ID отличаются в **test mode** и **live mode** Stripe
+- Если Price ID не задан для какого-то плана, в логах появится warning при старте приложения
+- Сервер НЕ будет создавать лицензии для платежей с неизвестными Price ID
+
+**Где взять:**
+- Stripe Dashboard → Products → выберите цену → вкладка "Pricing" → скопируйте ID
+- Или через Stripe CLI: `stripe prices list`
+
+**Проверка конфигурации:**
+После деплоя проверьте логи Cloud Run на наличие warnings о незаданных Price ID:
+```bash
+gcloud run services logs read signer-license-server --region=us-central1 | grep "STRIPE_PRICE_ID"
+```
+
 ## 🧪 Тестирование
 
 ```bash

@@ -8,6 +8,58 @@ echo   Preparing Signer PRIME Release
 echo ================================================================
 echo.
 
+REM ================================================================
+REM [0/5] Check license server URL configuration (TASK 2)
+REM ================================================================
+
+echo [0/5] Checking license server configuration...
+echo.
+
+if not exist "build_config.json" (
+    echo ERROR: build_config.json not found!
+    echo.
+    echo Before building a production release, you MUST:
+    echo 1. Copy build_config.json.example to build_config.json
+    echo 2. Set the real license server URL in build_config.json
+    echo.
+    echo Example:
+    echo {
+    echo   "license_server_url": "https://your-license-server.run.app"
+    echo }
+    echo.
+    pause
+    exit /b 1
+)
+
+REM Check if placeholder URL is used
+findstr /C:"https://license.signer-prime.com" build_config.json >nul
+if not errorlevel 1 (
+    echo ERROR: build_config.json contains placeholder URL!
+    echo.
+    echo Current URL: https://license.signer-prime.com
+    echo.
+    echo This is a placeholder URL. Replace it with your real license server URL.
+    echo Example: https://your-license-server.run.app
+    echo.
+    pause
+    exit /b 1
+)
+
+findstr /C:"your-license-server.run.app" build_config.json >nul
+if not errorlevel 1 (
+    echo ERROR: build_config.json contains example URL!
+    echo.
+    echo Current URL: https://your-license-server.run.app
+    echo.
+    echo Replace it with your REAL license server URL.
+    echo.
+    pause
+    exit /b 1
+)
+
+echo OK: License server URL configured
+echo.
+
 REM Get version from version.json
 for /f "tokens=2 delims=:, " %%a in ('type version.json ^| findstr "version"') do (
     set VERSION=%%~a
@@ -153,6 +205,7 @@ if errorlevel 1 (
 copy /Y "installer\7z.exe" "dist\Signer\7z.exe" >nul
 copy /Y "installer\7z.dll" "dist\Signer\7z.dll" >nul
 copy /Y "version.json" "dist\Signer\version.json" >nul
+copy /Y "build_config.json" "dist\Signer\build_config.json" >nul
 
 echo    Files copied successfully
 echo OK: Build completed

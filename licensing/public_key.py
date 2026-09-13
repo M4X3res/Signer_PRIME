@@ -37,7 +37,7 @@ MCowBQYDK2VwAyEAGb9ECWmEzf9RzJZTQwKMmCIl8q0QMCPZ3fVXwXf6Jxs=
 
 # SHA-256 хэш известного dev-ключа (для runtime-проверки)
 # Вычислено от строки LICENSE_PUBLIC_KEY_PEM выше
-DEV_KEY_SHA256 = "8e3d4f5a2b7c9e1f6d8a0b3c5e7f9a1b2d4e6f8a0c2e4f6a8b0d2e4f6a8c0e2f"
+DEV_KEY_SHA256 = "499ac7ed9b140bb3da49c0a7a429ac9bf1b7dd25154260a0810c5d89aa69d276"
 
 
 def _check_production_key():

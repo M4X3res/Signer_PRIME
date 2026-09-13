@@ -11,7 +11,27 @@
 }
 ```
 
-### 2. Подготовьте release notes
+### 2. Настройте URL сервера лицензий
+
+**КРИТИЧЕСКИ ВАЖНО для production-сборки!**
+
+1. Скопируйте `build_config.json.example` в `build_config.json`:
+   ```bash
+   copy build_config.json.example build_config.json
+   ```
+
+2. Откройте `build_config.json` и укажите реальный URL вашего сервера лицензий:
+   ```json
+   {
+     "license_server_url": "https://your-license-server.run.app"
+   }
+   ```
+
+3. Замените `https://your-license-server.run.app` на ваш реальный URL (Cloud Run или другой хостинг)
+
+**Примечание:** Скрипт сборки `prepare_release.bat` автоматически проверит, что URL не является заглушкой, и прервёт сборку, если вы забудете это сделать.
+
+### 3. Подготовьте release notes
 
 Создайте/обновите `docs/release_notes.txt`:
 ```
@@ -30,13 +50,14 @@ Signer PRIME v1.0.5
 - 5+ GB свободного места на диске
 ```
 
-### 3. Запустите сборку
+### 4. Запустите сборку
 
 ```bash
 scripts\build\prepare_release.bat
 ```
 
 **Скрипт автоматически:**
+- Проверит конфигурацию URL сервера лицензий (ЗАДАЧА 2)
 - Проверит зависимости (Python, PyInstaller, 7z)
 - Очистит старые сборки
 - Соберёт `Signer.exe` и `Updater.exe`
@@ -56,7 +77,7 @@ release/
 └── BUILD_AUTOUPDATE.md # Документация по автообновлению
 ```
 
-### 4. Проверьте сборку
+### 5. Проверьте сборку
 
 1. Убедитесь, что все файлы созданы в `release/`
 2. Проверьте размеры архивов (части по ~100MB)

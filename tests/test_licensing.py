@@ -357,5 +357,68 @@ class TestLicenseManager(unittest.TestCase):
         self.assertTrue(hasattr(client, "base_url"))
 
 
+class TestProductionKeyCheck(unittest.TestCase):
+    """Тесты проверки dev-ключа в production-сборке (ЗАДАЧА 1)."""
+    
+    def test_dev_key_detection_in_frozen_build(self):
+        """
+        При использовании dev-ключа в frozen-сборке должен выброситься RuntimeError.
+        """
+        # Получаем текущий dev-ключ из модуля
+        from licensing import public_key as pk_module
+        current_dev_key_pem = """-----BEGIN PUBLIC KEY-----
+MCowBQYDK2VwAyEAGb9ECWmEzf9RzJZTQwKMmCIl8q0QMCPZ3fVXwXf6Jxs=
+-----END PUBLIC KEY-----"""
+        
+        # Патчим sys.frozen = True (имитируем PyInstaller-сборку)
+        with patch.object(sys, 'frozen', True, create=True):
+            # Патчим публичный ключ на dev-значение
+            with patch.object(pk_module, 'LICENSE_PUBLIC_KEY_PEM', current_dev_key_pem):
+                # Перезагружаем модуль, чтобы _check_production_key() выполнился заново
+                import importlib
+                
+                with self.assertRaises(RuntimeError) as cm:
+                    importlib.reload(pk_module)
+                
+                self.assertIn("тестовый публичный ключ", str(cm.exception).lower())
+    
+    def test_non_dev_key_allowed_in_frozen_build(self):
+        """
+        При использовании НЕ-dev-ключа в frozen-сборке ошибки быть не должно.
+        """
+        # Генерируем новый ключ (отличный от dev)
+        from cryptography.hazmat.primitives.asymmetric import ed25519
+        from cryptography.hazmat.primitives import serialization
+        
+        new_private_key = ed25519.Ed25519PrivateKey.generate()
+        new_public_key = new_private_key.public_key()
+        
+        new_public_key_pem = new_public_key.public_bytes(
+            encoding=serialization.Encoding.PEM,
+            format=serialization.PublicFormat.SubjectPublicKeyInfo
+        ).decode('utf-8')
+        
+        from licensing import public_key as pk_module
+        
+        # Патчим sys.frozen = True
+        with patch.object(sys, 'frozen', True, create=True):
+            # Патчим публичный ключ на новое значение (не dev)
+            with patch.object(pk_module, 'LICENSE_PUBLIC_KEY_PEM', new_public_key_pem):
+                # Перезагружаем модуль — не должно быть RuntimeError
+                import importlib
+                try:
+                    importlib.reload(pk_module)
+                    # Если дошли сюда — всё ок
+                    success = True
+                except RuntimeError as e:
+                    if "тестовый публичный ключ" in str(e).lower():
+                        success = False
+                        self.fail(f"RuntimeError при использовании нового (не-dev) ключа: {e}")
+                    else:
+                        raise  # Другая ошибка — пробрасываем
+                
+                self.assertTrue(success)
+
+
 if __name__ == "__main__":
     unittest.main()

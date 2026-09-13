@@ -59,6 +59,9 @@ Examples:
   
   # Yearly license for 5 devices
   python scripts/create_license_manual.py --plan yearly --days 365 --devices 5
+  
+  # Internal license for 10 years, 50 devices
+  python scripts/create_license_manual.py --plan internal --days 3650 --devices 50
 
 Environment Variables:
   LICENSE_SERVER_URL    License server URL (default: http://localhost:8000)
@@ -69,7 +72,7 @@ Environment Variables:
     parser.add_argument(
         "--plan",
         required=True,
-        choices=["monthly", "quarterly", "yearly"],
+        choices=["monthly", "quarterly", "yearly", "internal"],
         help="License plan type"
     )
     parser.add_argument(

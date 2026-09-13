@@ -151,25 +151,56 @@ class AppSettings:
                     print(f"[AppSettings] Ошибка поля {field_name}: {e}, используем default")
                     data[field_name] = getattr(defaults, field_name)
             
-            # Override license_server_url через переменную окружения если указана
+            # ЗАДАЧА 2: Приоритетная загрузка license_server_url
+            # Приоритет: 1) SIGNER_LICENSE_SERVER_URL (env) 
+            #            2) build_config.json 
+            #            3) dataclass default
+            import sys
+            import logging
+            import json
+            from pathlib import Path
+            
+            logger = logging.getLogger(__name__)
+            
+            # 1) Переменная окружения (наивысший приоритет - для разработчиков)
             env_override = os.environ.get("SIGNER_LICENSE_SERVER_URL")
             if env_override:
                 data["license_server_url"] = env_override
+            else:
+                # 2) build_config.json (для production-сборок)
+                try:
+                    if getattr(sys, "frozen", False):
+                        # В frozen-сборке ищем рядом с exe
+                        exe_dir = Path(sys.executable).parent
+                    else:
+                        # В dev-режиме ищем в корне проекта
+                        exe_dir = Path(__file__).parent.parent
+                    
+                    build_config_path = exe_dir / "build_config.json"
+                    
+                    if build_config_path.exists():
+                        with open(build_config_path, "r", encoding="utf-8") as f:
+                            build_config = json.load(f)
+                        
+                        if "license_server_url" in build_config:
+                            data["license_server_url"] = build_config["license_server_url"]
+                            logger.info(f"Загружен license_server_url из build_config.json: {data['license_server_url']}")
+                except Exception as e:
+                    logger.warning(f"Не удалось загрузить build_config.json: {e}")
             
-            # ЗАДАЧА 2: Проверка URL-заглушки в frozen-сборке
-            import sys
-            import logging
-            logger = logging.getLogger(__name__)
-            
+            # Проверка URL-заглушки в frozen-сборке
             if getattr(sys, "frozen", False):
                 final_url = data.get("license_server_url", "")
                 if final_url == "https://license.signer-prime.com":
-                    logger.warning(
-                        "ВНИМАНИЕ: Используется URL-заглушка лицензионного сервера "
-                        "'https://license.signer-prime.com' в production-сборке. "
-                        "Установите переменную окружения SIGNER_LICENSE_SERVER_URL "
-                        "перед релизом!"
+                    error_msg = (
+                        "КРИТИЧЕСКАЯ ОШИБКА: Используется URL-заглушка лицензионного сервера "
+                        "'https://license.signer-prime.com' в production-сборке!\n"
+                        "Перед сборкой релиза необходимо:\n"
+                        "1. Создать/обновить build_config.json с реальным URL сервера, ИЛИ\n"
+                        "2. Установить переменную окружения SIGNER_LICENSE_SERVER_URL"
                     )
+                    logger.error(error_msg)
+                    raise RuntimeError(error_msg)
             
             return cls(**data)
             

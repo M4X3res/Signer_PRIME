@@ -62,6 +62,14 @@ async def lifespan(app: FastAPI):
         load_private_key(settings.ed25519_private_key_pem)
         logger.info("✅ Ed25519 private key loaded")
         
+        # ЗАДАЧА 4: Проверка Stripe Price ID конфигурации
+        price_map = settings.get_stripe_price_to_plan_map()
+        if price_map:
+            logger.info(f"✅ Stripe Price IDs configured for plans: {list(price_map.values())}")
+        else:
+            logger.warning("⚠️  No Stripe Price IDs configured - Stripe integration will not work")
+            logger.warning("⚠️  Set STRIPE_PRICE_ID_MONTHLY, STRIPE_PRICE_ID_QUARTERLY, STRIPE_PRICE_ID_YEARLY")
+        
         logger.info("✅ Server ready (PostgreSQL + Ed25519)")
         logger.info("=" * 60)
         

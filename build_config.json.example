@@ -1,0 +1,4 @@
+{
+  "license_server_url": "https://your-license-server.run.app",
+  "_comment": "Этот файл используется для конфигурации production-сборки. Скопируйте в build_config.json и укажите реальный URL сервера лицензий перед сборкой релиза."
+}

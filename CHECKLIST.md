@@ -1,153 +1,99 @@
-# Чек-лист выполнения промпта PROMPT_LICENSING_SYSTEM.md
+# Чеклист проверки исправлений перед релизом
 
-## 0. КРИТИЧЕСКИЕ ОГРАНИЧЕНИЯ ✅
+Используйте этот чеклист для проверки всех исправлений.
 
-- [x] НЕ тронут `server/map_server.py` (проверено grep)
-- [x] НЕ тронут порт 3000
-- [x] НЕ добавлены лицензионные роуты в map_server
-- [x] Сервер лицензий - отдельный сервис (документация готова)
-- [x] Клиент использует отдельный HTTP-клиент (requests)
-- [x] НЕ тронуты `core/`, `processing/`, `templates/map.html`
-- [x] Приложение работает при недоступности сервера (grace period)
+## ✅ ЗАДАЧА 1: Dev-ключ проверка
 
-## 1. АРХИТЕКТУРА РЕШЕНИЯ ✅
+- [ ] `licensing/public_key.py`: DEV_KEY_SHA256 = "499ac7ed9b140bb3da49c0a7a429ac9bf1b7dd25154260a0810c5d89aa69d276"
+- [ ] Тесты добавлены: `tests/test_licensing.py::TestProductionKeyCheck`
+- [ ] Запустить: `python -m pytest tests/test_licensing.py::TestProductionKeyCheck -v`
+- [ ] Проверить вручную:
+  ```bash
+  python -c "import hashlib; key = open('licensing/public_key.py').read().split('LICENSE_PUBLIC_KEY_PEM = \"\"\"')[1].split('\"\"\"')[0]; print(hashlib.sha256(key.encode()).hexdigest())"
+  ```
 
-### 1.1 Модель лицензии
-- [x] Онлайн-активация с офлайн grace period
-- [x] Пользователь вводит ключ после оплаты
-- [x] Сервер проверяет и регистрирует устройство
-- [x] Выдаёт подписанный токен (Ed25519)
-- [x] Токен сохраняется локально (`%LOCALAPPDATA%\Signer\license.token`)
-- [x] При запуске: проверка подписи офлайн
-- [x] Проверка `current_period_end > now()`
-- [x] Refresh каждые 3 дня (настройка)
-- [x] Grace period 10 дней (настройка)
-- [x] Обработка статусов: active, revoked, expired, canceled
+## ✅ ЗАДАЧА 2: license_server_url конфигурация
 
-### 1.2 Защита от абузов
-- [x] Лимит устройств (max_devices, default 2)
-- [x] Fingerprint = hash(disk_serial + MAC + CPU_ID)
-- [x] Кнопка деактивации устройства в UI
-- [x] Защита от отката часов (issued_at vs now)
-- [x] Асимметричная подпись Ed25519 (приватный ключ только на сервере)
+- [ ] `configs/settings.py`: метод `load()` содержит чтение `build_config.json`
+- [ ] `build_config.json.example` создан
+- [ ] `.gitignore` содержит `build_config.json`
+- [ ] `scripts/build/prepare_release.bat`: проверка [0/5] добавлена
+- [ ] `scripts/build/prepare_release.bat`: копирование `build_config.json` в dist
+- [ ] `RELEASE.md`: добавлен шаг 2 "Настройте URL сервера лицензий"
+- [ ] Проверить вручную:
+  - Попробовать запустить `prepare_release.bat` без `build_config.json` → должна быть ошибка
+  - Создать `build_config.json` с placeholder URL → должна быть ошибка
+  - Создать с реальным URL → должно пройти
 
-### 1.3 Оплата (документация)
-- [x] Stripe Checkout + Billing
-- [x] Формат ключа: SGNR-XXXX-XXXX-XXXX-XXXX
-- [x] Webhook handlers документированы
+## ✅ ЗАДАЧА 3: Internal-лицензии в CLI
 
-## 2. СЕРВЕРНАЯ ЧАСТЬ (документация готова) ✅
+- [ ] `signer-license-server/scripts/create_license_manual.py`: choices содержит "internal"
+- [ ] Справка (epilog) содержит пример internal-лицензии
+- [ ] Проверить вручную:
+  ```bash
+  python signer-license-server/scripts/create_license_manual.py --help | grep internal
+  ```
 
-- [x] Схема БД (licenses + devices) - `docs/LICENSE_SERVER.md`
-- [x] API эндпоинты:
-  - [x] POST /api/license/activate
-  - [x] POST /api/license/refresh
-  - [x] POST /api/license/deactivate
-  - [x] POST /api/webhooks/stripe
-- [x] Формат токена документирован
-- [x] Ed25519 подпись описана
-- [x] Секреты в Secret Manager
-- [x] Деплой на Cloud Run документирован
+## ✅ ЗАДАЧА 4: Stripe Price ID
 
-## 3. КЛИЕНТСКАЯ ЧАСТЬ ✅
+- [ ] `signer-license-server/app/config.py`: добавлены поля `stripe_price_id_*`
+- [ ] `signer-license-server/app/config.py`: метод `get_stripe_price_to_plan_map()` добавлен
+- [ ] `signer-license-server/app/services/stripe_service.py`: удалён хардкод `STRIPE_PRICE_TO_PLAN`
+- [ ] `signer-license-server/app/services/stripe_service.py`: используется `self.price_to_plan`
+- [ ] `signer-license-server/app/main.py`: логирование Stripe Price ID при старте
+- [ ] `signer-license-server/.env.example`: добавлены `STRIPE_PRICE_ID_*`
+- [ ] `signer-license-server/README.md`: раздел "Настройка Stripe Price ID" добавлен
+- [ ] Проверить вручную:
+  ```bash
+  grep -r "price_monthly_prod" signer-license-server/app/services/
+  # Не должно быть совпадений
+  ```
 
-### 3.1 Новые файлы
-- [x] `licensing/__init__.py`
-- [x] `licensing/license_manager.py` - основная логика
-- [x] `licensing/device_fingerprint.py` - сбор fingerprint
-- [x] `licensing/license_client.py` - HTTP клиент
-- [x] `licensing/public_key.py` - Ed25519 verify
-- [x] `ui/widgets/license_dialog.py` - UI диалог
+## ✅ ЗАДАЧА 5: CORS warnings
 
-### 3.2 device_fingerprint.py
-- [x] Серийный номер диска (wmic diskdrive)
-- [x] MAC адрес (wmic nic)
-- [x] CPU ID (platform.processor)
-- [x] SHA-256 hash
-- [x] Fallback если источник недоступен
-- [x] get_device_label() для hostname
+- [ ] `signer-license-server/app/main.py`: содержит warning про wildcard CORS
+- [ ] `signer-license-server/scripts/deploy_gcloud.sh`: содержит warning про CORS_ALLOWED_ORIGINS
+- [ ] Проверить вручную:
+  ```bash
+  grep -i "wildcard" signer-license-server/app/main.py
+  grep -i "CORS_ALLOWED_ORIGINS" signer-license-server/scripts/deploy_gcloud.sh
+  ```
 
-### 3.3 license_manager.py
-- [x] LicenseStatus enum (VALID, EXPIRED, REVOKED, NOT_ACTIVATED, GRACE_PERIOD)
-- [x] check_local_status() -> LicenseStatus
-- [x] activate(license_key) -> (success, error_message)
-- [x] refresh_async(callback) -> None (QThread)
-- [x] deactivate_this_device() -> (success, error_message)
-- [x] get_plan_info() -> dict | None
-- [x] Все сетевые вызовы через QThread
-- [x] Timeout 8 секунд
-- [x] Токен в `%LOCALAPPDATA%\Signer\license.token`
-- [x] Константы из configs/settings.py
-- [x] Grace period логика
-- [x] Защита от отката часов
+## 🧪 Тестирование
 
-### 3.4 license_dialog.py
-- [x] Стиль как в update_dialog.py (BtnPrimary/BtnSecondary)
-- [x] Состояние "Ввод ключа"
-- [x] Маска XXXX-XXXX-XXXX-XXXX
-- [x] Кнопка "Купить подписку"
-- [x] Понятные ошибки (DEVICE_LIMIT_REACHED и т.д.)
-- [x] Состояние "Успех/статус"
-- [x] План, дата окончания
-- [x] Кнопка "Деактивировать устройство"
-- [x] Модальный блокирующий диалог
+### Быстрая проверка
+```bash
+python test_fixes.py
+```
 
-### 3.5 Интеграция в main.py
-- [x] ДО создания MainWindow
-- [x] check_local_status()
-- [x] Если NOT_ACTIVATED/EXPIRED/REVOKED → диалог
-- [x] Если отменён → sys.exit(0)
-- [x] Фоновый refresh_async для GRACE_PERIOD
-- [x] НЕ убрана проверка обновлений
+### Полные тесты
+```bash
+# Клиентские тесты
+python -m pytest tests/test_licensing.py -v
 
-### 3.6 Settings
-- [x] `license_refresh_interval_days: int = 3`
-- [x] `license_grace_period_days: int = 10`
-- [x] `license_server_url: str = "https://license.signer-prime.com"`
+# Серверные тесты (требуется Docker для testcontainers)
+cd signer-license-server
+pytest tests/ -v
+```
 
-## 4. ТЕСТИРОВАНИЕ ✅
+## 📋 Перед релизом
 
-- [x] Юнит-тесты `tests/test_licensing.py`
-- [x] Валидный токен → VALID
-- [x] Токен с истёкшей датой → EXPIRED
-- [x] Подделка подписи → fail verification
-- [x] Отсутствие токена → NOT_ACTIVATED
-- [x] Токен в grace period → GRACE_PERIOD
-- [x] Токен вне grace period → требует онлайн
-- [x] Мокирование license_client
-- [x] Проверка что core/processing/server не тронуты (grep)
+1. [ ] Все тесты проходят
+2. [ ] `build_config.json` создан и заполнен реальным URL
+3. [ ] Production Ed25519 ключи сгенерированы
+4. [ ] Публичный ключ обновлён в `licensing/public_key.py`
+5. [ ] `DEV_KEY_SHA256` пересчитан для нового ключа (если это новый dev-ключ)
+6. [ ] Stripe Price IDs настроены в переменных окружения Cloud Run
+7. [ ] CORS_ALLOWED_ORIGINS задан для production
+8. [ ] `prepare_release.bat` выполняется без ошибок
+9. [ ] Архивы созданы в `release/`
+10. [ ] Чексуммы проверены
 
-## 5. ПОРЯДОК РАБОТЫ ✅
+## 📝 Итоговая проверка
 
-- [x] 1. Клиентская часть с подключением к локальному/продакшн серверу
-- [x] 2. Серверная часть документирована (FastAPI + PostgreSQL)
-- [x] 3. Подключение реального URL в настройках
-- [x] 4. Stripe webhooks документированы
+Запустите:
+```bash
+python test_fixes.py
+```
 
-## ДОПОЛНИТЕЛЬНО ✅
-
-- [x] `requirements.txt` обновлён (cryptography>=41.0.0)
-- [x] Документация клиентской части (`docs/LICENSING.md`)
-- [x] Документация серверной части (`docs/LICENSE_SERVER.md`)
-- [x] Юнит-тесты написаны
-- [x] Мок-режим для разработки без сервера
-- [x] Тестовый скрипт `test_licensing_quick.py`
-
-## ИТОГО: 100% ✅
-
-Все требования промпта выполнены:
-- ✅ Клиентская часть полностью реализована
-- ✅ Серверная часть полностью документирована
-- ✅ Архитектура соответствует промпту
-- ✅ Безопасность (Ed25519, fingerprint, grace period)
-- ✅ UI интегрирован
-- ✅ Тесты написаны
-- ✅ Критические ограничения соблюдены (не тронуты core/processing/server)
-
-## СЛЕДУЮЩИЕ ШАГИ (вне scope промпта)
-
-1. Реализовать серверную часть (FastAPI + PostgreSQL)
-2. Развернуть на Google Cloud Run
-3. Настроить Stripe
-4. Обновить `license_server_url` и отключить мок-режим
-5. Полное end-to-end тестирование
+Если все тесты проходят — можно приступать к сборке релиза.

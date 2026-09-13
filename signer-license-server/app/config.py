@@ -27,6 +27,11 @@ class Settings(BaseSettings):
     stripe_secret_key: str = ""
     stripe_webhook_secret: str = ""
     
+    # Stripe Price IDs (ЗАДАЧА 4)
+    stripe_price_id_monthly: str = ""
+    stripe_price_id_quarterly: str = ""
+    stripe_price_id_yearly: str = ""
+    
     # Email (ЗАДАЧА 7)
     email_provider: str = "sendgrid"  # "sendgrid" или "postmark"
     email_api_key: str = ""
@@ -66,6 +71,38 @@ class Settings(BaseSettings):
             return self.database_url
         else:
             raise ValueError("Either DATABASE_URL or DB_CONNECTION_NAME must be set")
+    
+    def get_stripe_price_to_plan_map(self) -> dict[str, str]:
+        """
+        ЗАДАЧА 4: Построить маппинг Stripe Price ID -> план в рантайме.
+        
+        Returns:
+            Словарь {price_id: plan_name}
+        """
+        import logging
+        logger = logging.getLogger(__name__)
+        
+        price_map = {}
+        
+        if self.stripe_price_id_monthly:
+            price_map[self.stripe_price_id_monthly] = "monthly"
+        else:
+            logger.warning("STRIPE_PRICE_ID_MONTHLY не задан, оплата по месячному плану не будет создавать лицензии")
+        
+        if self.stripe_price_id_quarterly:
+            price_map[self.stripe_price_id_quarterly] = "quarterly"
+        else:
+            logger.warning("STRIPE_PRICE_ID_QUARTERLY не задан, оплата по квартальному плану не будет создавать лицензии")
+        
+        if self.stripe_price_id_yearly:
+            price_map[self.stripe_price_id_yearly] = "yearly"
+        else:
+            logger.warning("STRIPE_PRICE_ID_YEARLY не задан, оплата по годовому плану не будет создавать лицензии")
+        
+        if not price_map:
+            logger.error("Ни один Stripe Price ID не задан! Stripe-интеграция не будет работать.")
+        
+        return price_map
 
 
 @lru_cache()
