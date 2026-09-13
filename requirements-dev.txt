@@ -12,3 +12,10 @@ pytest>=7.4.0
 
 # ── Building ──────────────────────────────────────────────────────
 pyinstaller>=6.0.0
+
+# ── Obfuscation (ЗАДАЧА 3: Защита лицензирования) ─────────────────
+# PyArmor для обфускации критичных модулей (licensing/, main.py).
+# Community Edition (Free) достаточно для базовой обфускации.
+# Для Pro-функций (advanced runtime protection, anti-debugging):
+# https://pyarmor.readthedocs.io/en/latest/licenses.html
+pyarmor>=9.0.0

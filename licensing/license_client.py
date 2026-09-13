@@ -9,10 +9,11 @@ from dataclasses import dataclass
 
 try:
     import requests
-    REQUESTS_AVAILABLE = True
 except ImportError:
-    REQUESTS_AVAILABLE = False
-    requests = None
+    raise ImportError(
+        "requests library is required for license verification. "
+        "Install it with: pip install requests"
+    )
 
 from configs.settings import get_app_settings
 
@@ -23,9 +24,6 @@ logger = logging.getLogger(__name__)
 # ════════════════════════════════════════════════════════════════
 
 REQUEST_TIMEOUT = 8.0  # секунды (как в промпте)
-
-# Моковый режим для разработки без сервера
-LICENSE_MOCK_MODE = True  # Установить False для продакшна с реальным сервером
 
 
 @dataclass
@@ -68,16 +66,6 @@ class LicenseClient:
         Returns:
             LicenseResponse с токеном или ошибкой.
         """
-        if LICENSE_MOCK_MODE:
-            return self._mock_activate(license_key, fingerprint_hash)
-        
-        if not REQUESTS_AVAILABLE:
-            return LicenseResponse(
-                success=False,
-                error_code="NO_REQUESTS",
-                error_message="requests library not installed"
-            )
-        
         try:
             url = f"{self.base_url}/api/license/activate"
             payload = {
@@ -154,16 +142,6 @@ class LicenseClient:
         Returns:
             LicenseResponse с новым токеном или ошибкой.
         """
-        if LICENSE_MOCK_MODE:
-            return self._mock_refresh(current_token)
-        
-        if not REQUESTS_AVAILABLE:
-            return LicenseResponse(
-                success=False,
-                error_code="NO_REQUESTS",
-                error_message="requests library not installed"
-            )
-        
         try:
             url = f"{self.base_url}/api/license/refresh"
             payload = {
@@ -233,16 +211,6 @@ class LicenseClient:
         Returns:
             LicenseResponse с результатом.
         """
-        if LICENSE_MOCK_MODE:
-            return LicenseResponse(success=True)
-        
-        if not REQUESTS_AVAILABLE:
-            return LicenseResponse(
-                success=False,
-                error_code="NO_REQUESTS",
-                error_message="requests library not installed"
-            )
-        
         try:
             url = f"{self.base_url}/api/license/deactivate"
             payload = {"token": current_token}
@@ -276,81 +244,4 @@ class LicenseClient:
                 success=False,
                 error_code="UNKNOWN",
                 error_message=f"Unexpected error: {e}"
-            )
-    
-    # ════════════════════════════════════════════════════════════════
-    # Мок-режим для разработки
-    # ════════════════════════════════════════════════════════════════
-    
-    def _mock_activate(self, license_key: str, fingerprint_hash: str) -> LicenseResponse:
-        """Мок: всегда успешная активация."""
-        import time
-        import json
-        import base64
-        
-        logger.info("[LicenseClient MOCK] Activating (mock mode)...")
-        
-        # Генерируем фиктивный валидный токен
-        payload = {
-            "license_key": license_key,
-            "device_id": fingerprint_hash[:16],
-            "plan": "monthly",
-            "status": "active",
-            "current_period_end": int(time.time()) + 30 * 86400,  # +30 дней
-            "issued_at": int(time.time())
-        }
-        
-        payload_json = json.dumps(payload, sort_keys=True)
-        payload_b64 = base64.urlsafe_b64encode(payload_json.encode()).decode().rstrip('=')
-        # Фиктивная подпись (НЕ валидна для настоящего публичного ключа)
-        signature_b64 = base64.urlsafe_b64encode(b"mock_signature_12345").decode().rstrip('=')
-        
-        mock_token = f"{payload_b64}.{signature_b64}"
-        
-        return LicenseResponse(
-            success=True,
-            token=mock_token,
-            plan="monthly",
-            current_period_end=payload["current_period_end"]
-        )
-    
-    def _mock_refresh(self, current_token: str) -> LicenseResponse:
-        """Мок: всегда успешное обновление."""
-        import time
-        import json
-        import base64
-        
-        logger.info("[LicenseClient MOCK] Refreshing (mock mode)...")
-        
-        # Декодируем текущий токен и обновляем даты
-        try:
-            payload_b64 = current_token.split(".")[0]
-            padding = 4 - (len(payload_b64) % 4)
-            if padding != 4:
-                payload_b64 += '=' * padding
-            payload_json = base64.urlsafe_b64decode(payload_b64.replace('-', '+').replace('_', '/')).decode()
-            payload = json.loads(payload_json)
-            
-            # Обновляем даты
-            payload["current_period_end"] = int(time.time()) + 30 * 86400
-            payload["issued_at"] = int(time.time())
-            
-            payload_json = json.dumps(payload, sort_keys=True)
-            payload_b64 = base64.urlsafe_b64encode(payload_json.encode()).decode().rstrip('=')
-            signature_b64 = base64.urlsafe_b64encode(b"mock_signature_12345").decode().rstrip('=')
-            
-            mock_token = f"{payload_b64}.{signature_b64}"
-            
-            return LicenseResponse(
-                success=True,
-                token=mock_token,
-                plan=payload["plan"],
-                current_period_end=payload["current_period_end"]
-            )
-        except Exception as e:
-            logger.error(f"[LicenseClient MOCK] Error parsing token: {e}")
-            return LicenseResponse(
-                success=False,
-                error_code="INVALID_TOKEN",
-                error_message="Mock refresh failed"
             )

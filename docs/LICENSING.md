@@ -111,8 +111,23 @@ devices (id, license_id, fingerprint_hash, device_label, first_seen, last_seen, 
 
 - **Лимит устройств:** по умолчанию 2 на лицензию
 - **Деактивация:** пользователь может освободить слот
-- **Grace period:** 10 дней без онлайн-проверки
+- **Grace period:** 3 дня без онлайн-проверки (сокращено для безопасности)
+- **Refresh interval:** 1 день (сокращено для безопасности)
+- **Runtime monitoring:** проверка каждые 6 часов работы приложения
 - **Защита от отката часов:** форсированная онлайн-проверка
+
+## Runtime Monitoring
+
+Начиная с усиления защиты (Задача 2), приложение проверяет статус лицензии не только при запуске, но и периодически во время работы:
+
+- **Интервал проверки:** каждые 6 часов работы приложения
+- **Что проверяется:** обновление токена (refresh) и локальная верификация
+- **При обнаружении REVOKED/EXPIRED:**
+  - Если идёт обработка видео → даёт завершить и сохранить результаты
+  - После завершения → показывает критический диалог и закрывает приложение
+  - Если обработки нет → немедленно показывает диалог и закрывается
+
+Это гарантирует, что отзыв лицензии на сервере будет обнаружен максимум через 6 часов (плюс grace period), даже если пользователь не перезапускал приложение.
 
 ## Разработка
 
@@ -122,8 +137,12 @@ devices (id, license_id, fingerprint_hash, device_label, first_seen, last_seen, 
 # Юнит-тесты (без сети)
 pytest tests/test_licensing.py -v
 
-# Мок-режим (без сервера)
-# В licensing/license_client.py установить LICENSE_MOCK_MODE = True
+# Локальный dev-сервер (вместо продакшн-сервера)
+cd signer-license-server
+bash scripts/local_dev_up.sh
+
+# В отдельном терминале, из корня проекта:
+export SIGNER_LICENSE_SERVER_URL=http://localhost:8000
 python main.py
 ```
 
@@ -151,12 +170,18 @@ python -m licensing.public_key
 
 ```bash
 # В отдельном терминале запустить локальный сервер лицензий
-cd license-server
-uvicorn main:app --reload --port 8000
+cd signer-license-server
+bash scripts/local_dev_up.sh
+# Сервер запустится на http://localhost:8000
 ```
 
-### 2. Обновить URL в настройках
+### 2. Установить URL через переменную окружения
 
+```bash
+export SIGNER_LICENSE_SERVER_URL=http://localhost:8000
+```
+
+Или обновить в настройках:
 ```python
 # configs/settings.py
 license_server_url: str = "http://localhost:8000"
@@ -215,7 +240,7 @@ A: `%LOCALAPPDATA%\Signer\license.token` (Windows)
 A: В `configs/settings.py` измените `license_grace_period_days`
 
 **Q: Можно ли работать без лицензии (для разработки)?**  
-A: Установите `LICENSE_MOCK_MODE = True` в `licensing/license_client.py`
+A: Запустите локальный dev-сервер из `signer-license-server/` через `bash scripts/local_dev_up.sh` и установите `export SIGNER_LICENSE_SERVER_URL=http://localhost:8000`
 
 **Q: Как добавить страницу "Моя лицензия" в Settings?**  
 A: Создайте `ui/widgets/license_status_page.py` и добавьте в `settings_page.py`

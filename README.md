@@ -50,7 +50,7 @@ scripts\build\prepare_release.bat
 - **Документация клиента:** [docs/LICENSING.md](docs/LICENSING.md)
 - **Документация сервера:** [docs/LICENSE_SERVER.md](docs/LICENSE_SERVER.md)
 
-Для разработки без сервера установите `LICENSE_MOCK_MODE = True` в `licensing/license_client.py`.
+Для разработки без продакшн-сервера запустите локальный dev-сервер из `signer-license-server/` и установите `SIGNER_LICENSE_SERVER_URL=http://localhost:8000`.
 
 ## Структура проекта
 

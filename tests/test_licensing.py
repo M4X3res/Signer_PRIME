@@ -266,8 +266,8 @@ class TestLicenseManager(unittest.TestCase):
         """Токен просрочен для refresh, но в grace period → GRACE_PERIOD."""
         now = int(time.time())
         
-        # issued_at = 5 дней назад (больше refresh_interval_days=3, но меньше grace_period_days=10)
-        issued_at = now - 5 * 86400
+        # issued_at = 2 дня назад (больше refresh_interval_days=1, но меньше grace_period_days=3)
+        issued_at = now - 2 * 86400
         
         payload = {
             "license_key": "SGNR-TEST-TEST-TEST-TEST",
@@ -288,8 +288,8 @@ class TestLicenseManager(unittest.TestCase):
         """Токен вне grace period → EXPIRED."""
         now = int(time.time())
         
-        # issued_at = 15 дней назад (больше grace_period_days=10)
-        issued_at = now - 15 * 86400
+        # issued_at = 4 дня назад (больше grace_period_days=3)
+        issued_at = now - 4 * 86400
         
         payload = {
             "license_key": "SGNR-TEST-TEST-TEST-TEST",

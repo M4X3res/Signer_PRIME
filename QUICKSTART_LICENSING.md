@@ -8,34 +8,38 @@
 pip install -r requirements.txt
 ```
 
-### 2. Включение мок-режима
-
-В файле `licensing/license_client.py` установите:
-
-```python
-LICENSE_MOCK_MODE = True
-```
-
-### 3. Тестирование
+### 2. Запуск локального сервера лицензий
 
 ```bash
-# Запуск примера
-python example_licensing_mock.py
-
-# Запуск UI диалога
-python -m ui.widgets.license_dialog
-
-# Юнит-тесты
-python -m unittest tests.test_licensing
+cd signer-license-server
+bash scripts/local_dev_up.sh
 ```
 
-### 4. Запуск приложения
+Это поднимет локальный сервер на `http://localhost:8000` с PostgreSQL и Adminer.
+
+### 3. Создание тестовой лицензии
 
 ```bash
+cd signer-license-server
+python scripts/create_license_manual.py
+```
+
+Скопируйте сгенерированный ключ (формат `SGNR-XXXX-XXXX-XXXX-XXXX`).
+
+### 4. Тестирование
+
+```bash
+# В отдельном терминале, из корня Signer_PRIME:
+export SIGNER_LICENSE_SERVER_URL=http://localhost:8000
 python main.py
 ```
 
-При первом запуске появится диалог активации. В мок-режиме любой ключ будет принят.
+При первом запуске появится диалог активации. Введите ключ из шага 3.
+
+**Для юнит-тестов:**
+```bash
+python -m unittest tests.test_licensing
+```
 
 ## Для продакшна
 
@@ -60,10 +64,7 @@ python scripts/generate_ed25519_keys.py
 license_server_url: str = "https://your-license-server.run.app"
 ```
 
-В `licensing/license_client.py`:
-
-```python
-LICENSE_MOCK_MODE = False
+### 4. Протестировать
 ```
 
 ### 4. Протестировать

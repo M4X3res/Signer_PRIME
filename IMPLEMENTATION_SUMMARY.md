@@ -14,8 +14,8 @@
   - Защита от отката часов
 - **`license_client.py`** - HTTP клиент к серверу лицензий
   - Эндпоинты: activate, refresh, deactivate
-  - Мок-режим для разработки (LICENSE_MOCK_MODE)
   - Таймауты и обработка ошибок
+  - Требует установленный `requests`
 - **`device_fingerprint.py`** - сбор hardware fingerprint
   - SHA-256 хэш: disk serial + MAC + CPU ID
   - Fallback механизмы для стабильности
@@ -138,7 +138,6 @@
 
 ### 2. Клиент
 - [ ] Обновить `license_server_url` в `configs/settings.py`
-- [ ] Отключить `LICENSE_MOCK_MODE` в `licensing/license_client.py`
 - [ ] Обновить `PURCHASE_URL` в `ui/widgets/license_dialog.py`
 - [ ] Тестирование полного флоу активации/refresh/деактивации
 
@@ -150,8 +149,13 @@
 
 ## 📝 Заметки
 
-### Мок-режим для разработки
-В `licensing/license_client.py` установить `LICENSE_MOCK_MODE = True` для тестирования без сервера.
+### Разработка без продакшн-сервера
+Запустите локальный dev-сервер:
+```bash
+cd signer-license-server
+bash scripts/local_dev_up.sh
+```
+Затем установите `export SIGNER_LICENSE_SERVER_URL=http://localhost:8000` перед запуском клиента.
 
 ### Сброс лицензии
 Удалить файл `%LOCALAPPDATA%\Signer\license.token`

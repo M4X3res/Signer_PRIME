@@ -60,18 +60,59 @@ echo OK: Cleaned
 echo.
 
 REM ================================================================
-REM [3/5] Build application
+REM [2.5/6] Obfuscate licensing modules (TASK 3)
 REM ================================================================
 
-echo [3/5] Building application...
+echo [2.5/6] Obfuscating licensing modules with PyArmor...
+echo.
+
+python -c "import pyarmor" >nul 2>&1
+if errorlevel 1 (
+    echo WARNING: PyArmor not installed
+    echo Run: pip install pyarmor
+    echo Skipping obfuscation...
+    echo.
+    set SKIP_OBFUSCATION=1
+) else (
+    python scripts\build\obfuscate_licensing.py
+    if errorlevel 1 (
+        echo ERROR: Obfuscation failed
+        pause
+        exit /b 1
+    )
+    echo OK: Obfuscation completed
+    echo.
+    set SKIP_OBFUSCATION=0
+)
+
+REM ================================================================
+REM [3/6] Build application
+REM ================================================================
+
+echo [3/6] Building application...
 echo.
 
 echo    Building Signer.exe...
-pyinstaller signer.spec --noconfirm
-if errorlevel 1 (
-    echo ERROR: Failed to build Signer.exe
-    pause
-    exit /b 1
+
+if "%SKIP_OBFUSCATION%"=="0" (
+    echo    Building from obfuscated source...
+    cd build\obfuscated
+    pyinstaller signer.spec --noconfirm
+    if errorlevel 1 (
+        echo ERROR: Failed to build Signer.exe from obfuscated source
+        cd ..\..
+        pause
+        exit /b 1
+    )
+    cd ..\..
+) else (
+    echo    Building from normal source...
+    pyinstaller signer.spec --noconfirm
+    if errorlevel 1 (
+        echo ERROR: Failed to build Signer.exe
+        pause
+        exit /b 1
+    )
 )
 
 echo    Building Updater.exe...
@@ -118,10 +159,10 @@ echo OK: Build completed
 echo.
 
 REM ================================================================
-REM [4/5] Create archive
+REM [4/6] Create archive
 REM ================================================================
 
-echo [4/5] Creating archive...
+echo [4/6] Creating archive...
 echo.
 
 mkdir release 2>nul
@@ -143,10 +184,10 @@ echo OK: Archive created
 echo.
 
 REM ================================================================
-REM [5/5] Calculate checksums
+REM [5/6] Calculate checksums
 REM ================================================================
 
-echo [5/5] Calculating SHA-256 checksums...
+echo [5/6] Calculating SHA-256 checksums...
 echo.
 
 powershell -Command "Get-ChildItem 'Signer.7z.*' | ForEach-Object { $hash = (Get-FileHash $_.FullName -Algorithm SHA256).Hash; \"$hash  $($_.Name)\" } | Out-File -Encoding utf8 'checksum.sha256'"

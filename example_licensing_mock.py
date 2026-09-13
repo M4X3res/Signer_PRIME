@@ -1,8 +1,13 @@
 """
-Пример использования системы лицензирования в мок-режиме (без сервера).
+Пример использования системы лицензирования с локальным dev-сервером.
 
-Для тестирования без реального сервера лицензий установите
-LICENSE_MOCK_MODE = True в licensing/license_client.py
+Для тестирования запустите локальный сервер лицензий:
+    cd signer-license-server
+    bash scripts/local_dev_up.sh
+
+Затем установите переменную окружения:
+    export SIGNER_LICENSE_SERVER_URL=http://localhost:8000
+    python example_licensing_local.py
 """
 import logging
 import sys
@@ -15,12 +20,10 @@ logging.basicConfig(
     datefmt='%H:%M:%S'
 )
 
-# Включаем мок-режим
-sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+# Устанавливаем переменную окружения для локального сервера перед импортом
+os.environ.setdefault("SIGNER_LICENSE_SERVER_URL", "http://localhost:8000")
 
-# Устанавливаем мок-режим перед импортом
-import licensing.license_client
-licensing.license_client.LICENSE_MOCK_MODE = True
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 from licensing.license_manager import LicenseManager, LicenseStatus
 
@@ -30,8 +33,12 @@ def main():
     """Демонстрация работы системы лицензирования."""
     
     print("=" * 60)
-    print("Система лицензирования Signer PRIME (МОК-РЕЖИМ)")
+    print("Система лицензирования Signer PRIME (LOCAL DEV SERVER)")
     print("=" * 60)
+    
+    # Проверяем что сервер указан
+    server_url = os.environ.get("SIGNER_LICENSE_SERVER_URL", "http://localhost:8000")
+    print(f"\nLicense server URL: {server_url}")
     
     # Создаём менеджер лицензий
     manager = LicenseManager()
@@ -44,10 +51,16 @@ def main():
     # 2. Если не активирована - активируем
     if status == LicenseStatus.NOT_ACTIVATED:
         print("\n[2] Лицензия не активирована, выполняем активацию...")
-        print("    (в мок-режиме любой ключ будет принят)")
+        print("    ВАЖНО: Сначала создайте тестовую лицензию через:")
+        print("    cd signer-license-server")
+        print("    python scripts/create_license_manual.py")
+        print()
         
-        test_key = "SGNR-TEST-MOCK-MODE-KEY1"
-        print(f"    Ключ: {test_key}")
+        test_key = input("    Введите ключ лицензии (или Enter для пропуска): ").strip()
+        
+        if not test_key:
+            print("    Активация пропущена")
+            return
         
         success, error_msg = manager.activate(test_key)
         
@@ -97,8 +110,8 @@ def main():
     print("\n" + "=" * 60)
     print("Тестирование завершено успешно!")
     print("=" * 60)
-    print("\nПримечание: Это МОК-РЕЖИМ для разработки без сервера.")
-    print("Для продакшна отключите LICENSE_MOCK_MODE и настройте сервер.")
+    print(f"\nПримечание: Используется локальный dev-сервер на {server_url}")
+    print("Для продакшна настройте реальный сервер лицензий.")
 
 
 if __name__ == "__main__":

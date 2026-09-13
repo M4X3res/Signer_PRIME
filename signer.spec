@@ -118,6 +118,22 @@ else:
     print(f"[signer.spec] Автообновление не будет работать без 7z.exe и 7z.dll!")
     print(f"[signer.spec] Скачайте 7-Zip и поместите 7z.exe и 7z.dll в installer/")
 
+# ── PyArmor runtime (ЗАДАЧА 3: Обфускация лицензирования) ──────────
+# Если сборка идёт из build/obfuscated (после obfuscate_licensing.py),
+# PyArmor генерирует папку pyarmor_runtime_XXXXXX, которую нужно включить.
+_obfuscated_root = os.path.join(ROOT, 'build', 'obfuscated')
+if os.path.isdir(_obfuscated_root):
+    # Ищем pyarmor_runtime_* в obfuscated директории
+    import glob
+    pyarmor_runtime_dirs = glob.glob(os.path.join(_obfuscated_root, 'pyarmor_runtime_*'))
+    for rt_dir in pyarmor_runtime_dirs:
+        if os.path.isdir(rt_dir):
+            rt_name = os.path.basename(rt_dir)
+            datas.append((rt_dir, rt_name))
+            print(f"[signer.spec] ✓ PyArmor runtime включён: {rt_name}")
+else:
+    print(f"[signer.spec] ℹ Обфускация не применена (build/obfuscated не найдена)")
+
 # ═══════════════════════════════════════════════════════════════════
 # HIDDEN IMPORTS (модули, которые PyInstaller не видит статическим
 # анализом — динамические import'ы внутри функций, плагинные системы)

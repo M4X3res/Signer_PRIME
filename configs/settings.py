@@ -103,8 +103,8 @@ class AppSettings:
     last_update_check_ts: float = 0.0  # timestamp последней проверки
     
     # ── Лицензирование ────────────────────────────────────────────
-    license_refresh_interval_days: int = 3   # Интервал обновления токена
-    license_grace_period_days: int = 10      # Grace period без онлайн-проверки
+    license_refresh_interval_days: int = 1   # Интервал обновления токена (сокращено для безопасности)
+    license_grace_period_days: int = 3      # Grace period без онлайн-проверки (сокращено для безопасности)
     license_server_url: str = "https://license.signer-prime.com"  # URL сервера лицензий
     
     @classmethod
@@ -150,6 +150,11 @@ class AppSettings:
                     # Если любая ошибка для конкретного поля - используем default
                     print(f"[AppSettings] Ошибка поля {field_name}: {e}, используем default")
                     data[field_name] = getattr(defaults, field_name)
+            
+            # Override license_server_url через переменную окружения если указана
+            env_override = os.environ.get("SIGNER_LICENSE_SERVER_URL")
+            if env_override:
+                data["license_server_url"] = env_override
             
             return cls(**data)
             

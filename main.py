@@ -236,6 +236,50 @@ def main():
         window = MainWindow()
         window.show()
         
+        # ════════════════════════════════════════════════════════════════
+        # Задача 2: Запуск runtime мониторинга лицензии
+        # ════════════════════════════════════════════════════════════════
+        def _on_license_status_changed(status: LicenseStatus):
+            """Обработчик изменения статуса лицензии во время работы приложения."""
+            if status in (LicenseStatus.EXPIRED, LicenseStatus.REVOKED):
+                logger.warning(f"Лицензия стала недействительна во время работы: {status.value}")
+                
+                # Проверяем, идёт ли обработка видео - если да, даём завершить
+                try:
+                    if hasattr(window, '_controller') and hasattr(window._controller, 'is_running'):
+                        if window._controller.is_running:
+                            logger.info("Обнаружена активная обработка, даём завершить перед закрытием...")
+                            # Мягко останавливаем обработку
+                            if hasattr(window, '_on_finish_requested'):
+                                window._on_finish_requested()
+                            # После завершения показываем диалог и закрываем
+                            # Используем QTimer чтобы дать время на сохранение
+                            from PyQt6.QtCore import QTimer
+                            QTimer.singleShot(2000, lambda: _show_license_expired_and_quit())
+                            return
+                except Exception as e:
+                    logger.error(f"Ошибка при проверке статуса обработки: {e}")
+                
+                # Если обработки нет или ошибка - сразу показываем диалог
+                _show_license_expired_and_quit()
+        
+        def _show_license_expired_and_quit():
+            """Показывает критический диалог и закрывает приложение."""
+            from PyQt6.QtWidgets import QMessageBox
+            QMessageBox.critical(
+                window,
+                "Лицензия недействительна",
+                "Ваша подписка истекла или была отозвана.\n"
+                "Приложение будет закрыто. Пожалуйста, активируйте лицензию заново.",
+            )
+            app.quit()
+        
+        # ВАЖНО: сохранить ссылку на таймер, иначе Python GC соберёт его
+        window._license_monitor_timer = license_manager.start_runtime_monitor(
+            _on_license_status_changed
+        )
+        logger.info("Runtime мониторинг лицензии запущен")
+        
         # Очистка старых временных файлов обновления
         logger.info("Очистка старых временных файлов обновления...")
         try:

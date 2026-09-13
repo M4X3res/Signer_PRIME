@@ -39,7 +39,11 @@ class LicenseManager:
     - refresh_async(callback) -> None (в QThread)
     - deactivate_this_device() -> (success, error_message)
     - get_plan_info() -> dict | None
+    - start_runtime_monitor(on_status_changed) -> QTimer (новое в ЗАДАЧЕ 2)
     """
+    
+    # Интервал runtime проверки лицензии (часы)
+    RUNTIME_CHECK_INTERVAL_HOURS = 6
     
     def __init__(self):
         self.client = LicenseClient()
@@ -249,6 +253,46 @@ class LicenseManager:
             "license_key": payload.get("license_key"),
             "issued_at": payload.get("issued_at")
         }
+    
+    def start_runtime_monitor(self, on_status_changed: Callable[[LicenseStatus], None]):
+        """
+        Запускает QTimer, который каждые RUNTIME_CHECK_INTERVAL_HOURS часов
+        асинхронно обновляет токен (refresh_async) и уведомляет
+        on_status_changed новым статусом.
+        
+        Таймер должен быть создан ПОСЛЕ QApplication и жить пока живо главное окно.
+        Вызывающий код отвечает за то, чтобы держать ссылку на QTimer
+        (иначе Python GC его соберёт).
+        
+        Args:
+            on_status_changed: callback(LicenseStatus) - вызывается при изменении статуса
+        
+        Returns:
+            QTimer объект (сохраните ссылку на него!)
+        """
+        from PyQt6.QtCore import QTimer
+        
+        timer = QTimer()
+        interval_ms = self.RUNTIME_CHECK_INTERVAL_HOURS * 60 * 60 * 1000
+        timer.setInterval(interval_ms)
+        
+        def _tick():
+            """Callback для таймера - проверяет лицензию асинхронно."""
+            def _on_refresh_done(success: bool):
+                # После refresh проверяем новый статус
+                new_status = self.check_local_status()
+                logger.info(f"[LicenseManager] Runtime check: status={new_status.value}, refresh_success={success}")
+                on_status_changed(new_status)
+            
+            # Запускаем асинхронный refresh
+            self.refresh_async(_on_refresh_done)
+        
+        timer.timeout.connect(_tick)
+        timer.start()
+        
+        logger.info(f"[LicenseManager] Runtime monitor started (interval: {self.RUNTIME_CHECK_INTERVAL_HOURS}h)")
+        
+        return timer
     
     # ════════════════════════════════════════════════════════════════
     # Внутренние методы
