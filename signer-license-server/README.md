@@ -145,6 +145,12 @@ pytest tests/test_race_condition.py -v
    export ED25519_PRIVATE_KEY_PATH=./private_key.pem
    export STRIPE_SECRET_KEY=sk_live_... # опционально
    export STRIPE_WEBHOOK_SECRET=whsec_... # опционально
+   
+   # ЗАДАЧА 7: Email настройки для отправки лицензий клиентам
+   export EMAIL_PROVIDER=sendgrid  # или "postmark"
+   export EMAIL_API_KEY=your-sendgrid-or-postmark-api-key
+   export EMAIL_FROM_ADDRESS=noreply@your-domain.com
+   export EMAIL_FROM_NAME="Signer PRIME"
    ```
 
 ### Деплой

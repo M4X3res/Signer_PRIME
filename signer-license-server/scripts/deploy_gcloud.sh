@@ -100,6 +100,19 @@ else
     echo "⚠️  WARNING: STRIPE_WEBHOOK_SECRET not provided - Stripe webhooks will be unavailable"
 fi
 
+# ЗАДАЧА 7: Email API key (опциональный)
+if [ -n "$EMAIL_API_KEY" ]; then
+    if gcloud secrets describe email-api-key &>/dev/null; then
+        echo -n "$EMAIL_API_KEY" | gcloud secrets versions add email-api-key --data-file=-
+        echo "✅ Email API key updated"
+    else
+        echo -n "$EMAIL_API_KEY" | gcloud secrets create email-api-key --data-file=- --replication-policy=automatic
+        echo "✅ Email API key created"
+    fi
+else
+    echo "⚠️  WARNING: EMAIL_API_KEY not provided - email notifications will be unavailable"
+fi
+
 # Build & Deploy
 echo "🐳 Building image..."
 IMAGE_URI="$REGION-docker.pkg.dev/$PROJECT_ID/$ARTIFACT_REPO/$SERVICE_NAME:latest"
@@ -119,6 +132,11 @@ if [ -n "$STRIPE_WEBHOOK_SECRET" ]; then
     SECRETS="$SECRETS,STRIPE_WEBHOOK_SECRET=stripe-webhook-secret:latest"
 fi
 
+# ЗАДАЧА 7: Email секрет
+if [ -n "$EMAIL_API_KEY" ]; then
+    SECRETS="$SECRETS,EMAIL_API_KEY=email-api-key:latest"
+fi
+
 # CORS origins (рекомендуемый параметр)
 CORS_ORIGINS="${CORS_ALLOWED_ORIGINS:-*}"
 if [ "$CORS_ORIGINS" = "*" ]; then
@@ -126,9 +144,14 @@ if [ "$CORS_ORIGINS" = "*" ]; then
     echo "⚠️  Set CORS_ALLOWED_ORIGINS='https://your-domain.com,https://app.your-domain.com' for production"
 fi
 
+# ЗАДАЧА 7: Email переменные окружения
+EMAIL_PROVIDER="${EMAIL_PROVIDER:-sendgrid}"
+EMAIL_FROM_ADDRESS="${EMAIL_FROM_ADDRESS:-noreply@your-domain.com}"
+EMAIL_FROM_NAME="${EMAIL_FROM_NAME:-Signer PRIME}"
+
 gcloud run deploy "$SERVICE_NAME" --image="$IMAGE_URI" --region="$REGION" --allow-unauthenticated \
 --add-cloudsql-instances="$CONNECTION_NAME" \
---set-env-vars="DB_CONNECTION_NAME=$CONNECTION_NAME,DB_USER=$DB_USER,DB_NAME=$DB_NAME,CORS_ALLOWED_ORIGINS=$CORS_ORIGINS" \
+--set-env-vars="DB_CONNECTION_NAME=$CONNECTION_NAME,DB_USER=$DB_USER,DB_NAME=$DB_NAME,CORS_ALLOWED_ORIGINS=$CORS_ORIGINS,EMAIL_PROVIDER=$EMAIL_PROVIDER,EMAIL_FROM_ADDRESS=$EMAIL_FROM_ADDRESS,EMAIL_FROM_NAME=$EMAIL_FROM_NAME" \
 --set-secrets="$SECRETS" --quiet
 
 # Migrations

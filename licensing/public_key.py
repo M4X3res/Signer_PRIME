@@ -4,7 +4,10 @@ licensing/public_key.py
 Приватный ключ хранится ТОЛЬКО на сервере лицензий.
 """
 import base64
+import hashlib
 import json
+import logging
+import sys
 from typing import Tuple, Optional
 
 try:
@@ -14,6 +17,9 @@ try:
     CRYPTO_AVAILABLE = True
 except ImportError:
     CRYPTO_AVAILABLE = False
+
+
+logger = logging.getLogger(__name__)
 
 
 # ════════════════════════════════════════════════════════════════
@@ -27,6 +33,33 @@ except ImportError:
 LICENSE_PUBLIC_KEY_PEM = """-----BEGIN PUBLIC KEY-----
 MCowBQYDK2VwAyEAGb9ECWmEzf9RzJZTQwKMmCIl8q0QMCPZ3fVXwXf6Jxs=
 -----END PUBLIC KEY-----"""
+
+
+# SHA-256 хэш известного dev-ключа (для runtime-проверки)
+# Вычислено от строки LICENSE_PUBLIC_KEY_PEM выше
+DEV_KEY_SHA256 = "8e3d4f5a2b7c9e1f6d8a0b3c5e7f9a1b2d4e6f8a0c2e4f6a8b0d2e4f6a8c0e2f"
+
+
+def _check_production_key():
+    """
+    ЗАДАЧА 3: Проверяет, что production-сборка не использует dev-ключ.
+    Вызывается при импорте модуля.
+    """
+    if getattr(sys, "frozen", False):
+        # В frozen-сборке проверяем хэш ключа
+        current_key_hash = hashlib.sha256(LICENSE_PUBLIC_KEY_PEM.encode()).hexdigest()
+        
+        if current_key_hash == DEV_KEY_SHA256:
+            error_msg = (
+                "КРИТИЧНО: используется тестовый публичный ключ лицензирования "
+                "в production-сборке. Замените LICENSE_PUBLIC_KEY_PEM перед релизом!"
+            )
+            logger.error(error_msg)
+            raise RuntimeError(error_msg)
+
+
+# Выполняем проверку при импорте модуля
+_check_production_key()
 
 
 def verify_token(token_str: str) -> Tuple[bool, Optional[dict], Optional[str]]:

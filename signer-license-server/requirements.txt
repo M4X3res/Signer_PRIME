@@ -10,3 +10,6 @@ cryptography>=41.0.7
 stripe>=8.0.0
 slowapi>=0.1.9
 cloud-sql-python-connector[pg8000]>=1.7.0
+# Email providers (ЗАДАЧА 7)
+sendgrid>=6.11.0
+postmarker>=1.0

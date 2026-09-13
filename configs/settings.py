@@ -156,6 +156,21 @@ class AppSettings:
             if env_override:
                 data["license_server_url"] = env_override
             
+            # ЗАДАЧА 2: Проверка URL-заглушки в frozen-сборке
+            import sys
+            import logging
+            logger = logging.getLogger(__name__)
+            
+            if getattr(sys, "frozen", False):
+                final_url = data.get("license_server_url", "")
+                if final_url == "https://license.signer-prime.com":
+                    logger.warning(
+                        "ВНИМАНИЕ: Используется URL-заглушка лицензионного сервера "
+                        "'https://license.signer-prime.com' в production-сборке. "
+                        "Установите переменную окружения SIGNER_LICENSE_SERVER_URL "
+                        "перед релизом!"
+                    )
+            
             return cls(**data)
             
         except Exception as e:

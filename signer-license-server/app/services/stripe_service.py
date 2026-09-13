@@ -110,8 +110,33 @@ class StripeService:
             
             logger.info(f"✅ License created from Stripe: {license_key} (subscription: {subscription_id})")
             
-            # TODO: Отправить email с ключом лицензии клиенту
-            # Получите email через session["customer_details"]["email"]
+            # ЗАДАЧА 7: Отправка email с ключом лицензии клиенту
+            try:
+                customer_email = session.get("customer_details", {}).get("email")
+                if customer_email:
+                    from app.services.email_service import EmailService
+                    email_service = EmailService()
+                    success = email_service.send_license_key(
+                        to_email=customer_email,
+                        license_key=license_key,
+                        plan=plan,
+                        expires_at=current_period_end
+                    )
+                    if success:
+                        logger.info(f"✉️ License key email sent to {customer_email}")
+                    else:
+                        logger.warning(f"Failed to send license key email to {customer_email}")
+                else:
+                    logger.warning(
+                        f"No customer email in session {session.get('id')}, "
+                        "unable to send license key email"
+                    )
+            except Exception as e:
+                # Ошибка отправки email НЕ должна влиять на создание лицензии
+                logger.error(
+                    f"Exception while sending license key email: {e}",
+                    exc_info=True
+                )
             
             return license_obj
             

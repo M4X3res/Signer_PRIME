@@ -459,7 +459,7 @@ def launch_updater_and_exit(
     """
     try:
         # Определяем путь к Updater.exe
-        if getattr(sys, "frozen", false):
+        if getattr(sys, "frozen", False):
             # Frozen build: Updater.exe лежит рядом с Signer.exe
             updater_exe = Path(sys.executable).parent / "Updater.exe"
         else:

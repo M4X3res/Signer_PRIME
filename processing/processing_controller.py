@@ -506,8 +506,6 @@ class ProcessingController(QObject):
             self._resume_from_checkpoint = False
             self._checkpoint_data = None
             return False
-            logger.error(f"[Checkpoint] Ошибка загрузки: {e}")
-            return False
     def delete_checkpoint(self) -> None:
         """Удаляет checkpoint файл."""
         import os

@@ -39,7 +39,7 @@ class ErrorResponse(BaseModel):
 
 class CreateLicenseRequest(BaseModel):
     """Запрос создания лицензии (admin)."""
-    plan: str = Field(..., pattern="^(monthly|quarterly|yearly)$")
+    plan: str = Field(..., pattern="^(monthly|quarterly|yearly|internal)$")
     duration_days: int = Field(..., gt=0, le=3650)
     max_devices: int = Field(default=2, gt=0, le=10)
 

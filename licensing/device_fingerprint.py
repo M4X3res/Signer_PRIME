@@ -70,6 +70,8 @@ def _get_disk_serial() -> Optional[str]:
     """
     Получить серийный номер системного диска (Windows).
     
+    ЗАДАЧА 4: Добавлен PowerShell fallback через Get-CimInstance Win32_DiskDrive.
+    
     Returns:
         Серийный номер диска или None если не удалось получить.
     """
@@ -79,7 +81,7 @@ def _get_disk_serial() -> Optional[str]:
             # Пока оставляем только Windows (т.к. проект под Windows)
             return None
         
-        # wmic diskdrive get serialnumber
+        # Попытка 1: wmic diskdrive get serialnumber
         result = subprocess.run(
             ["wmic", "diskdrive", "get", "serialnumber"],
             capture_output=True,
@@ -88,14 +90,31 @@ def _get_disk_serial() -> Optional[str]:
             creationflags=subprocess.CREATE_NO_WINDOW  # Не показывать окно консоли
         )
         
-        if result.returncode != 0:
-            return None
+        if result.returncode == 0:
+            # Парсим вывод: первая строка — заголовок, вторая — значение
+            lines = [line.strip() for line in result.stdout.strip().split('\n') if line.strip()]
+            if len(lines) >= 2:
+                serial = lines[1].strip()
+                if serial and serial.lower() != "serialnumber":
+                    return serial
         
-        # Парсим вывод: первая строка — заголовок, вторая — значение
-        lines = [line.strip() for line in result.stdout.strip().split('\n') if line.strip()]
-        if len(lines) >= 2:
-            serial = lines[1].strip()
-            if serial and serial.lower() != "serialnumber":
+        # Попытка 2: PowerShell fallback (на случай отсутствия wmic в новых Windows)
+        logger.debug("[Fingerprint] wmic не вернул результат, пробуем PowerShell fallback")
+        ps_command = (
+            "Get-CimInstance -ClassName Win32_DiskDrive | "
+            "Select-Object -First 1 -ExpandProperty SerialNumber"
+        )
+        result = subprocess.run(
+            ["powershell", "-NoProfile", "-Command", ps_command],
+            capture_output=True,
+            text=True,
+            timeout=5,
+            creationflags=subprocess.CREATE_NO_WINDOW
+        )
+        
+        if result.returncode == 0:
+            serial = result.stdout.strip()
+            if serial:
                 return serial
         
         return None
@@ -109,6 +128,8 @@ def _get_mac_address() -> Optional[str]:
     """
     Получить MAC-адрес первого физического сетевого адаптера (Windows).
     
+    ЗАДАЧА 4: Добавлен PowerShell fallback через Get-CimInstance Win32_NetworkAdapter.
+    
     Returns:
         MAC-адрес в формате AA:BB:CC:DD:EE:FF или None.
     """
@@ -116,7 +137,7 @@ def _get_mac_address() -> Optional[str]:
         if platform.system() != "Windows":
             return None
         
-        # wmic nic where "PhysicalAdapter=True" get MACAddress
+        # Попытка 1: wmic nic where "PhysicalAdapter=True" get MACAddress
         result = subprocess.run(
             ["wmic", "nic", "where", "PhysicalAdapter=True", "get", "MACAddress"],
             capture_output=True,
@@ -125,16 +146,37 @@ def _get_mac_address() -> Optional[str]:
             creationflags=subprocess.CREATE_NO_WINDOW
         )
         
-        if result.returncode != 0:
-            return None
+        if result.returncode == 0:
+            # Парсим вывод: берём первый валидный MAC
+            lines = [line.strip() for line in result.stdout.strip().split('\n') if line.strip()]
+            for line in lines[1:]:  # Пропускаем заголовок
+                if ':' in line or '-' in line:
+                    # Нормализуем формат (может быть XX:XX:XX:XX:XX:XX или XX-XX-XX-XX-XX-XX)
+                    mac = line.replace('-', ':').upper()
+                    if len(mac) == 17:  # AA:BB:CC:DD:EE:FF
+                        return mac
         
-        # Парсим вывод: берём первый валидный MAC
-        lines = [line.strip() for line in result.stdout.strip().split('\n') if line.strip()]
-        for line in lines[1:]:  # Пропускаем заголовок
-            if ':' in line or '-' in line:
-                # Нормализуем формат (может быть XX:XX:XX:XX:XX:XX или XX-XX-XX-XX-XX-XX)
-                mac = line.replace('-', ':').upper()
-                if len(mac) == 17:  # AA:BB:CC:DD:EE:FF
+        # Попытка 2: PowerShell fallback (на случай отсутствия wmic в новых Windows)
+        logger.debug("[Fingerprint] wmic не вернул MAC, пробуем PowerShell fallback")
+        ps_command = (
+            "Get-CimInstance -ClassName Win32_NetworkAdapter | "
+            "Where-Object {$_.PhysicalAdapter -eq $true -and $_.MACAddress} | "
+            "Select-Object -First 1 -ExpandProperty MACAddress"
+        )
+        result = subprocess.run(
+            ["powershell", "-NoProfile", "-Command", ps_command],
+            capture_output=True,
+            text=True,
+            timeout=5,
+            creationflags=subprocess.CREATE_NO_WINDOW
+        )
+        
+        if result.returncode == 0:
+            mac = result.stdout.strip()
+            if mac:
+                # Нормализуем формат
+                mac = mac.replace('-', ':').upper()
+                if len(mac) == 17:
                     return mac
         
         return None

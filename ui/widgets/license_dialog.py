@@ -360,7 +360,8 @@ class LicenseDialog(QDialog):
         plan_names = {
             "monthly": "Месячная подписка",
             "quarterly": "Подписка на 3 месяца",
-            "yearly": "Годовая подписка"
+            "yearly": "Годовая подписка",
+            "internal": "Внутренняя лицензия"
         }
         plan_name = plan_names.get(plan_info["plan"], plan_info["plan"])
         self.plan_label.setText(f"<b>План:</b> {plan_name}")

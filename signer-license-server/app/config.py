@@ -27,6 +27,12 @@ class Settings(BaseSettings):
     stripe_secret_key: str = ""
     stripe_webhook_secret: str = ""
     
+    # Email (ЗАДАЧА 7)
+    email_provider: str = "sendgrid"  # "sendgrid" или "postmark"
+    email_api_key: str = ""
+    email_from_address: str = "noreply@your-domain.com"
+    email_from_name: str = "Signer PRIME"
+    
     # CORS
     cors_allowed_origins: str = "*"
     
