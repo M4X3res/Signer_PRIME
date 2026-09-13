@@ -349,6 +349,12 @@ class TestLicenseManager(unittest.TestCase):
         self.assertEqual(plan_info["plan"], "yearly")
         self.assertEqual(plan_info["license_key"], "SGNR-TEST-TEST-TEST-TEST")
         self.assertEqual(plan_info["current_period_end"], payload["current_period_end"])
+    
+    def test_license_client_instantiates_without_error(self):
+        """Regression: LicenseClient() не должен падать при создании."""
+        from licensing.license_client import LicenseClient
+        client = LicenseClient()  # не должно бросать NameError/AttributeError
+        self.assertTrue(hasattr(client, "base_url"))
 
 
 if __name__ == "__main__":

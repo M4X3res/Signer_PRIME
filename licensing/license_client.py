@@ -41,9 +41,6 @@ class LicenseClient:
     """HTTP-клиент для сервера лицензий."""
     
     def __init__(self):
-        if not REQUESTS_AVAILABLE:
-            logger.error("[LicenseClient] requests library not installed")
-        
         self.settings = get_app_settings()
         self.base_url = self.settings.license_server_url.rstrip('/')
     

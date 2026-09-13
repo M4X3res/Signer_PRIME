@@ -239,8 +239,13 @@ def main():
         # ════════════════════════════════════════════════════════════════
         # Задача 2: Запуск runtime мониторинга лицензии
         # ════════════════════════════════════════════════════════════════
+        # Флаг для предотвращения двойного вызова _show_license_expired_and_quit
+        _quit_dialog_shown = False
+        
         def _on_license_status_changed(status: LicenseStatus):
             """Обработчик изменения статуса лицензии во время работы приложения."""
+            nonlocal _quit_dialog_shown
+            
             if status in (LicenseStatus.EXPIRED, LicenseStatus.REVOKED):
                 logger.warning(f"Лицензия стала недействительна во время работы: {status.value}")
                 
@@ -252,10 +257,14 @@ def main():
                             # Мягко останавливаем обработку
                             if hasattr(window, '_on_finish_requested'):
                                 window._on_finish_requested()
-                            # После завершения показываем диалог и закрываем
-                            # Используем QTimer чтобы дать время на сохранение
+                            
+                            # Ждём реального завершения сохранения через сигнал
+                            window.results_saved.connect(_show_license_expired_and_quit)
+                            
+                            # Подстраховка: жёсткий потолок ожидания 5 минут
+                            # (если сохранение зависнет, не держим приложение навечно)
                             from PyQt6.QtCore import QTimer
-                            QTimer.singleShot(2000, lambda: _show_license_expired_and_quit())
+                            QTimer.singleShot(5 * 60 * 1000, _show_license_expired_and_quit)
                             return
                 except Exception as e:
                     logger.error(f"Ошибка при проверке статуса обработки: {e}")
@@ -265,6 +274,13 @@ def main():
         
         def _show_license_expired_and_quit():
             """Показывает критический диалог и закрывает приложение."""
+            nonlocal _quit_dialog_shown
+            
+            # Идемпотентность: не показываем диалог дважды
+            if _quit_dialog_shown:
+                return
+            _quit_dialog_shown = True
+            
             from PyQt6.QtWidgets import QMessageBox
             QMessageBox.critical(
                 window,

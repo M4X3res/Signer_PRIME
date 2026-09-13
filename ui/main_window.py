@@ -79,6 +79,12 @@ class StatusBar(QWidget):
 
 
 class MainWindow(QMainWindow):
+    from PyQt6.QtCore import pyqtSignal
+    
+    # Сигнал эмитится после завершения сохранения результатов (успешного или с ошибкой)
+    # Используется для надёжного ожидания завершения сохранения перед закрытием приложения
+    results_saved = pyqtSignal()
+    
     def     __init__(self):
         super().__init__()
         self.setWindowTitle("Signer v2")
@@ -552,6 +558,9 @@ class MainWindow(QMainWindow):
         
         self.page_processing.log("Карта будет обновлена автоматически", "info")
         self.page_processing.log("Для просмотра результатов перейдите на вкладку 'Карта' или 'Редактор'", "info")
+        
+        # Эмитим сигнал о завершении сохранения (для ожидания в main.py при истечении лицензии)
+        self.results_saved.emit()
     
     def _on_save_error(self, error_msg: str):
         """Вызывается при ошибке сохранения."""
@@ -560,6 +569,9 @@ class MainWindow(QMainWindow):
         self.page_processing.log(f"Ошибка сохранения", "error")
         t = theme_manager.tokens
         self.status_bar.set_status("Ошибка сохранения", t["error"])
+        
+        # Эмитим сигнал о завершении попытки сохранения (даже при ошибке)
+        self.results_saved.emit()
     
     def _reload_editor_after_save(self):
         """Перезагружает редактор после сохранения GeoJSON."""
