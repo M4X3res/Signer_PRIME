@@ -11,7 +11,7 @@ from sqlalchemy import and_, select
 from fastapi import HTTPException
 
 from app.models import License, Device
-from app.crypto import sign_token, parse_token, load_private_key
+from app.crypto import sign_token, parse_token, verify_token_signature, load_private_key
 from app.config import get_settings
 
 logger = logging.getLogger(__name__)
@@ -170,13 +170,13 @@ class LicenseService:
         """
         logger.info("Refreshing license token")
         
-        # Распарсить токен
-        success, payload, error = parse_token(token)
-        if not success or not payload:
-            logger.warning(f"Invalid token: {error}")
+        # БАГ 3: Верифицируем подпись токена (не просто parse_token)
+        valid, payload, error = verify_token_signature(token, self.private_key)
+        if not valid or not payload:
+            logger.warning(f"Invalid token signature: {error}")
             raise HTTPException(
                 status_code=401,
-                detail={"error_code": "INVALID_TOKEN", "error": "Token format invalid"}
+                detail={"error_code": "INVALID_TOKEN", "error": f"Token signature invalid: {error}"}
             )
         
         license_key = payload.get("license_key")
@@ -269,21 +269,23 @@ class LicenseService:
             "current_period_end": int(license.current_period_end.timestamp())
         }
     
-    def deactivate_device(self, token: str) -> Dict[str, Any]:
+    def deactivate_device(self, token: str, fingerprint_hash: str) -> Dict[str, Any]:
         """
         Деактивация устройства.
+        
+        БАГ 3: Теперь требует fingerprint_hash для защиты от деактивации чужих устройств.
         
         Идемпотентная операция.
         """
         logger.info("Deactivating device")
         
-        # Распарсить токен
-        success, payload, error = parse_token(token)
-        if not success or not payload:
-            logger.warning(f"Invalid token: {error}")
+        # БАГ 3: Верифицируем подпись токена
+        valid, payload, error = verify_token_signature(token, self.private_key)
+        if not valid or not payload:
+            logger.warning(f"Invalid token signature: {error}")
             raise HTTPException(
                 status_code=401,
-                detail={"error_code": "INVALID_TOKEN", "error": "Token format invalid"}
+                detail={"error_code": "INVALID_TOKEN", "error": f"Token signature invalid: {error}"}
             )
         
         device_id = payload.get("device_id")
@@ -311,6 +313,17 @@ class LicenseService:
             # Идемпотентность - не найдено считается успехом
             logger.info(f"Device not found (already deactivated?): {device_id}")
             return {"success": True}
+        
+        # БАГ 3: Проверяем fingerprint перед деактивацией (защита от кражи device_id)
+        if device.fingerprint_hash != fingerprint_hash:
+            logger.warning(f"Fingerprint mismatch for device deactivation: {device_id}")
+            raise HTTPException(
+                status_code=403,
+                detail={
+                    "error_code": "FINGERPRINT_MISMATCH",
+                    "error": "Device fingerprint does not match"
+                }
+            )
         
         # Деактивировать
         if device.deactivated_at is None:

@@ -56,6 +56,9 @@ class LicenseManager:
         self.refresh_interval_days = settings.license_refresh_interval_days
         self.grace_period_days = settings.license_grace_period_days
         
+        # БАГ 1: Хранилище активных воркеров (предотвращает GC пока QThread работает)
+        self._refresh_workers = set()
+        
         logger.info(f"[LicenseManager] Token path: {self.token_path}")
         logger.info(f"[LicenseManager] Fingerprint: {self.fingerprint[:16]}...")
     
@@ -190,7 +193,19 @@ class LicenseManager:
             on_done: callback(success: bool)
         """
         worker = RefreshWorker(self)
-        worker.finished.connect(on_done)
+        
+        # БАГ 1: Сохраняем ссылку на воркер чтобы PyQt не собрал его GC
+        self._refresh_workers.add(worker)
+        
+        def _cleanup_and_callback(success: bool):
+            """Wrapper который удаляет воркер после завершения."""
+            # Сначала вызываем пользовательский callback
+            on_done(success)
+            # Потом удаляем ссылку и планируем deleteLater
+            self._refresh_workers.discard(worker)
+            worker.deleteLater()
+        
+        worker.finished.connect(_cleanup_and_callback)
         worker.start()
     
     def deactivate_this_device(self) -> Tuple[bool, str]:
@@ -210,7 +225,8 @@ class LicenseManager:
         
         logger.info("[LicenseManager] Deactivating this device...")
         
-        response = self.client.deactivate(token_str)
+        # БАГ 3: передаём fingerprint для защиты
+        response = self.client.deactivate(token_str, self.fingerprint)
         
         if not response.success:
             error_msg = self._format_error_message(response)

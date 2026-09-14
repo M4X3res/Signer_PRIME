@@ -107,3 +107,55 @@ def parse_token(token_str: str) -> Tuple[bool, dict | None, str | None]:
     
     except Exception as e:
         return False, None, f"Token parse error: {e}"
+
+
+def verify_token_signature(token_str: str, private_key: ed25519.Ed25519PrivateKey) -> Tuple[bool, dict | None, str | None]:
+    """
+    БАГ 3: Верифицировать подпись Ed25519 токена.
+    
+    Токен формат: base64url(payload).base64url(signature)
+    
+    Args:
+        token_str: токен для проверки
+        private_key: приватный ключ сервера (используется для получения публичного ключа)
+    
+    Returns:
+        (valid, payload_dict, error_message)
+    """
+    try:
+        parts = token_str.split(".")
+        if len(parts) != 2:
+            return False, None, "Invalid token format"
+        
+        payload_b64, signature_b64 = parts
+        
+        # Декодируем payload
+        padding = 4 - (len(payload_b64) % 4)
+        if padding != 4:
+            payload_b64 += '=' * padding
+        payload_b64 = payload_b64.replace('-', '+').replace('_', '/')
+        payload_bytes = base64.urlsafe_b64decode(payload_b64)
+        
+        # Декодируем signature
+        padding = 4 - (len(signature_b64) % 4)
+        if padding != 4:
+            signature_b64 += '=' * padding
+        signature_b64 = signature_b64.replace('-', '+').replace('_', '/')
+        signature = base64.urlsafe_b64decode(signature_b64)
+        
+        # Получаем публичный ключ из приватного
+        public_key = private_key.public_key()
+        
+        # Верифицируем подпись
+        try:
+            public_key.verify(signature, payload_bytes)
+        except Exception:
+            return False, None, "Invalid signature"
+        
+        # Парсим payload
+        payload_dict = json.loads(payload_bytes.decode('utf-8'))
+        
+        return True, payload_dict, None
+    
+    except Exception as e:
+        return False, None, f"Token verification error: {e}"

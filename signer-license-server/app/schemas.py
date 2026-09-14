@@ -22,6 +22,7 @@ class RefreshRequest(BaseModel):
 class DeactivateRequest(BaseModel):
     """Запрос деактивации устройства."""
     token: str = Field(..., min_length=10)
+    fingerprint_hash: str = Field(..., min_length=64, max_length=64)  # БАГ 3: добавлена fingerprint для защиты
 
 
 class LicenseResponse(BaseModel):

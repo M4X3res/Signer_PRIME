@@ -86,7 +86,8 @@ async def refresh_license(
 
 
 @router.post("/deactivate", response_model=dict, responses={
-    401: {"model": ErrorResponse}
+    401: {"model": ErrorResponse},
+    403: {"model": ErrorResponse}  # БАГ 3: добавлена ошибка fingerprint mismatch
 })
 async def deactivate_device(
     req: DeactivateRequest,
@@ -98,9 +99,11 @@ async def deactivate_device(
     Идемпотентная операция - повторный вызов не приводит к ошибке.
     
     - **token**: Токен устройства
+    - **fingerprint_hash**: SHA-256 хэш устройства (для проверки)
     
     **Errors:**
     - 401 INVALID_TOKEN - токен невалиден
+    - 403 FINGERPRINT_MISMATCH - fingerprint не совпадает (БАГ 3)
     """
     service = LicenseService(db)
-    return service.deactivate_device(req.token)
+    return service.deactivate_device(req.token, req.fingerprint_hash)  # БАГ 3: передаём fingerprint

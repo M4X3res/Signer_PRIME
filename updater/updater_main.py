@@ -243,6 +243,9 @@ def apply_delta_update(temp_dir: Path, delta_manifest_path: Path, install_dir: P
     backup_dir = install_dir / ".update_backup"
     extraction_dir = temp_dir / "_delta_extracted"
     
+    # БАГ 2: Инициализируем backed_up_files ДО try блока, чтобы except мог на него сослаться
+    backed_up_files = []
+    
     try:
         # Шаг 1: Читаем манифест
         logger.info(f"Чтение {delta_manifest_path}...")
@@ -277,7 +280,6 @@ def apply_delta_update(temp_dir: Path, delta_manifest_path: Path, install_dir: P
         # Шаг 3: Создаём бэкап изменяемых файлов
         logger.info("Создание бэкапа существующих файлов...")
         backup_dir.mkdir(parents=True, exist_ok=True)
-        backed_up_files = []
         
         for rel_path in changed_or_added:
             target_file = install_dir / rel_path

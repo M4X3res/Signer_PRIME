@@ -123,14 +123,21 @@ else:
 # PyArmor генерирует папку pyarmor_runtime_XXXXXX, которую нужно включить.
 _obfuscated_root = os.path.join(ROOT, 'build', 'obfuscated')
 if os.path.isdir(_obfuscated_root):
-    # Ищем pyarmor_runtime_* в obfuscated директории
+    # БАГ 5: Ищем pyarmor_runtime_* рекурсивно (может быть вложен в licensing/)
     import glob
-    pyarmor_runtime_dirs = glob.glob(os.path.join(_obfuscated_root, 'pyarmor_runtime_*'))
+    pyarmor_runtime_dirs = glob.glob(
+        os.path.join(_obfuscated_root, '**', 'pyarmor_runtime_*'),
+        recursive=True
+    )
+    # Дедуплицируем (если один runtime встречается несколько раз по путям)
+    seen = set()
     for rt_dir in pyarmor_runtime_dirs:
         if os.path.isdir(rt_dir):
             rt_name = os.path.basename(rt_dir)
-            datas.append((rt_dir, rt_name))
-            print(f"[signer.spec] ✓ PyArmor runtime включён: {rt_name}")
+            if rt_name not in seen:
+                seen.add(rt_name)
+                datas.append((rt_dir, rt_name))
+                print(f"[signer.spec] ✓ PyArmor runtime включён: {rt_name}")
 else:
     print(f"[signer.spec] ℹ Обфускация не применена (build/obfuscated не найдена)")
 

@@ -198,19 +198,25 @@ class LicenseClient:
                 error_message=f"Unexpected error: {e}"
             )
     
-    def deactivate(self, current_token: str) -> LicenseResponse:
+    def deactivate(self, current_token: str, fingerprint_hash: str) -> LicenseResponse:
         """
         Деактивировать это устройство (освободить слот).
         
+        БАГ 3: Теперь требует fingerprint_hash для защиты.
+        
         Args:
             current_token: текущий токен
+            fingerprint_hash: SHA-256 хэш устройства
         
         Returns:
             LicenseResponse с результатом.
         """
         try:
             url = f"{self.base_url}/api/license/deactivate"
-            payload = {"token": current_token}
+            payload = {
+                "token": current_token,
+                "fingerprint_hash": fingerprint_hash  # БАГ 3: передаём fingerprint
+            }
             
             logger.info("[LicenseClient] Deactivating device...")
             

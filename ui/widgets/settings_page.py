@@ -1485,7 +1485,7 @@ class SettingsPage(QWidget):
                 "ℹ️ PyTorch не требует экспорта моделей"
             )
             self._export_models_status.setStyleSheet(
-                f"color: {theme_manager.tokens['text_muted']}; font-size: 11px;"
+                f"color: {theme_manager.tokens['text_secondary']}; font-size: 11px;"  # БАГ 4: text_muted -> text_secondary
             )
             return
         
@@ -1524,7 +1524,7 @@ class SettingsPage(QWidget):
             f"⏳ Экспорт в {backend.upper()}... (это может занять несколько минут)"
         )
         self._export_models_status.setStyleSheet(
-            f"color: {theme_manager.tokens['text_muted']}; font-size: 11px;"
+            f"color: {theme_manager.tokens['text_secondary']}; font-size: 11px;"  # БАГ 4: text_muted -> text_secondary
         )
         
         # Запускаем worker

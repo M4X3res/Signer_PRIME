@@ -258,8 +258,15 @@ def main():
                             if hasattr(window, '_on_finish_requested'):
                                 window._on_finish_requested()
                             
-                            # Ждём реального завершения сохранения через сигнал
-                            window.results_saved.connect(_show_license_expired_and_quit)
+                            # БАГ 6: Используем UniqueConnection чтобы избежать дублирования подключений
+                            try:
+                                window.results_saved.connect(
+                                    _show_license_expired_and_quit,
+                                    Qt.ConnectionType.UniqueConnection
+                                )
+                            except TypeError:
+                                # Уже подключено - игнорируем
+                                pass
                             
                             # Подстраховка: жёсткий потолок ожидания 5 минут
                             # (если сохранение зависнет, не держим приложение навечно)
