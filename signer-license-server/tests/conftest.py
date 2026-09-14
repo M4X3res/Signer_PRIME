@@ -5,7 +5,7 @@ Pytest конфигурация и фикстуры с testcontainers для Pos
 """
 import os
 import pytest
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Generator
 import uuid
 
@@ -138,10 +138,10 @@ def test_license(db_session: Session) -> License:
         license_key="SGNR-TEST-ABCD-1234-WXYZ",
         plan="monthly",
         status="active",
-        current_period_end=datetime.utcnow() + timedelta(days=30),
+        current_period_end=datetime.now(timezone.utc) + timedelta(days=30),
         max_devices=2,
-        created_at=datetime.utcnow(),
-        updated_at=datetime.utcnow()
+        created_at=datetime.now(timezone.utc),
+        updated_at=datetime.now(timezone.utc)
     )
     db_session.add(license_obj)
     db_session.commit()

@@ -118,6 +118,8 @@ class MainWindow(QMainWindow):
         self.page_processing  = ProcessingPage()
         self.page_map         = MapPage()
         self.page_errors      = ErrorEditorPage()
+        # SettingsPage создаётся лениво — license_manager устанавливается в setattr из main.py
+        # Временно создаём без license_manager, он будет передан через property setter
         self.page_settings    = SettingsPage()
 
         self._pages.addWidget(self.page_dashboard)   # index 0
@@ -178,6 +180,21 @@ class MainWindow(QMainWindow):
         # ── Apply theme ─────────────────────────────────────────
         from PyQt6.QtWidgets import QApplication
         theme_manager.apply(QApplication.instance())
+    
+    @property
+    def license_manager(self):
+        """Getter для license_manager."""
+        return getattr(self, '_license_manager', None)
+    
+    @license_manager.setter
+    def license_manager(self, manager):
+        """Setter для license_manager — передаёт его в SettingsPage."""
+        self._license_manager = manager
+        if hasattr(self, 'page_settings'):
+            self.page_settings._license_manager = manager
+            # Обновляем отображение лицензии после установки менеджера
+            if hasattr(self.page_settings, '_update_license_display'):
+                self.page_settings._update_license_display()
 
     # ── Page switching ─────────────────────────────────────────
 

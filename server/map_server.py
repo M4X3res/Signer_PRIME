@@ -28,6 +28,68 @@ from app.utils import resource_path
 
 logger = logging.getLogger(__name__)
 
+# ── Константы кэша видео-клипов ────────────────────────────────────────────
+CLIP_CACHE_DIRNAME = ".signer_clip_cache"
+
+
+def _get_clip_cache_dir(video_path: str) -> str:
+    """
+    Возвращает путь к директории кэша клипов для указанного видео.
+    Создаёт директорию если её нет.
+    """
+    video_dir = os.path.dirname(video_path)
+    cache_dir = os.path.join(video_dir, CLIP_CACHE_DIRNAME)
+    os.makedirs(cache_dir, exist_ok=True)
+    return cache_dir
+
+
+def clear_clip_cache(video_dir: str) -> tuple[int, int]:
+    """
+    Удаляет папку кэша клипов для указанной директории с видео.
+    
+    Args:
+        video_dir: путь к директории с видео
+    
+    Returns:
+        (количество удалённых файлов, освобождено байт)
+    """
+    cache_dir = os.path.join(video_dir, CLIP_CACHE_DIRNAME)
+    
+    # Безопасная проверка: удаляем только если папка называется именно CLIP_CACHE_DIRNAME
+    if not os.path.exists(cache_dir):
+        return 0, 0
+    
+    if not cache_dir.endswith(CLIP_CACHE_DIRNAME):
+        logger.warning(f"[clear_clip_cache] Отказано: путь не заканчивается на {CLIP_CACHE_DIRNAME}: {cache_dir}")
+        return 0, 0
+    
+    files_removed = 0
+    bytes_freed = 0
+    
+    try:
+        import shutil
+        
+        # Подсчитываем размер перед удалением
+        for root, dirs, files in os.walk(cache_dir):
+            for file in files:
+                file_path = os.path.join(root, file)
+                try:
+                    bytes_freed += os.path.getsize(file_path)
+                    files_removed += 1
+                except OSError:
+                    pass
+        
+        # Удаляем директорию
+        shutil.rmtree(cache_dir, ignore_errors=True)
+        logger.info(f"[clear_clip_cache] Удалено {files_removed} файлов, освобождено {bytes_freed} байт из {cache_dir}")
+        
+    except Exception as e:
+        logger.error(f"[clear_clip_cache] Ошибка при удалении кэша: {e}")
+        return 0, 0
+    
+    return files_removed, bytes_freed
+
+
 # ── Пути к ресурсам ────────────────────────────────────────────────────────
 TEMPLATES_DIR  = resource_path("templates")
 STATIC_DIR     = resource_path("static")
@@ -335,8 +397,16 @@ def api_sign_create():
     try:
         lat = float(body["lat"])
         lon = float(body["lon"])
+        
+        # Валидация координат
+        if not (-90 <= lat <= 90):
+            return jsonify({"error": f"Invalid latitude: {lat} (must be in [-90, 90])"}), 400
+        if not (-180 <= lon <= 180):
+            return jsonify({"error": f"Invalid longitude: {lon} (must be in [-180, 180])"}), 400
+        
         azimuth = float(body.get("azimuth", 0.0))
         description = body.get("description", "")
+        is_left = bool(body.get("is_left", False))  # Сторона: False = справа, True = слева
     except (ValueError, TypeError) as e:
         return jsonify({"error": f"Invalid coordinate format: {e}"}), 400
     
@@ -368,12 +438,21 @@ def api_sign_create():
             "type": sign_type,
             "code": int(codes_signs[sign_type]),
             "azimuth": azimuth,
-            "left": "manually_added",  # Маркер что знак добавлен вручную
+            "left": str(is_left),      # Консистентно с остальным пайплайном: "True"/"False"
+            "manually_added": True,    # Отдельный флаг происхождения знака
             "conf_cnn": 1.0,           # Максимальная уверенность для ручных знаков
             "conf_total": 1.0,
             "length": 1,               # Одно наблюдение
         }
     }
+    
+    # Добавляем hint-поля от ближайшего знака (для привязки видео)
+    if "abs_frame_hint" in body:
+        feature["properties"]["absolute_frame_numbers"] = body["abs_frame_hint"]
+    if "time_hint" in body:
+        feature["properties"]["time"] = body["time_hint"]
+    if "name_video_hint" in body:
+        feature["properties"]["name_video"] = body["name_video_hint"]
     
     # Добавляем описание для знаков с текстом
     if sign_type in type_signs_with_text and description:
@@ -575,8 +654,8 @@ def api_video_clip(video_idx: int):
             "install_url": "https://ffmpeg.org/download.html"
         }), 503
     
-    # Формируем путь к кэшу рядом с видео
-    video_dir = os.path.dirname(video_path)
+    # Формируем путь к кэшу в подпапке
+    cache_dir = _get_clip_cache_dir(video_path)
     video_base = os.path.splitext(os.path.basename(video_path))[0]
     
     # duration=0 означает "всё видео от start до конца"
@@ -585,7 +664,7 @@ def api_video_clip(video_idx: int):
     else:
         cache_filename = f"{video_base}_clip_{int(round(start))}_{int(duration)}.webm"
     
-    cache_path = os.path.join(video_dir, cache_filename)
+    cache_path = os.path.join(cache_dir, cache_filename)
     
     # Если кэш существует - отдаем его
     if os.path.exists(cache_path):
@@ -875,6 +954,45 @@ def api_video_info(video_idx: int):
         })
     except Exception as e:
         logger.info(f"[API /api/video_info/{video_idx}] Ошибка: {e}")
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route("/api/clear_clip_cache", methods=["POST"])
+def api_clear_clip_cache():
+    """
+    Очистка кэша видео-клипов для текущей директории с видео.
+    
+    Returns:
+        JSON: {"ok": true, "files_removed": N, "bytes_freed": N}
+        или {"error": "..."}
+    """
+    try:
+        # Получаем путь к директории с видео
+        if not config.PATH_TO_VIDEO:
+            return jsonify({"error": "PATH_TO_VIDEO not configured"}), 400
+        
+        video_dir = os.path.normpath(os.path.abspath(config.PATH_TO_VIDEO))
+        
+        if not os.path.exists(video_dir):
+            return jsonify({"error": f"Video directory not found: {video_dir}"}), 404
+        
+        # Очищаем кэш
+        files_removed, bytes_freed = clear_clip_cache(video_dir)
+        
+        # Форматируем размер для удобства
+        mb_freed = bytes_freed / (1024 * 1024)
+        
+        logger.info(f"[API /api/clear_clip_cache] Очищено: {files_removed} файлов, {mb_freed:.2f} МБ")
+        
+        return jsonify({
+            "ok": True,
+            "files_removed": files_removed,
+            "bytes_freed": bytes_freed,
+            "mb_freed": round(mb_freed, 2)
+        })
+        
+    except Exception as e:
+        logger.error(f"[API /api/clear_clip_cache] Ошибка: {e}", exc_info=True)
         return jsonify({"error": str(e)}), 500
 
 

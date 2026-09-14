@@ -19,6 +19,16 @@ from .public_key import verify_token
 logger = logging.getLogger(__name__)
 
 
+# Константа отображаемых названий планов (для UI)
+# Используется в license_dialog.py и settings_page.py
+PLAN_DISPLAY_NAMES = {
+    "monthly": "Месячная подписка",
+    "quarterly": "Подписка на 3 месяца",
+    "yearly": "Годовая подписка",
+    "internal": "Внутренняя лицензия"
+}
+
+
 class LicenseStatus(Enum):
     """Статус лицензии."""
     VALID = "valid"                     # Токен валиден, подписка активна

@@ -10,6 +10,7 @@ from PyQt6.QtCore import Qt, pyqtSignal
 from ui.themes.theme_manager import theme_manager, Theme
 from ui.widgets.utils import connect_combobox_theme_updates  # ЗАДАЧА 1
 from configs import config
+from licensing.license_manager import LicenseManager, LicenseStatus, PLAN_DISPLAY_NAMES
 
 
 def _separator():
@@ -124,9 +125,12 @@ class SettingsPage(QWidget):
     theme_changed = pyqtSignal(str)
     settings_changed = pyqtSignal()  # Новый сигнал для уведомления об изменениях
 
-    def __init__(self, parent=None):
+    def __init__(self, parent=None, license_manager=None):
         super().__init__(parent)
         self.setObjectName("ContentArea")
+        
+        # Сохраняем ссылку на license_manager (будет передан из MainWindow)
+        self._license_manager = license_manager
         
         try:
             # Загружаем настройки
@@ -187,6 +191,73 @@ class SettingsPage(QWidget):
         content_layout = QVBoxLayout(content)
         content_layout.setContentsMargins(0, 0, 0, 0)
         content_layout.setSpacing(16)
+
+        # ── Group: Лицензия ─────────────────────────────────────
+        license_group = SettingsGroup("Лицензия")
+        
+        # Статус лицензии
+        self._license_status_label = QLabel()
+        self._license_status_label.setObjectName("LicenseStatusLabel")
+        self._license_status_label.setWordWrap(True)
+        
+        # Детали лицензии (план, дата, ключ)
+        self._license_details_label = QLabel()
+        self._license_details_label.setObjectName("LicenseDetailsLabel")
+        self._license_details_label.setWordWrap(True)
+        self._license_details_label.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
+        
+        # Контейнер для статуса и деталей
+        license_info_layout = QVBoxLayout()
+        license_info_layout.setSpacing(8)
+        license_info_layout.addWidget(self._license_status_label)
+        license_info_layout.addWidget(self._license_details_label)
+        
+        license_info_widget = QWidget()
+        license_info_widget.setStyleSheet("background: transparent;")
+        license_info_widget.setLayout(license_info_layout)
+        
+        license_group.add_row(
+            "Статус",
+            "Информация о вашей подписке Signer PRIME",
+            license_info_widget,
+        )
+        
+        # Кнопки управления
+        license_buttons_layout = QHBoxLayout()
+        license_buttons_layout.setSpacing(8)
+        
+        self._btn_manage_license = QPushButton("Управление лицензией")
+        self._btn_manage_license.setObjectName("BtnSecondary")
+        self._btn_manage_license.setMinimumHeight(36)
+        self._btn_manage_license.setMinimumWidth(180)
+        self._btn_manage_license.setCursor(Qt.CursorShape.PointingHandCursor)
+        self._btn_manage_license.clicked.connect(self._open_license_dialog)
+        
+        self._btn_refresh_license = QPushButton("🔄 Обновить статус")
+        self._btn_refresh_license.setObjectName("BtnSecondary")
+        self._btn_refresh_license.setMinimumHeight(36)
+        self._btn_refresh_license.setMinimumWidth(140)
+        self._btn_refresh_license.setCursor(Qt.CursorShape.PointingHandCursor)
+        self._btn_refresh_license.clicked.connect(self._refresh_license_status)
+        
+        license_buttons_layout.addWidget(self._btn_manage_license)
+        license_buttons_layout.addWidget(self._btn_refresh_license)
+        license_buttons_layout.addStretch()
+        
+        license_buttons_widget = QWidget()
+        license_buttons_widget.setStyleSheet("background: transparent;")
+        license_buttons_widget.setLayout(license_buttons_layout)
+        
+        license_group.add_row(
+            "Действия",
+            "Активация, деактивация и обновление лицензии",
+            license_buttons_widget,
+        )
+        
+        # Обновляем отображение статуса лицензии
+        self._update_license_display()
+        
+        content_layout.addWidget(license_group)
 
         # ── Group: Интерфейс ────────────────────────────────────
         ui_group = SettingsGroup("Интерфейс")
@@ -1745,6 +1816,127 @@ class SettingsPage(QWidget):
         
         self._update_status_label.setText(status_text)
         self._update_status_label.setStyleSheet(f"color: {theme_manager.tokens['text_secondary']}; font-size: 11px;")
+    
+    def _update_license_display(self):
+        """Обновляет отображение статуса лицензии в UI."""
+        if not self._license_manager:
+            # Если license_manager не передан, создаём его
+            from licensing.license_manager import LicenseManager
+            self._license_manager = LicenseManager()
+        
+        status = self._license_manager.check_local_status()
+        plan_info = self._license_manager.get_plan_info()
+        
+        # Цвета для статусов
+        t = theme_manager.tokens
+        status_colors = {
+            LicenseStatus.VALID: t["success"],
+            LicenseStatus.GRACE_PERIOD: t.get("warning", "#e3b341"),
+            LicenseStatus.EXPIRED: t.get("error", "#f85149"),
+            LicenseStatus.REVOKED: t.get("error", "#f85149"),
+            LicenseStatus.NOT_ACTIVATED: t["text_secondary"],
+            LicenseStatus.NETWORK_ERROR: t.get("error", "#f85149"),
+        }
+        
+        # Тексты для статусов
+        status_texts = {
+            LicenseStatus.VALID: "✅ Активна",
+            LicenseStatus.GRACE_PERIOD: "⚠️ Grace-период (нет связи с сервером)",
+            LicenseStatus.EXPIRED: "❌ Истекла",
+            LicenseStatus.REVOKED: "❌ Отозвана",
+            LicenseStatus.NOT_ACTIVATED: "⚪ Не активирована",
+            LicenseStatus.NETWORK_ERROR: "❌ Ошибка сети",
+        }
+        
+        status_text = status_texts.get(status, "Неизвестный статус")
+        status_color = status_colors.get(status, t["text_secondary"])
+        
+        self._license_status_label.setText(f"<b>Статус:</b> <span style='color:{status_color}'>{status_text}</span>")
+        
+        # Детали лицензии
+        if status in (LicenseStatus.VALID, LicenseStatus.GRACE_PERIOD) and plan_info:
+            from datetime import datetime
+            
+            plan_name = PLAN_DISPLAY_NAMES.get(plan_info["plan"], plan_info["plan"])
+            expiry_ts = plan_info["current_period_end"]
+            expiry_date = datetime.fromtimestamp(expiry_ts).strftime("%d.%m.%Y")
+            license_key = plan_info["license_key"]
+            
+            details_html = f"""
+                <b>План:</b> {plan_name}<br>
+                <b>Действует до:</b> {expiry_date}<br>
+                <b>Ключ:</b> {license_key}
+            """
+            self._license_details_label.setText(details_html)
+            self._license_details_label.setVisible(True)
+        else:
+            # Для неактивной лицензии показываем пояснительный текст
+            if status == LicenseStatus.NOT_ACTIVATED:
+                details_text = "Лицензия не активирована. Нажмите 'Управление лицензией' для активации."
+            elif status == LicenseStatus.EXPIRED:
+                details_text = "Подписка истекла. Пожалуйста, продлите подписку."
+            elif status == LicenseStatus.REVOKED:
+                details_text = "Лицензия была отозвана. Свяжитесь с поддержкой."
+            else:
+                details_text = ""
+            
+            self._license_details_label.setText(details_text)
+            self._license_details_label.setVisible(bool(details_text))
+    
+    def _open_license_dialog(self):
+        """Открывает диалог управления лицензией."""
+        if not self._license_manager:
+            from licensing.license_manager import LicenseManager
+            self._license_manager = LicenseManager()
+        
+        from ui.widgets.license_dialog import LicenseDialog
+        dialog = LicenseDialog(self._license_manager, self)
+        dialog.exec()
+        
+        # После закрытия диалога обновляем отображение
+        self._update_license_display()
+    
+    def _refresh_license_status(self):
+        """Обновляет статус лицензии (синхронно + асинхронно)."""
+        if not self._license_manager:
+            from licensing.license_manager import LicenseManager
+            self._license_manager = LicenseManager()
+        
+        # Отключаем кнопку на время обновления
+        self._btn_refresh_license.setEnabled(False)
+        original_text = self._btn_refresh_license.text()
+        self._btn_refresh_license.setText("⏳ Обновление...")
+        
+        # Сначала обновляем локально (синхронно)
+        status = self._license_manager.check_local_status()
+        self._update_license_display()
+        
+        # Затем запускаем асинхронное обновление с сервера
+        def _on_refresh_done(success: bool):
+            from PyQt6.QtCore import QTimer
+            
+            # Обновляем отображение после refresh
+            self._update_license_display()
+            
+            # Показываем результат
+            t = theme_manager.tokens
+            if success:
+                self._btn_refresh_license.setText("✓ Обновлено")
+                print("[SettingsPage] Лицензия успешно обновлена")
+            else:
+                self._btn_refresh_license.setText("✗ Не удалось обновить")
+                print("[SettingsPage] Не удалось обновить лицензию")
+            
+            # Восстанавливаем кнопку через 2 секунды
+            def restore_button():
+                self._btn_refresh_license.setText(original_text)
+                self._btn_refresh_license.setEnabled(True)
+            
+            QTimer.singleShot(2000, restore_button)
+        
+        # Запускаем асинхронный refresh
+        self._license_manager.refresh_async(_on_refresh_done)
+    
     
     def _check_updates_manually(self):
         """Ручная проверка обновлений."""

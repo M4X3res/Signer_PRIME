@@ -623,6 +623,8 @@
       <button class="tb-btn" onclick="fitTrack()">По треку</button>
       <button class="tb-btn" onclick="toggleTrack()">Трек</button>
       <button class="tb-btn" id="btn-live" onclick="toggleLive()">⬤ Live</button>
+      <button class="tb-btn" id="btn-add-sign" onclick="togglePlacementMode()">＋ Добавить знак</button>
+      <button class="tb-btn" onclick="clearClipCache()" title="Очистить кэш видео">🗑 Очистить кэш</button>
       <a class="tb-btn accent" href="/api/geojson_export" download>↓ GeoJSON</a>
     </div>
 
@@ -787,6 +789,7 @@ let typesWithText = new Set();  // заполним из meta
 let processingActive = false;
 let dataReady     = false;
 let socket        = null;
+let placementMode = false;  // Режим размещения нового знака
 
 // ── Map init ────────────────────────────────────────────────────────
 function initMap() {
@@ -1535,6 +1538,323 @@ function setChip(el, side) {
   el.classList.add("active");
   filterSide = side;
   renderMarkers();
+}
+
+// ── Очистка кэша видео-клипов ──────────────────────────────────────
+async function clearClipCache() {
+  try {
+    const response = await fetch(`${API}/clear_clip_cache`, {
+      method: 'POST'
+    });
+    
+    const result = await response.json();
+    
+    if (result.ok) {
+      if (result.files_removed > 0) {
+        toast(`Очищено: ${result.files_removed} файлов (${result.mb_freed} МБ)`, "ok");
+      } else {
+        toast("Кэш уже пуст", "ok");
+      }
+    } else {
+      toast(`Ошибка очистки: ${result.error}`, "err");
+    }
+  } catch (err) {
+    console.error("[clearClipCache] Error:", err);
+    toast(`Ошибка очистки кэша: ${err.message}`, "err");
+  }
+}
+
+// ── Очистка кэша видео-клипов ──────────────────────────────────────
+async function clearClipCache() {
+  try {
+    const response = await fetch(`${API}/clear_clip_cache`, {
+      method: 'POST'
+    });
+    
+    const result = await response.json();
+    
+    if (result.ok) {
+      if (result.files_removed > 0) {
+        toast(`Очищено: ${result.files_removed} файлов (${result.mb_freed} МБ)`, "ok");
+      } else {
+        toast("Кэш уже пуст", "ok");
+      }
+    } else {
+      toast(`Ошибка очистки: ${result.error}`, "err");
+    }
+  } catch (err) {
+    console.error("[clearClipCache] Error:", err);
+    toast(`Ошибка очистки кэша: ${err.message}`, "err");
+  }
+}
+
+// ── Режим размещения знака ─────────────────────────────────────────
+function togglePlacementMode() {
+  placementMode = !placementMode;
+  const btn = document.getElementById('btn-add-sign');
+  
+  if (placementMode) {
+    btn.textContent = '✕ Отменить размещение';
+    btn.classList.add('accent');
+    document.getElementById('map').style.cursor = 'crosshair';
+    toast('Кликните на карту для размещения знака', 'ok');
+    
+    // Добавляем обработчик клика по карте
+    map.once('click', onMapClickForPlacement);
+    
+    // Обработчик Esc для отмены
+    document.addEventListener('keydown', onEscapePress);
+  } else {
+    btn.textContent = '＋ Добавить знак';
+    btn.classList.remove('accent');
+    document.getElementById('map').style.cursor = '';
+    
+    // Убираем обработчики
+    map.off('click', onMapClickForPlacement);
+    document.removeEventListener('keydown', onEscapePress);
+  }
+}
+
+function onEscapePress(e) {
+  if (e.key === 'Escape' && placementMode) {
+    togglePlacementMode();
+    toast('Размещение отменено', 'ok');
+  }
+}
+
+function onMapClickForPlacement(e) {
+  if (!placementMode) return;
+  
+  // Отключаем режим размещения
+  placementMode = false;
+  const btn = document.getElementById('btn-add-sign');
+  btn.textContent = '＋ Добавить знак';
+  btn.classList.remove('accent');
+  document.getElementById('map').style.cursor = '';
+  document.removeEventListener('keydown', onEscapePress);
+  
+  // Получаем координаты клика
+  const lat = e.latlng.lat;
+  const lon = e.latlng.lng;
+  
+  // Открываем панель создания знака
+  openCreateSignPanel(lat, lon);
+}
+
+function openCreateSignPanel(lat, lon) {
+  // Скрываем обычную панель деталей, если открыта
+  const detailContent = document.getElementById('detail-content');
+  if (detailContent) {
+    detailContent.style.display = 'none';
+  }
+  
+  // Создаём панель создания знака если её нет
+  let panel = document.getElementById('create-sign-panel');
+  if (!panel) {
+    createCreateSignPanel();
+    panel = document.getElementById('create-sign-panel');
+  }
+  
+  // Заполняем координаты
+  document.getElementById('create-lat').value = lat.toFixed(6);
+  document.getElementById('create-lon').value = lon.toFixed(6);
+  document.getElementById('create-azimuth').value = '0';
+  document.getElementById('create-side-right').checked = true;
+  document.getElementById('create-type').value = '';
+  document.getElementById('create-desc').value = '';
+  
+  const descRow = document.getElementById('create-desc-row');
+  if (descRow) {
+    descRow.style.display = 'none';
+  }
+  
+  // Показываем панель
+  panel.style.display = 'flex';
+}
+
+function createCreateSignPanel() {
+  // Создаём HTML панели создания знака (структура аналогична detail-content)
+  const panelHtml = `
+    <div id="create-sign-panel" class="panel-section" style="display:none; flex-direction:column;">
+      <div class="panel-head" style="display:flex; justify-content:space-between; align-items:center;">
+        <span class="panel-head-title">Добавить новый знак</span>
+        <button class="tb-btn" onclick="closeCreateSignPanel()" style="padding: 4px 8px; font-size:14px;">✕</button>
+      </div>
+      
+      <div style="padding: 16px; display: flex; flex-direction: column; gap: 16px; overflow-y: auto;">
+        
+        <div class="edit-row">
+          <label class="edit-lbl">Тип знака</label>
+          <select class="edit-select" id="create-type" onchange="onCreateTypeChange()">
+            <option value="">Выберите тип...</option>
+          </select>
+        </div>
+        
+        <div class="edit-row" id="create-desc-row" style="display:none">
+          <label class="edit-lbl">Текст на знаке</label>
+          <input class="edit-input" type="text" id="create-desc" placeholder="Например: 5">
+        </div>
+        
+        <div class="edit-row">
+          <label class="edit-lbl">Сторона дороги</label>
+          <div style="display:flex;gap:12px;padding-top:4px;">
+            <label style="display:flex;align-items:center;gap:6px;cursor:pointer;color:var(--text);">
+              <input type="radio" name="create-side" id="create-side-left" value="left">
+              <span>Слева</span>
+            </label>
+            <label style="display:flex;align-items:center;gap:6px;cursor:pointer;color:var(--text);">
+              <input type="radio" name="create-side" id="create-side-right" value="right" checked>
+              <span>Справа</span>
+            </label>
+          </div>
+        </div>
+        
+        <div class="edit-row">
+          <label class="edit-lbl">Азимут (градусы)</label>
+          <input class="edit-input" type="number" id="create-azimuth" value="0" min="0" max="360" step="1">
+        </div>
+        
+        <div class="edit-row">
+          <label class="edit-lbl">Широта</label>
+          <input class="edit-input" type="text" id="create-lat" readonly style="background:var(--bg2);color:var(--text2);">
+        </div>
+        
+        <div class="edit-row">
+          <label class="edit-lbl">Долгота</label>
+          <input class="edit-input" type="text" id="create-lon" readonly style="background:var(--bg2);color:var(--text2);">
+        </div>
+        
+      </div>
+      
+      <div style="display:flex;gap:8px;padding:14px 16px;border-top:1px solid var(--border);flex-shrink:0;">
+        <button class="action-btn" onclick="closeCreateSignPanel()" style="flex:1;">Отмена</button>
+        <button class="action-btn" onclick="saveNewSign()" style="flex:1;background:var(--accent);color:white;">Сохранить</button>
+      </div>
+      
+    </div>
+  `;
+  
+  // Добавляем панель в right-panel
+  const rightPanel = document.getElementById('right-panel');
+  rightPanel.insertAdjacentHTML('beforeend', panelHtml);
+  
+  // Заполняем типы знаков
+  const select = document.getElementById('create-type');
+  signTypes.forEach(st => {
+    const opt = document.createElement('option');
+    opt.value = st.type;
+    opt.textContent = `${st.type} — ${st.name}`;
+    select.appendChild(opt);
+  });
+}
+
+function closeCreateSignPanel() {
+  const panel = document.getElementById('create-sign-panel');
+  if (panel) {
+    panel.style.display = 'none';
+  }
+  // Показываем обратно панель деталей
+  const detailContent = document.getElementById('detail-content');
+  if (detailContent && selectedId) {
+    detailContent.style.display = 'flex';
+  }
+}
+
+function onCreateTypeChange() {
+  const type = document.getElementById('create-type').value;
+  const descRow = document.getElementById('create-desc-row');
+  
+  // Показываем поле описания только для знаков с текстом
+  if (typesWithText.has(type)) {
+    descRow.style.display = 'flex';
+  } else {
+    descRow.style.display = 'none';
+    document.getElementById('create-desc').value = '';
+  }
+}
+
+async function saveNewSign() {
+  const type = document.getElementById('create-type').value;
+  
+  if (!type) {
+    toast('Выберите тип знака', 'warn');
+    return;
+  }
+  
+  const lat = parseFloat(document.getElementById('create-lat').value);
+  const lon = parseFloat(document.getElementById('create-lon').value);
+  const azimuth = parseFloat(document.getElementById('create-azimuth').value) || 0;
+  const description = document.getElementById('create-desc').value.trim();
+  const isLeft = document.getElementById('create-side-left').checked;
+  
+  try {
+    // Находим ближайший знак для привязки видео (если есть)
+    let nearestSign = null;
+    let minDistance = Infinity;
+    
+    for (const sign of signsData) {
+      if (!sign.lat || !sign.lon) continue;
+      
+      // Расстояние Haversine
+      const R = 6371000; // Радиус Земли в метрах
+      const dLat = (sign.lat - lat) * Math.PI / 180;
+      const dLon = (sign.lon - lon) * Math.PI / 180;
+      const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
+                Math.cos(lat * Math.PI / 180) * Math.cos(sign.lat * Math.PI / 180) *
+                Math.sin(dLon/2) * Math.sin(dLon/2);
+      const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+      const distance = R * c;
+      
+      if (distance < minDistance && distance < 200) { // Макс 200м для привязки
+        minDistance = distance;
+        nearestSign = sign;
+      }
+    }
+    
+    // Формируем тело запроса
+    const body = {
+      type,
+      lat,
+      lon,
+      azimuth,
+      description,
+      is_left: isLeft
+    };
+    
+    // Если нашли ближайший знак, копируем его временные метки для видео
+    if (nearestSign) {
+      console.log(`[saveNewSign] Привязка к ближайшему знаку (${minDistance.toFixed(1)}м):`, nearestSign);
+      // Эти поля не обязательны для создания, но помогут для видео
+      if (nearestSign.abs_frame) body.abs_frame_hint = nearestSign.abs_frame;
+      if (nearestSign.time) body.time_hint = nearestSign.time;
+      if (nearestSign.name_video) body.name_video_hint = nearestSign.name_video;
+    }
+    
+    const response = await fetch(`${API}/sign`, {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify(body)
+    });
+    
+    const result = await response.json();
+    
+    if (result.ok) {
+      toast('Знак добавлен', 'ok');
+      closeCreateSignPanel();
+      
+      // Перезагружаем все знаки для синхронизации
+      await loadSigns();
+      renderMarkers();
+      
+      // Выбираем новый знак
+      selectSign(result.id);
+    } else {
+      toast(`Ошибка добавления: ${result.error}`, 'err');
+    }
+  } catch (err) {
+    console.error('[saveNewSign] Error:', err);
+    toast(`Ошибка добавления: ${err.message}`, 'err');
+  }
 }
 
 // ── Toast ────────────────────────────────────────────────────────────

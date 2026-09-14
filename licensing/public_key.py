@@ -31,7 +31,7 @@ logger = logging.getLogger(__name__)
 # ════════════════════════════════════════════════════════════════
 
 LICENSE_PUBLIC_KEY_PEM = """-----BEGIN PUBLIC KEY-----
-MCowBQYDK2VwAyEAGb9ECWmEzf9RzJZTQwKMmCIl8q0QMCPZ3fVXwXf6Jxs=
+MCowBQYDK2VwAyEAKn6Df8uP9yhMLl4UX22IwgRifaGi6+f3XoTy8DTzmms=
 -----END PUBLIC KEY-----"""
 
 

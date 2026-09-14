@@ -5,7 +5,7 @@ Admin API для ручного управления лицензиями.
 import logging
 import secrets
 import uuid
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 from fastapi import APIRouter, Depends, HTTPException, Header
 from sqlalchemy.orm import Session
@@ -64,7 +64,7 @@ async def create_license(
     license_key = generate_license_key()
     
     # Вычисление даты истечения
-    current_period_end = datetime.utcnow() + timedelta(days=req.duration_days)
+    current_period_end = datetime.now(timezone.utc) + timedelta(days=req.duration_days)
     
     # Создание лицензии в БД
     license_obj = License(
@@ -74,8 +74,8 @@ async def create_license(
         status="active",
         current_period_end=current_period_end,
         max_devices=req.max_devices,
-        created_at=datetime.utcnow(),
-        updated_at=datetime.utcnow()
+        created_at=datetime.now(timezone.utc),
+        updated_at=datetime.now(timezone.utc)
     )
     
     db.add(license_obj)

@@ -234,6 +234,10 @@ def main():
         
         logger.info("Создание главного окна...")
         window = MainWindow()
+        
+        # Передаём license_manager в MainWindow для доступа из SettingsPage
+        window.license_manager = license_manager
+        
         window.show()
         
         # ════════════════════════════════════════════════════════════════

@@ -16,7 +16,7 @@ from PyQt6.QtCore import Qt, pyqtSignal, QThread
 from PyQt6.QtGui import QFont
 
 from ui.themes.theme_manager import theme_manager
-from licensing.license_manager import LicenseManager, LicenseStatus
+from licensing.license_manager import LicenseManager, LicenseStatus, PLAN_DISPLAY_NAMES
 
 logger = logging.getLogger(__name__)
 
@@ -357,13 +357,7 @@ class LicenseDialog(QDialog):
             )
         
         # План
-        plan_names = {
-            "monthly": "Месячная подписка",
-            "quarterly": "Подписка на 3 месяца",
-            "yearly": "Годовая подписка",
-            "internal": "Внутренняя лицензия"
-        }
-        plan_name = plan_names.get(plan_info["plan"], plan_info["plan"])
+        plan_name = PLAN_DISPLAY_NAMES.get(plan_info["plan"], plan_info["plan"])
         self.plan_label.setText(f"<b>План:</b> {plan_name}")
         
         # Дата окончания

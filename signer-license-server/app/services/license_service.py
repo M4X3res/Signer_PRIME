@@ -4,7 +4,7 @@ app/services/license_service.py
 """
 import logging
 import time
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Dict, Any
 from sqlalchemy.orm import Session
 from sqlalchemy import and_, select
@@ -63,7 +63,7 @@ class LicenseService:
             )
         
         # Проверить срок действия
-        now = datetime.utcnow()
+        now = datetime.now(timezone.utc)
         if license.current_period_end < now:
             logger.warning(f"License expired: {license_key}")
             raise HTTPException(
@@ -246,7 +246,7 @@ class LicenseService:
             # Возвращаем токен с актуальным статусом - клиент обработает отзыв
         
         # Обновить last_seen
-        device.last_seen = datetime.utcnow()
+        device.last_seen = datetime.now(timezone.utc)
         self.db.commit()
         
         # Создать новый токен с актуальными данными из БД
@@ -327,7 +327,7 @@ class LicenseService:
         
         # Деактивировать
         if device.deactivated_at is None:
-            device.deactivated_at = datetime.utcnow()
+            device.deactivated_at = datetime.now(timezone.utc)
             self.db.commit()
             logger.info(f"Device deactivated: {device_id}")
         else:

@@ -39,7 +39,7 @@ gcloud artifacts repositories create "$ARTIFACT_REPO" --repository-format=docker
 echo "🗄️  Setting up Cloud SQL..."
 if ! gcloud sql instances describe "$DB_INSTANCE_NAME" &>/dev/null; then
     DB_PASSWORD=$(openssl rand -base64 32 | tr -d "=+/" | cut -c1-25)
-    gcloud sql instances create "$DB_INSTANCE_NAME" --database-version=POSTGRES_16 --tier=db-f1-micro --region="$REGION" --quiet
+    gcloud sql instances create "$DB_INSTANCE_NAME" --database-version=POSTGRES_16 --tier=db-f1-micro --edition=ENTERPRISE --region="$REGION" --quiet
     gcloud sql users create "$DB_USER" --instance="$DB_INSTANCE_NAME" --password="$DB_PASSWORD"
     gcloud sql databases create "$DB_NAME" --instance="$DB_INSTANCE_NAME"
     echo -n "$DB_PASSWORD" | gcloud secrets create db-password --data-file=- --replication-policy=automatic
@@ -116,7 +116,14 @@ fi
 # Build & Deploy
 echo "🐳 Building image..."
 IMAGE_URI="$REGION-docker.pkg.dev/$PROJECT_ID/$ARTIFACT_REPO/$SERVICE_NAME:latest"
-gcloud builds submit --tag="$IMAGE_URI" --dockerfile=docker/Dockerfile .
+cat > /tmp/cloudbuild.yaml <<EOF
+steps:
+  - name: 'gcr.io/cloud-builders/docker'
+    args: ['build', '-f', 'docker/Dockerfile', '-t', '$IMAGE_URI', '.']
+images:
+  - '$IMAGE_URI'
+EOF
+gcloud builds submit --config=/tmp/cloudbuild.yaml .
 
 echo "🚀 Deploying Cloud Run..."
 CONNECTION_NAME=$(gcloud sql instances describe "$DB_INSTANCE_NAME" --format="value(connectionName)")
@@ -157,7 +164,17 @@ gcloud run deploy "$SERVICE_NAME" --image="$IMAGE_URI" --region="$REGION" --allo
 # Migrations
 echo "📊 Running migrations..."
 gcloud run jobs create "$SERVICE_NAME-migrate" --image="$IMAGE_URI" --region="$REGION" \
---add-cloudsql-instances="$CONNECTION_NAME" --command="alembic" --args="upgrade,head" --quiet || true
+  --set-cloudsql-instances="$CONNECTION_NAME" \
+  --command="alembic" --args="upgrade,head" \
+  --set-env-vars="DB_CONNECTION_NAME=$CONNECTION_NAME,DB_USER=$DB_USER,DB_NAME=$DB_NAME" \
+  --set-secrets="ED25519_PRIVATE_KEY_PEM=ed25519-private-key:latest,DB_PASSWORD=db-password:latest" \
+  --quiet 2>/dev/null || \
+gcloud run jobs update "$SERVICE_NAME-migrate" --image="$IMAGE_URI" --region="$REGION" \
+  --set-cloudsql-instances="$CONNECTION_NAME" \
+  --command="alembic" --args="upgrade,head" \
+  --set-env-vars="DB_CONNECTION_NAME=$CONNECTION_NAME,DB_USER=$DB_USER,DB_NAME=$DB_NAME" \
+  --set-secrets="ED25519_PRIVATE_KEY_PEM=ed25519-private-key:latest,DB_PASSWORD=db-password:latest" \
+  --quiet
 gcloud run jobs execute "$SERVICE_NAME-migrate" --region="$REGION" --wait
 
 SERVICE_URL=$(gcloud run services describe "$SERVICE_NAME" --region="$REGION" --format="value(status.url)")

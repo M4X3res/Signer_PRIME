@@ -105,7 +105,7 @@ class AppSettings:
     # ── Лицензирование ────────────────────────────────────────────
     license_refresh_interval_days: int = 1   # Интервал обновления токена (сокращено для безопасности)
     license_grace_period_days: int = 3      # Grace period без онлайн-проверки (сокращено для безопасности)
-    license_server_url: str = "https://license.signer-prime.com"  # URL сервера лицензий
+    license_server_url: str = "https://signer-license-server-1047715133540.europe-west1.run.app"  # URL сервера лицензий
     
     @classmethod
     def load(cls) -> "AppSettings":

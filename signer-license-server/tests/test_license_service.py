@@ -5,7 +5,7 @@ tests/test_license_service.py
 """
 import pytest
 import uuid
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from sqlalchemy.orm import Session
 from fastapi import HTTPException
 
@@ -105,8 +105,8 @@ def test_refresh_with_invalid_device_id(db_session: Session, test_license: Licen
         "device_id": "not-a-uuid",  # Невалидный UUID
         "plan": "monthly",
         "status": "active",
-        "current_period_end": int(datetime.utcnow().timestamp()),
-        "issued_at": int(datetime.utcnow().timestamp())
+        "current_period_end": int(datetime.now(timezone.utc).timestamp()),
+        "issued_at": int(datetime.now(timezone.utc).timestamp())
     }
     
     token = sign_token(payload, private_key)
@@ -138,8 +138,8 @@ def test_deactivate_device_idempotent(db_session: Session, test_license: License
         "device_id": fake_device_id,
         "plan": "monthly",
         "status": "active",
-        "current_period_end": int(datetime.utcnow().timestamp()),
-        "issued_at": int(datetime.utcnow().timestamp())
+        "current_period_end": int(datetime.now(timezone.utc).timestamp()),
+        "issued_at": int(datetime.now(timezone.utc).timestamp())
     }
     
     token = sign_token(payload, private_key)
@@ -237,7 +237,7 @@ def test_activate_expired_license(db_session: Session):
         plan="monthly",
         status="active",
         max_devices=2,
-        current_period_end=datetime.utcnow() - timedelta(days=1)  # Истекла вчера
+        current_period_end=datetime.now(timezone.utc) - timedelta(days=1)  # Истекла вчера
     )
     db_session.add(expired_license)
     db_session.commit()
@@ -264,7 +264,7 @@ def test_activate_revoked_license(db_session: Session):
         plan="monthly",
         status="revoked",
         max_devices=2,
-        current_period_end=datetime.utcnow() + timedelta(days=30)
+        current_period_end=datetime.now(timezone.utc) + timedelta(days=30)
     )
     db_session.add(revoked_license)
     db_session.commit()

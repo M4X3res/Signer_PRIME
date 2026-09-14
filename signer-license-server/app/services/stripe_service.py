@@ -4,7 +4,7 @@ app/services/stripe_service.py
 Обработка Stripe вебхуков для автоматического управления лицензиями.
 """
 import logging
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Optional
 import uuid
 
@@ -94,8 +94,8 @@ class StripeService:
                 status="active",
                 current_period_end=current_period_end,
                 max_devices=PLAN_TO_DEVICES.get(plan, 2),
-                created_at=datetime.utcnow(),
-                updated_at=datetime.utcnow()
+                created_at=datetime.now(timezone.utc),
+                updated_at=datetime.now(timezone.utc)
             )
             
             self.db.add(license_obj)
@@ -181,7 +181,7 @@ class StripeService:
         # Обновление лицензии
         license_obj.status = new_status
         license_obj.current_period_end = datetime.fromtimestamp(current_period_end)
-        license_obj.updated_at = datetime.utcnow()
+        license_obj.updated_at = datetime.now(timezone.utc)
         
         self.db.commit()
         
@@ -211,7 +211,7 @@ class StripeService:
         
         # Отмена лицензии
         license_obj.status = "canceled"
-        license_obj.updated_at = datetime.utcnow()
+        license_obj.updated_at = datetime.now(timezone.utc)
         
         self.db.commit()
         
