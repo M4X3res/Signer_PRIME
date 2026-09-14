@@ -37,6 +37,23 @@ block_cipher = None
 ROOT = os.path.dirname(os.path.abspath(SPEC))
 
 # ═══════════════════════════════════════════════════════════════════
+# ОБФУСКАЦИЯ: Если существует build/obfuscated/, используем его
+# ═══════════════════════════════════════════════════════════════════
+OBFUSCATED_DIR = os.path.join(ROOT, 'build', 'obfuscated')
+USE_OBFUSCATED = os.path.isdir(OBFUSCATED_DIR)
+
+if USE_OBFUSCATED:
+    print(f"[signer.spec] OK: Obfuscated code found: {OBFUSCATED_DIR}")
+    print(f"[signer.spec] Using obfuscated build")
+    MAIN_SCRIPT = os.path.join(OBFUSCATED_DIR, 'main.py')
+    # Добавляем build/obfuscated/ в pathex, чтобы импорты работали
+    EXTRA_PATHEX = [OBFUSCATED_DIR]
+else:
+    print(f"[signer.spec] INFO: No obfuscation, using source code")
+    MAIN_SCRIPT = os.path.join(ROOT, 'main.py')
+    EXTRA_PATHEX = []
+
+# ═══════════════════════════════════════════════════════════════════
 # БИНАРНИКИ (нативные .dll/.so зависимостей)
 # ═══════════════════════════════════════════════════════════════════
 binaries = []
@@ -108,8 +125,8 @@ _7z_dll = os.path.join(ROOT, 'installer', '7z.dll')
 if os.path.isfile(_7z_exe) and os.path.isfile(_7z_dll):
     datas.append((_7z_exe, '.'))
     datas.append((_7z_dll, '.'))
-    print(f"[signer.spec] ✓ 7z.exe включён в сборку: {_7z_exe}")
-    print(f"[signer.spec] ✓ 7z.dll включён в сборку: {_7z_dll}")
+    print(f"[signer.spec] OK: 7z.exe включён в сборку: {_7z_exe}")
+    print(f"[signer.spec] OK: 7z.dll включён в сборку: {_7z_dll}")
 else:
     if not os.path.isfile(_7z_exe):
         print(f"[signer.spec] ⚠ ВНИМАНИЕ: 7z.exe не найден в {_7z_exe}")
@@ -137,9 +154,9 @@ if os.path.isdir(_obfuscated_root):
             if rt_name not in seen:
                 seen.add(rt_name)
                 datas.append((rt_dir, rt_name))
-                print(f"[signer.spec] ✓ PyArmor runtime включён: {rt_name}")
+                print(f"[signer.spec] OK: PyArmor runtime включён: {rt_name}")
 else:
-    print(f"[signer.spec] ℹ Обфускация не применена (build/obfuscated не найдена)")
+    print(f"[signer.spec] INFO: No obfuscation applied (build/obfuscated not found)")
 
 # ═══════════════════════════════════════════════════════════════════
 # HIDDEN IMPORTS (модули, которые PyInstaller не видит статическим
@@ -174,31 +191,39 @@ hiddenimports += [
 hiddenimports += collect_submodules('onnxruntime')
 hiddenimports += collect_submodules('openvino')
 
-# Автообновление, лицензирование и утилиты (app/, updater/, licensing/, ui/widgets/)
+# Автообновление, лицензирование и утилиты (app/, updater/, licensing/, ui/)
 hiddenimports += [
-    'app',
-    'app.version',
-    'app.utils',
-    'updater',
-    'updater.updater',
-    'updater.updater_main',
-    'ui.widgets.update_worker',
-    'ui.widgets.update_dialog',
     # ЗАДАЧА 3: Явные импорты лицензирования для PyInstaller
     'licensing',
     'licensing.license_manager',
     'licensing.license_client',
     'licensing.device_fingerprint',
     'licensing.public_key',
-    'ui.widgets.license_dialog',
 ]
+
+# UI, core, processing, configs, server - используем collect_submodules для полного покрытия
+# Если используем обфусцированный код, collect_submodules должен работать из EXTRA_PATHEX
+if USE_OBFUSCATED:
+    # Добавляем временно build/obfuscated в sys.path для collect_submodules
+    import sys
+    if OBFUSCATED_DIR not in sys.path:
+        sys.path.insert(0, OBFUSCATED_DIR)
+    print(f"[signer.spec] Collecting submodules from obfuscated build...")
+
+hiddenimports += collect_submodules('ui')
+hiddenimports += collect_submodules('core')
+hiddenimports += collect_submodules('processing')
+hiddenimports += collect_submodules('configs')
+hiddenimports += collect_submodules('server')
+hiddenimports += collect_submodules('app')
+hiddenimports += collect_submodules('updater')
 
 # ═══════════════════════════════════════════════════════════════════
 # ANALYSIS
 # ═══════════════════════════════════════════════════════════════════
 a = Analysis(
-    ['main.py'],
-    pathex=[ROOT],
+    [MAIN_SCRIPT],  # Используем обфусцированный main.py если есть
+    pathex=[ROOT] + EXTRA_PATHEX,  # Добавляем build/obfuscated/ в путь
     binaries=binaries,
     datas=datas,
     hiddenimports=hiddenimports,

@@ -12,7 +12,7 @@ yolov8
 errorData
 *.h5
 static
-build
+/build
 dep
 dist
 output
