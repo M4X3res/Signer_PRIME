@@ -36,7 +36,7 @@ scripts\build\prepare_release.bat
 
 Автоматическая публикация релиза на GitHub (требует GitHub CLI).
 
-📚 **Подробнее:** [RELEASE.md](RELEASE.md)
+📚 **Подробнее:** [docs/RELEASE.md](docs/RELEASE.md)
 
 ## Документация
 
@@ -46,7 +46,7 @@ scripts\build\prepare_release.bat
 
 Приложение использует систему подписок (месяц / 3 месяца / год).
 
-- **Быстрый старт:** [QUICKSTART_LICENSING.md](QUICKSTART_LICENSING.md)
+- **Быстрый старт:** [docs/QUICKSTART_LICENSING.md](docs/QUICKSTART_LICENSING.md)
 - **Документация клиента:** [docs/LICENSING.md](docs/LICENSING.md)
 - **Документация сервера:** [docs/LICENSE_SERVER.md](docs/LICENSE_SERVER.md)
 
@@ -70,6 +70,8 @@ scripts\build\prepare_release.bat
 - `ui/` — графический интерфейс (PyQt6)
 - `templates/` — HTML-шаблоны для карты
 - `scripts/build/` — скрипты сборки и релиза
+- `scripts/dev/` — разовые dev/git-скрипты
 - `scripts/archive/` — архив старых скриптов разработки
 - `tests/` — тесты
 - `docs/` — документация
+- `docs/archive/` — архивные отчёты AI-сессий

@@ -7,7 +7,7 @@ echo ================================================================
 echo.
 
 echo [1/3] Быстрая проверка синтаксиса и логики...
-python test_fixes.py
+python tests\test_fixes_manual.py
 if errorlevel 1 (
     echo.
     echo ❌ ОШИБКА: Быстрая проверка не прошла

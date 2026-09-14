@@ -9,10 +9,10 @@ echo ================================================================
 echo.
 
 REM ================================================================
-REM [0/5] Check license server URL configuration (TASK 2)
+REM [0/7] Check license server URL configuration (TASK 2)
 REM ================================================================
 
-echo [0/5] Checking license server configuration...
+echo [0/7] Checking license server configuration...
 echo.
 
 if not exist "build_config.json" (
@@ -68,10 +68,10 @@ echo Version: %VERSION%
 echo.
 
 REM ================================================================
-REM [1/5] Check dependencies
+REM [1/7] Check dependencies
 REM ================================================================
 
-echo [1/5] Checking dependencies...
+echo [1/7] Checking dependencies...
 echo.
 
 python --version >nul 2>&1
@@ -100,10 +100,10 @@ echo OK: All dependencies ready
 echo.
 
 REM ================================================================
-REM [2/5] Clean old builds
+REM [2/7] Clean old builds
 REM ================================================================
 
-echo [2/5] Cleaning old builds...
+echo [2/7] Cleaning old builds...
 rmdir /s /q "dist\Signer" 2>nul
 rmdir /s /q "dist\Updater" 2>nul
 rmdir /s /q "build" 2>nul
@@ -112,10 +112,10 @@ echo OK: Cleaned
 echo.
 
 REM ================================================================
-REM [2.5/6] Obfuscate licensing modules (TASK 3)
+REM [3/7] Obfuscate licensing modules (TASK 3)
 REM ================================================================
 
-echo [2.5/6] Obfuscating licensing modules with PyArmor...
+echo [3/7] Obfuscating licensing modules with PyArmor...
 echo.
 
 python -c "import pyarmor" >nul 2>&1
@@ -138,10 +138,10 @@ if errorlevel 1 (
 )
 
 REM ================================================================
-REM [3/6] Build application
+REM [4/7] Build application
 REM ================================================================
 
-echo [3/6] Building application...
+echo [4/7] Building application...
 echo.
 
 echo    Building Signer.exe...
@@ -212,10 +212,10 @@ echo OK: Build completed
 echo.
 
 REM ================================================================
-REM [4/6] Create archive
+REM [5/7] Create archive
 REM ================================================================
 
-echo [4/6] Creating archive...
+echo [5/7] Creating archive...
 echo.
 
 mkdir release 2>nul
@@ -237,10 +237,10 @@ echo OK: Archive created
 echo.
 
 REM ================================================================
-REM [5/6] Calculate checksums
+REM [6/7] Calculate checksums
 REM ================================================================
 
-echo [5/6] Calculating SHA-256 checksums...
+echo [6/7] Calculating SHA-256 checksums...
 echo.
 
 powershell -Command "Get-ChildItem 'Signer.7z.*' | ForEach-Object { $hash = (Get-FileHash $_.FullName -Algorithm SHA256).Hash; \"$hash  $($_.Name)\" } | Out-File -Encoding utf8 'checksum.sha256'"
@@ -256,10 +256,10 @@ echo OK: Checksums calculated
 echo.
 
 REM ================================================================
-REM Prepare release/ folder
+REM [7/7] Prepare release/ folder
 REM ================================================================
 
-echo Moving files to release\...
+echo [7/7] Moving files to release\...
 move /Y Signer.7z.* ..\release\ >nul
 move /Y checksum.sha256 ..\release\ >nul
 

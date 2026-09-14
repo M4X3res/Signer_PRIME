@@ -262,49 +262,8 @@ class TestLicenseManager(unittest.TestCase):
         status = self.manager.check_local_status()
         self.assertEqual(status, LicenseStatus.REVOKED)
     
-    def test_grace_period(self):
-        """Токен просрочен для refresh, но в grace period → GRACE_PERIOD."""
-        now = int(time.time())
-        
-        # issued_at = 2 дня назад (больше refresh_interval_days=1, но меньше grace_period_days=3)
-        issued_at = now - 2 * 86400
-        
-        payload = {
-            "license_key": "SGNR-TEST-TEST-TEST-TEST",
-            "device_id": "test-device-123",
-            "plan": "monthly",
-            "status": "active",
-            "current_period_end": now + 25 * 86400,  # Подписка активна
-            "issued_at": issued_at
-        }
-        
-        token = self._make_token(payload)
-        self.manager._save_token(token)
-        
-        status = self.manager.check_local_status()
-        self.assertEqual(status, LicenseStatus.GRACE_PERIOD)
-    
-    def test_grace_period_exceeded(self):
-        """Токен вне grace period → EXPIRED."""
-        now = int(time.time())
-        
-        # issued_at = 4 дня назад (больше grace_period_days=3)
-        issued_at = now - 4 * 86400
-        
-        payload = {
-            "license_key": "SGNR-TEST-TEST-TEST-TEST",
-            "device_id": "test-device-123",
-            "plan": "monthly",
-            "status": "active",
-            "current_period_end": now + 15 * 86400,  # Подписка активна, но grace period истёк
-            "issued_at": issued_at
-        }
-        
-        token = self._make_token(payload)
-        self.manager._save_token(token)
-        
-        status = self.manager.check_local_status()
-        self.assertEqual(status, LicenseStatus.EXPIRED)
+    # ЗАДАЧА 2: Grace period тесты удалены - больше нет офлайн-работы на несколько дней
+    # Вместо них - тест на обязательную онлайн-проверку (см. test_verify_access_* ниже)
     
     def test_clock_rollback_detection(self):
         """Откат часов (issued_at > now) → EXPIRED."""

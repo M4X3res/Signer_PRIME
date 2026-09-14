@@ -174,7 +174,7 @@ hiddenimports += [
 hiddenimports += collect_submodules('onnxruntime')
 hiddenimports += collect_submodules('openvino')
 
-# Автообновление и утилиты (app/, updater/, ui/widgets/update_*)
+# Автообновление, лицензирование и утилиты (app/, updater/, licensing/, ui/widgets/)
 hiddenimports += [
     'app',
     'app.version',
@@ -184,6 +184,13 @@ hiddenimports += [
     'updater.updater_main',
     'ui.widgets.update_worker',
     'ui.widgets.update_dialog',
+    # ЗАДАЧА 3: Явные импорты лицензирования для PyInstaller
+    'licensing',
+    'licensing.license_manager',
+    'licensing.license_client',
+    'licensing.device_fingerprint',
+    'licensing.public_key',
+    'ui.widgets.license_dialog',
 ]
 
 # ═══════════════════════════════════════════════════════════════════

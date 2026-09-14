@@ -103,8 +103,10 @@ class AppSettings:
     last_update_check_ts: float = 0.0  # timestamp последней проверки
     
     # ── Лицензирование ────────────────────────────────────────────
-    license_refresh_interval_days: int = 1   # Интервал обновления токена (сокращено для безопасности)
-    license_grace_period_days: int = 3      # Grace period без онлайн-проверки (сокращено для безопасности)
+    # ЗАДАЧА 2: Убрана офлайн-работа на несколько дней
+    # license_refresh_interval_days удалён - проверка при каждом запуске
+    # license_grace_period_days удалён - заменён на license_startup_retry_timeout_sec
+    license_startup_retry_timeout_sec: int = 30  # Таймаут на повторные попытки подключения при старте (секунды)
     license_server_url: str = "https://signer-license-server-1047715133540.europe-west1.run.app"  # URL сервера лицензий
     
     @classmethod

@@ -44,12 +44,13 @@ class LicenseManager:
     Менеджер лицензий.
     
     Публичное API:
-    - check_local_status() -> LicenseStatus
+    - check_local_status() -> LicenseStatus  (быстрая локальная проверка)
+    - verify_access_async(callback) -> None  (НОВОЕ в ЗАДАЧЕ 2: строгая проверка при старте)
     - activate(license_key) -> (success, error_message)
-    - refresh_async(callback) -> None (в QThread)
+    - refresh_async(callback) -> None (в QThread, для runtime мониторинга)
     - deactivate_this_device() -> (success, error_message)
     - get_plan_info() -> dict | None
-    - start_runtime_monitor(on_status_changed) -> QTimer (новое в ЗАДАЧЕ 2)
+    - start_runtime_monitor(on_status_changed) -> QTimer
     """
     
     # Интервал runtime проверки лицензии (часы)
@@ -60,14 +61,10 @@ class LicenseManager:
         self.token_path = self._get_token_path()
         self.fingerprint = get_device_fingerprint()
         
-        # Константы из settings.py
-        from configs.settings import get_app_settings
-        settings = get_app_settings()
-        self.refresh_interval_days = settings.license_refresh_interval_days
-        self.grace_period_days = settings.license_grace_period_days
-        
         # БАГ 1: Хранилище активных воркеров (предотвращает GC пока QThread работает)
         self._refresh_workers = set()
+        # Хранилище для verify воркеров
+        self._verify_workers = set()
         
         logger.info(f"[LicenseManager] Token path: {self.token_path}")
         logger.info(f"[LicenseManager] Fingerprint: {self.fingerprint[:16]}...")
@@ -80,15 +77,22 @@ class LicenseManager:
         """
         Проверить статус лицензии локально (офлайн, без сети).
         
+        ВАЖНО (ЗАДАЧА 2): Этот метод больше НЕ используется для решения
+        "можно ли запустить приложение". Он только для быстрой локальной
+        проверки подписи и дат (защита от подделки, отката часов, явно
+        истёкшей подписки).
+        
+        Для проверки доступа при старте используй verify_access_async().
+        
         Логика:
         1. Проверить наличие файла токена
         2. Проверить подпись токена (Ed25519)
         3. Проверить current_period_end > now
-        4. Проверить grace period (issued_at + grace_period_days)
-        5. Защита от отката часов (issued_at > now)
+        4. Защита от отката часов (issued_at > now)
         
         Returns:
-            LicenseStatus
+            LicenseStatus (VALID, EXPIRED, REVOKED, NOT_ACTIVATED)
+            Больше не возвращает GRACE_PERIOD.
         """
         # 1. Проверяем наличие токена
         token_data = self._load_token()
@@ -117,10 +121,8 @@ class LicenseManager:
         if now < issued_at:
             logger.warning(
                 f"[LicenseManager] Clock rollback detected: now={now}, issued_at={issued_at}. "
-                "Forcing online check."
+                "Token will be rejected."
             )
-            # Форсируем онлайн-проверку (возвращаем EXPIRED чтобы диалог попросил переактивацию)
-            # В реальном сценарии можно добавить спецстатус CLOCK_ROLLBACK
             return LicenseStatus.EXPIRED
         
         # 5. Проверяем статус лицензии (может быть revoked/canceled с сервера)
@@ -133,25 +135,7 @@ class LicenseManager:
             logger.warning(f"[LicenseManager] License expired: {current_period_end} < {now}")
             return LicenseStatus.EXPIRED
         
-        # 7. Проверяем grace period для refresh
-        days_since_issue = (now - issued_at) / 86400
-        
-        if days_since_issue > self.grace_period_days:
-            logger.warning(
-                f"[LicenseManager] Grace period exceeded: {days_since_issue:.1f} > {self.grace_period_days} days"
-            )
-            # Требуется онлайн-проверка
-            return LicenseStatus.EXPIRED
-        
-        # 8. Если прошло больше refresh_interval_days, но ещё в grace period
-        if days_since_issue > self.refresh_interval_days:
-            logger.info(
-                f"[LicenseManager] In grace period: {days_since_issue:.1f} days since issue "
-                f"(refresh interval: {self.refresh_interval_days})"
-            )
-            return LicenseStatus.GRACE_PERIOD
-        
-        # Всё ОК
+        # Всё ОК локально
         return LicenseStatus.VALID
     
     def activate(self, license_key: str) -> Tuple[bool, str]:
@@ -192,6 +176,34 @@ class LicenseManager:
         logger.info("[LicenseManager] License activated successfully")
         
         return True, ""
+    
+    def verify_access_async(self, on_result: Callable[[LicenseStatus, Optional[str]], None]) -> None:
+        """
+        Проверить доступ к приложению (ЗАДАЧА 2 - обязательная онлайн-проверка).
+        
+        Этот метод используется при СТАРТЕ приложения для строгой проверки:
+        1. Если токена нет → NOT_ACTIVATED
+        2. Если токен есть → быстрая локальная проверка (подпись, даты)
+        3. ВСЕГДА пытается обратиться к серверу (refresh)
+        4. Только успешный ответ сервера → VALID
+        5. Сетевая ошибка → NETWORK_ERROR (блокирует запуск)
+        
+        Args:
+            on_result: callback(status: LicenseStatus, error_msg: Optional[str])
+        """
+        worker = VerifyAccessWorker(self)
+        
+        # Сохраняем ссылку на воркер
+        self._verify_workers.add(worker)
+        
+        def _cleanup_and_callback(status: LicenseStatus, error_msg: Optional[str]):
+            """Wrapper который удаляет воркер после завершения."""
+            on_result(status, error_msg)
+            self._verify_workers.discard(worker)
+            worker.deleteLater()
+        
+        worker.finished.connect(_cleanup_and_callback)
+        worker.start()
     
     def refresh_async(self, on_done: Callable[[bool], None]) -> None:
         """
@@ -391,6 +403,74 @@ class LicenseManager:
         
         return error_texts.get(error_code, f"{error_code}: {error_msg}")
     
+    def _verify_access_internal(self) -> Tuple[LicenseStatus, Optional[str]]:
+        """
+        Внутренний метод проверки доступа (синхронный).
+        Используется VerifyAccessWorker в QThread.
+        
+        ЗАДАЧА 2: Строгая проверка доступа при старте.
+        
+        Returns:
+            (LicenseStatus, error_message)
+        """
+        # 1. Если токена нет вообще → сразу NOT_ACTIVATED
+        token_data = self._load_token()
+        if not token_data:
+            logger.info("[LicenseManager] No token found, activation required")
+            return LicenseStatus.NOT_ACTIVATED, None
+        
+        token_str = token_data.get("token")
+        if not token_str:
+            logger.info("[LicenseManager] Empty token, activation required")
+            return LicenseStatus.NOT_ACTIVATED, None
+        
+        # 2. Быстрая локальная проверка (подпись, даты, откат часов)
+        local_status = self.check_local_status()
+        
+        # Если локально токен явно невалиден (подделка, истёк, откат часов) → сразу отклоняем
+        if local_status in (LicenseStatus.NOT_ACTIVATED, LicenseStatus.EXPIRED, LicenseStatus.REVOKED):
+            logger.warning(f"[LicenseManager] Local check failed: {local_status.value}")
+            return local_status, None
+        
+        # 3. Локально токен выглядит валидным → ОБЯЗАТЕЛЬНАЯ проверка с сервером
+        logger.info("[LicenseManager] Local check passed, verifying with server...")
+        
+        response = self.client.refresh(
+            current_token=token_str,
+            fingerprint_hash=self.fingerprint
+        )
+        
+        # 4. Обработка ответа сервера
+        if response.success:
+            # Сервер подтвердил активный статус → сохраняем обновлённый токен
+            self._save_token(response.token)
+            logger.info("[LicenseManager] Server verified license as VALID")
+            return LicenseStatus.VALID, None
+        
+        # 5. Ошибки от сервера
+        error_code = response.error_code or "UNKNOWN"
+        error_msg = self._format_error_message(response)
+        
+        # Критические ошибки (лицензия реально проблемная) → удаляем токен
+        if error_code in ("LICENSE_EXPIRED", "LICENSE_REVOKED", "INVALID_LICENSE", 
+                          "DEVICE_DEACTIVATED", "FINGERPRINT_MISMATCH"):
+            logger.warning(f"[LicenseManager] License rejected by server: {error_code}")
+            self._delete_token()
+            
+            if error_code in ("LICENSE_EXPIRED", "DEVICE_DEACTIVATED"):
+                return LicenseStatus.EXPIRED, error_msg
+            elif error_code in ("LICENSE_REVOKED", "INVALID_LICENSE", "FINGERPRINT_MISMATCH"):
+                return LicenseStatus.REVOKED, error_msg
+        
+        # Сетевые ошибки → NETWORK_ERROR (блокирует запуск)
+        if error_code in ("TIMEOUT", "CONNECTION_ERROR"):
+            logger.error(f"[LicenseManager] Network error during startup verification: {error_msg}")
+            return LicenseStatus.NETWORK_ERROR, error_msg
+        
+        # Неизвестная ошибка → тоже считаем сетевой
+        logger.error(f"[LicenseManager] Unknown error during verification: {error_msg}")
+        return LicenseStatus.NETWORK_ERROR, error_msg
+    
     def _refresh_internal(self) -> bool:
         """
         Внутренний метод обновления токена (синхронный).
@@ -454,3 +534,22 @@ class RefreshWorker(QThread):
         except Exception as e:
             logger.error(f"[RefreshWorker] Error: {e}", exc_info=True)
             self.finished.emit(False)
+
+
+class VerifyAccessWorker(QThread):
+    """Воркер для проверки доступа при старте (ЗАДАЧА 2)."""
+    
+    finished = pyqtSignal(object, object)  # status: LicenseStatus, error_msg: Optional[str]
+    
+    def __init__(self, manager: LicenseManager):
+        super().__init__()
+        self.manager = manager
+    
+    def run(self):
+        """Выполняется в отдельном потоке."""
+        try:
+            status, error_msg = self.manager._verify_access_internal()
+            self.finished.emit(status, error_msg)
+        except Exception as e:
+            logger.error(f"[VerifyAccessWorker] Error: {e}", exc_info=True)
+            self.finished.emit(LicenseStatus.NETWORK_ERROR, str(e))

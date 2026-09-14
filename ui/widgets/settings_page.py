@@ -1831,7 +1831,6 @@ class SettingsPage(QWidget):
         t = theme_manager.tokens
         status_colors = {
             LicenseStatus.VALID: t["success"],
-            LicenseStatus.GRACE_PERIOD: t.get("warning", "#e3b341"),
             LicenseStatus.EXPIRED: t.get("error", "#f85149"),
             LicenseStatus.REVOKED: t.get("error", "#f85149"),
             LicenseStatus.NOT_ACTIVATED: t["text_secondary"],
@@ -1841,7 +1840,6 @@ class SettingsPage(QWidget):
         # Тексты для статусов
         status_texts = {
             LicenseStatus.VALID: "✅ Активна",
-            LicenseStatus.GRACE_PERIOD: "⚠️ Grace-период (нет связи с сервером)",
             LicenseStatus.EXPIRED: "❌ Истекла",
             LicenseStatus.REVOKED: "❌ Отозвана",
             LicenseStatus.NOT_ACTIVATED: "⚪ Не активирована",
@@ -1854,7 +1852,7 @@ class SettingsPage(QWidget):
         self._license_status_label.setText(f"<b>Статус:</b> <span style='color:{status_color}'>{status_text}</span>")
         
         # Детали лицензии
-        if status in (LicenseStatus.VALID, LicenseStatus.GRACE_PERIOD) and plan_info:
+        if status == LicenseStatus.VALID and plan_info:
             from datetime import datetime
             
             plan_name = PLAN_DISPLAY_NAMES.get(plan_info["plan"], plan_info["plan"])

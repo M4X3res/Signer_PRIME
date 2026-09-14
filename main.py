@@ -4,6 +4,7 @@ RoadScanner v2 — точка входа
 import sys
 import os
 import logging
+from typing import Optional
 
 # ════════════════════════════════════════════════════════════════
 # КРИТИЧНО: Флаги Chromium для QWebEngineView
@@ -196,41 +197,141 @@ def main():
 
         # ════════════════════════════════════════════════════════════════
         # Проверка лицензии (ПЕРЕД созданием главного окна)
+        # ЗАДАЧА 2: Строгая онлайн-проверка при каждом запуске
         # ════════════════════════════════════════════════════════════════
         logger.info("Проверка лицензии...")
         from licensing.license_manager import LicenseManager, LicenseStatus
+        from PyQt6.QtWidgets import QMessageBox, QDialog
+        from PyQt6.QtCore import QEventLoop
         
         license_manager = LicenseManager()
-        license_status = license_manager.check_local_status()
+        
+        # Создаём модальный диалог "Проверка лицензии..."
+        from ui.widgets.license_dialog import LicenseDialog
+        
+        verify_dialog = QDialog()
+        verify_dialog.setWindowTitle("Signer PRIME")
+        verify_dialog.setModal(True)
+        verify_dialog.setFixedSize(300, 100)
+        
+        from PyQt6.QtWidgets import QVBoxLayout, QLabel
+        layout = QVBoxLayout()
+        label = QLabel("Проверка лицензии...\nПожалуйста, подождите.")
+        label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        layout.addWidget(label)
+        verify_dialog.setLayout(layout)
+        verify_dialog.show()
+        app.processEvents()  # Отрисовать диалог
+        
+        # Флаг для хранения результата проверки
+        verification_result = {"status": None, "error_msg": None}
+        event_loop = QEventLoop()
+        
+        def _on_verify_result(status: LicenseStatus, error_msg: Optional[str]):
+            """Callback после проверки доступа."""
+            verification_result["status"] = status
+            verification_result["error_msg"] = error_msg
+            verify_dialog.close()
+            event_loop.quit()
+        
+        # Запускаем асинхронную проверку
+        license_manager.verify_access_async(_on_verify_result)
+        event_loop.exec()  # Ждём завершения
+        
+        license_status = verification_result["status"]
+        error_msg = verification_result["error_msg"]
         
         logger.info(f"Статус лицензии: {license_status.value}")
         
-        # Если лицензия не активна или истекла - показываем диалог
-        if license_status not in (LicenseStatus.VALID, LicenseStatus.GRACE_PERIOD):
-            from ui.widgets.license_dialog import LicenseDialog
-            
-            logger.info("Требуется активация лицензии, показываем диалог...")
+        # Обработка результатов проверки
+        if license_status == LicenseStatus.VALID:
+            # Всё ОК, продолжаем запуск
+            logger.info("Лицензия подтверждена сервером, запуск приложения")
+        
+        elif license_status == LicenseStatus.NOT_ACTIVATED:
+            # Нет токена → показываем диалог активации
+            logger.info("Лицензия не активирована, показываем диалог...")
             license_dialog = LicenseDialog(license_manager)
             
             if license_dialog.exec() != LicenseDialog.DialogCode.Accepted:
                 logger.info("Пользователь отменил активацию лицензии, выход...")
                 return  # Выходим из приложения
             
-            # После успешной активации - обновляем статус
-            license_status = license_manager.check_local_status()
-            logger.info(f"Лицензия активирована, статус: {license_status.value}")
+            logger.info("Лицензия успешно активирована")
         
-        # Если статус GRACE_PERIOD - запускаем фоновое обновление токена
-        if license_status == LicenseStatus.GRACE_PERIOD:
-            logger.info("Лицензия в grace period, запускаем фоновое обновление...")
+        elif license_status in (LicenseStatus.EXPIRED, LicenseStatus.REVOKED):
+            # Лицензия истекла/отозвана → показываем диалог активации
+            logger.warning(f"Лицензия {license_status.value}, требуется повторная активация")
             
-            def _on_refresh_done(success: bool):
-                if success:
-                    logger.info("Лицензия успешно обновлена в фоне")
-                else:
-                    logger.warning("Не удалось обновить лицензию в фоне")
+            QMessageBox.warning(
+                None,
+                "Лицензия недействительна",
+                f"Ваша подписка {'истекла' if license_status == LicenseStatus.EXPIRED else 'была отозвана'}.\n"
+                "Пожалуйста, активируйте лицензию заново.",
+            )
             
-            license_manager.refresh_async(_on_refresh_done)
+            license_dialog = LicenseDialog(license_manager)
+            if license_dialog.exec() != LicenseDialog.DialogCode.Accepted:
+                logger.info("Пользователь отменил активацию лицензии, выход...")
+                return
+            
+            logger.info("Лицензия успешно активирована")
+        
+        elif license_status == LicenseStatus.NETWORK_ERROR:
+            # Сетевая ошибка → блокируем запуск с возможностью повтора
+            logger.error(f"Не удалось подключиться к серверу лицензий: {error_msg}")
+            
+            while True:
+                reply = QMessageBox.critical(
+                    None,
+                    "Ошибка подключения",
+                    "Не удалось подключиться к серверу лицензий.\n"
+                    "Проверьте интернет-соединение.\n\n"
+                    f"Ошибка: {error_msg or 'Неизвестная ошибка'}\n\n"
+                    "Попробовать снова?",
+                    QMessageBox.StandardButton.Retry | QMessageBox.StandardButton.Cancel
+                )
+                
+                if reply == QMessageBox.StandardButton.Cancel:
+                    logger.info("Пользователь отменил запуск из-за ошибки сети")
+                    return
+                
+                # Повторная попытка
+                logger.info("Повторная попытка проверки лицензии...")
+                verify_dialog.show()
+                app.processEvents()
+                
+                event_loop2 = QEventLoop()
+                
+                def _on_retry_result(status: LicenseStatus, error_msg: Optional[str]):
+                    verification_result["status"] = status
+                    verification_result["error_msg"] = error_msg
+                    verify_dialog.close()
+                    event_loop2.quit()
+                
+                license_manager.verify_access_async(_on_retry_result)
+                event_loop2.exec()
+                
+                license_status = verification_result["status"]
+                error_msg = verification_result["error_msg"]
+                
+                if license_status == LicenseStatus.VALID:
+                    logger.info("Повторная проверка успешна")
+                    break
+                elif license_status != LicenseStatus.NETWORK_ERROR:
+                    # Не сетевая ошибка → выходим из цикла повторов и обрабатываем как обычно
+                    break
+        
+        else:
+            # Неизвестный статус
+            logger.error(f"Неизвестный статус лицензии: {license_status}")
+            QMessageBox.critical(
+                None,
+                "Ошибка",
+                "Произошла неизвестная ошибка при проверке лицензии.\n"
+                "Приложение будет закрыто.",
+            )
+            return
         
         logger.info("Создание главного окна...")
         window = MainWindow()
