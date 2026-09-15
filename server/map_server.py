@@ -195,10 +195,25 @@ def _build_upstream_tile_url(template: str, z: int, x: int, y: int) -> str:
     """
     Построение upstream URL для векторного тайла с сохранением query string.
     
-    Критично: не потерять параметры (токен!) при подстановке {z}/{x}/{y}.
-    Пример: template = "http://api.maps.by/.../tile/{z}/{y}/{x}.pbf?token=ABC&key=123"
-           → "http://api.maps.by/.../tile/9/163/291.pbf?token=ABC&key=123"
+    ВАЖНО: Leaflet.VectorGrid отправляет координаты в стандартном порядке OSM/Mapbox: z/x/y
+    Но api.maps.by (Esri/ArcGIS) использует порядок: z/y/x
+    
+    Эта функция получает координаты от Leaflet (z, x, y) и подставляет их в template,
+    который содержит плейсхолдеры {z}/{y}/{x}.
+    
+    Пример:
+      template: "https://api.maps.by/.../tile/{z}/{y}/{x}.pbf?token=ABC"
+      Leaflet отправляет: z=9, x=291, y=163
+      Результат: "https://api.maps.by/.../tile/9/163/291.pbf?token=ABC"
+                                                    z  y    x
+    
+    Критично: не потерять параметры (токен!) при подстановке.
     """
+    original_template = template
+    
+    # Подставляем координаты
+    # ВАЖНО: Не меняем порядок подстановки - просто заменяем плейсхолдеры
+    # Template определяет порядок: если там {z}/{y}/{x}, то так и будет
     url = (
         template
         .replace("{z}", str(z))
@@ -206,6 +221,18 @@ def _build_upstream_tile_url(template: str, z: int, x: int, y: int) -> str:
         .replace("{y}", str(y))
         .replace("{s}", "a")  # Поддомены (если есть)
     )
+    
+    # DEFENSIVE CHECK: Подстановка должна была изменить URL
+    # Если итоговый URL идентичен исходному шаблону → плейсхолдеры отсутствуют
+    if url == original_template:
+        # Это означает что в template НЕТ {z}/{x}/{y} вообще
+        # Такое возможно если пользователь вставил URL конкретного тайла вместо шаблона
+        raise ValueError(
+            f"Vector tile template does not contain placeholders {{z}}/{{x}}/{{y}} or {{z}}/{{y}}/{{x}}. "
+            f"Template appears to be a URL of a single specific tile, not a template. "
+            f"All tile requests will return the same tile, resulting in a 'mosaic' pattern on the map."
+        )
+    
     return url
 
 
@@ -366,6 +393,16 @@ def api_vector_tile_proxy(z, x, y):
                 "Cache-Control": "public, max-age=86400",  # Кэшируем на 24 часа
             }
         )
+    
+    except ValueError as e:
+        # ValueError = отсутствие плейсхолдеров в template (критическая ошибка конфигурации)
+        error_msg = str(e)
+        logger.error(f"[vector_tile_proxy] CONFIGURATION ERROR: {error_msg}")
+        return jsonify({
+            "error": "Invalid tile URL template",
+            "details": "URL does not contain {z}/{x}/{y} placeholders. Please check map settings.",
+            "diagnostic": error_msg
+        }), 400
         
     except req.exceptions.HTTPError as e:
         status = e.response.status_code if e.response is not None else 502
@@ -380,11 +417,207 @@ def api_vector_tile_proxy(z, x, y):
         
     except Exception as e:
         masked = _mask_token_for_log(upstream_url) if 'upstream_url' in locals() else 'unknown'
-        logger.warning(f"[vector_tile_proxy] {e} for {masked}")
+        logger.error(f"[vector_tile_proxy] Error: {e} for {masked}")
+        import traceback
+        traceback.print_exc()
         return jsonify({"error": str(e)}), 502
+
+
+@app.route("/api/vector_tile_style")
+def api_vector_tile_style():
+    """
+    Прокси для загрузки стилей векторных тайлов.
+    
+    Для api.maps.by (Esri/ArcGIS VectorTileServer) стили доступны по:
+    https://api.maps.by/.../VectorTileServer/resources/styles
+    
+    Этот endpoint автоматически определяет URL стилей на основе tile URL
+    и проксирует его с CORS-заголовками.
+    """
+    try:
+        from configs.settings import get_app_settings
+        import requests as req
+        
+        settings = get_app_settings()
+        
+        # Проверяем, что векторные тайлы настроены
+        if settings.map_tile_type != "vector":
+            logger.warning(f"[vector_tile_style] Called but map_tile_type={settings.map_tile_type}")
+            return jsonify({"error": "vector tiles not configured"}), 400
+        
+        # Получаем базовый URL (удаляем /tile/{z}/{y}/{x}.pbf и query string)
+        tile_url = settings.map_tile_url
+        
+        logger.info(f"[vector_tile_style] Original tile_url: {_mask_token_for_log(tile_url)}")
+        
+        # Извлекаем query string (токен)
+        query_string = ''
+        if '?' in tile_url:
+            query_string = '?' + tile_url.split('?', 1)[1]
+        
+        # Для api.maps.by URL выглядит так:
+        # Тайлы:  https://api.maps.by/.../VectorTileServer/tile/{z}/{y}/{x}.pbf?token=...
+        # Стили:  https://api.maps.by/.../resources/styles?token=...
+        # (стили БЕЗ /VectorTileServer/ в пути!)
+        
+        # Пробуем несколько распространённых путей
+        style_paths = []
+        
+        # Вариант 1: api.maps.by - убираем /VectorTileServer/tile/ и добавляем /resources/styles
+        if '/VectorTileServer/tile/' in tile_url:
+            base_url = tile_url.split('/VectorTileServer/tile/')[0]  # До /VectorTileServer
+            logger.info(f"[vector_tile_style] Extracted base_url: {_mask_token_for_log(base_url)}")
+            style_paths.append(f"{base_url}/resources/styles{query_string}")
+            # На всякий случай пробуем и с VectorTileServer
+            style_paths.append(f"{base_url}/VectorTileServer/resources/styles{query_string}")
+        # Вариант 2: Общий случай /tile/
+        elif '/tile/' in tile_url:
+            base_url = tile_url.split('/tile/')[0]
+            logger.info(f"[vector_tile_style] Extracted base_url (generic): {_mask_token_for_log(base_url)}")
+            style_paths.append(f"{base_url}/resources/styles{query_string}")
+            style_paths.append(f"{base_url}/resources/styles/root.json{query_string}")
+            style_paths.append(f"{base_url}/styles/root.json{query_string}")
+            style_paths.append(f"{base_url}/style.json{query_string}")
+        else:
+            logger.error(f"[vector_tile_style] Cannot extract base URL from: {tile_url}")
+            return jsonify({"error": "Cannot determine style URL"}), 400
+        
+        logger.info(f"[vector_tile_style] Will try {len(style_paths)} paths")
+        
+        last_error = None
+        
+        # Headers для запросов (некоторые серверы требуют User-Agent)
+        headers = {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+            'Accept': 'application/json, */*'
+        }
+        
+        for idx, style_url in enumerate(style_paths, 1):
+            masked = _mask_token_for_log(style_url)
+            
+            try:
+                logger.info(f"[vector_tile_style] [{idx}/{len(style_paths)}] Trying: {masked}")
+                resp = req.get(style_url, timeout=10, headers=headers)
+                
+                logger.info(f"[vector_tile_style] Response: HTTP {resp.status_code}, Content-Type: {resp.headers.get('Content-Type', 'N/A')}, Size: {len(resp.content)} bytes")
+                
+                if resp.status_code == 200:
+                    # Пробуем распарсить JSON для валидации
+                    try:
+                        data = resp.json()
+                        logger.info(f"[vector_tile_style] JSON parsed successfully, type: {type(data)}")
+                        
+                        # Проверяем базовую структуру Mapbox/Esri стилей
+                        if isinstance(data, dict):
+                            # Esri стили могут иметь разную структуру
+                            has_layers = 'layers' in data
+                            has_sources = 'sources' in data
+                            has_version = 'version' in data
+                            has_sprite = 'sprite' in data
+                            
+                            logger.info(f"[vector_tile_style] Style keys: {list(data.keys())[:10]}")
+                            
+                            # Для Esri стилей достаточно любого из ключей
+                            if has_layers or has_sources or has_version or has_sprite or len(data) > 0:
+                                logger.info(f"[vector_tile_style] ✅ SUCCESS: Found valid styles at {masked}")
+                                logger.info(f"[vector_tile_style] Style keys: {list(data.keys())[:10]}")
+                                
+                                # Модифицируем стили для использования наших прокси
+                                # (как в рабочем примере scripts/archive/index.html)
+                                if 'sources' in data:
+                                    for source_id in data['sources']:
+                                        source = data['sources'][source_id]
+                                        if source.get('type') == 'vector' and 'url' in source:
+                                            # Заменяем URL источника на наш прокси
+                                            # Сохраняем остальные параметры (bounds, minzoom, maxzoom, scheme)
+                                            original_url = source['url']
+                                            logger.info(f"[vector_tile_style] Replacing source[{source_id}].url with proxy")
+                                            
+                                            # Создаём источник с нашим прокси
+                                            data['sources'][source_id] = {
+                                                'type': 'vector',
+                                                'tiles': ['/api/vector_tile_proxy/{z}/{x}/{y}'],
+                                                'bounds': source.get('bounds'),
+                                                'minzoom': source.get('minzoom', 0),
+                                                'maxzoom': source.get('maxzoom', 24),  # Увеличиваем до 24
+                                                'scheme': source.get('scheme', 'xyz'),
+                                            }
+                                
+                                # TODO: Добавить endpoints для sprite и glyphs, если понадобится
+                                # data['sprite'] = '/api/vector_tile_sprite'
+                                # data['glyphs'] = '/api/vector_tile_glyphs/{fontstack}/{range}.pbf'
+                                
+                                logger.info(f"[vector_tile_style] Style structure: layers={has_layers}, sources={has_sources}, version={has_version}, sprite={has_sprite}")
+                                return Response(
+                                    json.dumps(data),  # Отправляем модифицированный JSON
+                                    mimetype="application/json",
+                                    headers={
+                                        "Access-Control-Allow-Origin": "*",
+                                        "Cache-Control": "public, max-age=86400",
+                                    }
+                                )
+                            else:
+                                logger.warning(f"[vector_tile_style] Empty or invalid style format at {masked}: {list(data.keys())[:5]}")
+                        else:
+                            logger.warning(f"[vector_tile_style] Response is not a dict: {type(data)}")
+                    except Exception as parse_err:
+                        logger.warning(f"[vector_tile_style] Failed to parse JSON at {masked}: {parse_err}")
+                        # Показываем первые 200 символов ответа для диагностики
+                        preview = resp.text[:200] if hasattr(resp, 'text') else str(resp.content[:200])
+                        logger.warning(f"[vector_tile_style] Response preview: {preview}")
+                        
+                elif resp.status_code == 404:
+                    logger.info(f"[vector_tile_style] 404 Not Found at {masked}")
+                else:
+                    logger.warning(f"[vector_tile_style] HTTP {resp.status_code} at {masked}")
+                    
+                last_error = f"HTTP {resp.status_code}"
+                
+            except req.exceptions.Timeout:
+                logger.warning(f"[vector_tile_style] Timeout at {masked}")
+                last_error = "Timeout"
+                continue
+            except req.exceptions.RequestException as e:
+                logger.warning(f"[vector_tile_style] Request failed for {masked}: {e}")
+                last_error = str(e)
+                continue
+        
+        # Не нашли стили ни по одному пути
+        logger.info(f"[vector_tile_style] ⚠️ Styles not found at any known path")
+        logger.info(f"[vector_tile_style] Tried {len(style_paths)} paths, last error: {last_error}")
+        return jsonify({
+            "error": "Styles not found",
+            "fallback": True,
+            "last_error": last_error,
+            "tried_count": len(style_paths)
+        }), 404
+    
+    except Exception as e:
+        logger.error(f"[vector_tile_style] Unexpected error: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({"error": str(e), "fallback": True}), 502
+    
+    except req.exceptions.HTTPError as e:
+        status = e.response.status_code if e.response is not None else 502
+        masked = _mask_token_for_log(style_url) if 'style_url' in locals() else 'unknown'
+        logger.warning(f"[vector_tile_style] Upstream HTTP {status} for {masked}")
+        
+        # Если стили не найдены (404) - это не критично, используем fallback
+        if status == 404:
+            logger.info(f"[vector_tile_style] Styles not available (404), client will use default styles")
+            return jsonify({"error": "Styles not found", "fallback": True}), 404
+        
+        return jsonify({"error": f"Upstream HTTP {status}"}), status
+        
+    except req.exceptions.Timeout:
+        masked = _mask_token_for_log(style_url) if 'style_url' in locals() else 'unknown'
+        logger.warning(f"[vector_tile_style] Timeout for {masked}")
+        return jsonify({"error": "Upstream timeout"}), 504
         
     except Exception as e:
-        logger.error(f"[vector_tile_proxy] Error: {e}")
+        masked = _mask_token_for_log(style_url) if 'style_url' in locals() else 'unknown'
+        logger.error(f"[vector_tile_style] Error: {e} for {masked}")
         import traceback
         traceback.print_exc()
         return jsonify({"error": str(e)}), 502

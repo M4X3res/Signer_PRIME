@@ -7,9 +7,13 @@
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
 <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.css"/>
 <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.Default.css"/>
+<!-- MapLibre GL для векторных тайлов -->
+<link rel="stylesheet" href="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css"/>
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script src="https://unpkg.com/leaflet.markercluster@1.5.3/dist/leaflet.markercluster.js"></script>
 <script src="https://unpkg.com/leaflet.vectorgrid@1.3.0/dist/Leaflet.VectorGrid.bundled.js"></script>
+<!-- MapLibre GL -->
+<script src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js"></script>
 <script src="https://unpkg.com/socket.io-client@4.7.4/dist/socket.io.min.js"></script>
 <style>
   :root {
@@ -794,7 +798,11 @@ let placementMode = false;  // Режим размещения нового зн
 
 // ── Map init ────────────────────────────────────────────────────────
 function initMap() {
-  map = L.map("map", { zoomControl: true, attributionControl: true });
+  map = L.map("map", { 
+    zoomControl: true, 
+    attributionControl: true,
+    maxZoom: 24  // Увеличено для поддержки векторных тайлов с высоким zoom
+  });
 
   // Подложка загружается асинхронно из /api/map_config (см. loadTileLayer ниже)
   
@@ -837,6 +845,34 @@ async function loadTileLayer() {
     
     // Проверяем тип подложки: raster (по умолчанию) или vector
     if (cfg.tile_type === 'vector') {
+      // КРИТИЧЕСКАЯ ПРОВЕРКА: URL должен содержать плейсхолдеры {z}/{x}/{y}
+      // Без них Leaflet будет запрашивать разные координаты, но всегда получать
+      // один и тот же тайл → "мозаичный" паттерн из повторяющихся фигур
+      const hasPlaceholders = 
+        cfg.tile_url.includes('{z}') && 
+        cfg.tile_url.includes('{x}') && 
+        cfg.tile_url.includes('{y}');
+      
+      if (!hasPlaceholders) {
+        const errorMsg = 
+          '❌ КРИТИЧЕСКАЯ ОШИБКА: URL векторных тайлов не содержит плейсхолдеры {z}/{x}/{y}!\n\n' +
+          'Вы вставили ссылку на ОДИН КОНКРЕТНЫЙ тайл вместо ШАБЛОНА.\n' +
+          'Это приведёт к отображению мозаики из одинаковых фигур вместо карты.\n\n' +
+          'Перейдите в Настройки → Карта и исправьте URL, добавив {z}/{x}/{y}.';
+        
+        console.error('[loadTileLayer]', errorMsg);
+        console.error('[loadTileLayer] Invalid tile_url:', cfg.tile_url);
+        
+        toast(
+          'Векторные тайлы настроены некорректно: URL не содержит {z}/{x}/{y}. ' +
+          'Откройте Настройки → Карта и исправьте URL.',
+          'err'
+        );
+        
+        // Откатываемся на OSM растр вместо показа битой подложки
+        throw new Error('Vector tile URL missing placeholders {z}/{x}/{y}');
+      }
+      
       // Векторные тайлы через Leaflet.VectorGrid
       if (typeof L.vectorGrid === 'undefined') {
         const err = new Error('Leaflet.VectorGrid library not loaded - check internet connection or CDN availability');
@@ -846,24 +882,80 @@ async function loadTileLayer() {
       
       console.log('[loadTileLayer] Creating vector tile layer...');
       
-      // Определяем текущую тему для выбора цветовой схемы
-      const isDarkTheme = true;  // Карта всегда в тёмной теме (см. CSS .leaflet-tile filter)
+      // Пробуем загрузить стили с сервера
+      let vectorTileStyles = null;
+      try {
+        console.log('[loadTileLayer] Attempting to load vector tile styles...');
+        const styleResp = await fetch('/api/vector_tile_style');
+        
+        if (styleResp.ok) {
+          const styleData = await styleResp.json();
+          
+          // Парсим Esri/ArcGIS style JSON и преобразуем в Leaflet.VectorGrid стили
+          if (styleData && styleData.layers) {
+            vectorTileStyles = {};
+            
+            console.log(`[loadTileLayer] Processing ${styleData.layers.length} style layers...`);
+            
+            styleData.layers.forEach(layer => {
+              if (!layer.id || !layer.paint) return;
+              
+              const paint = layer.paint;
+              const layerStyle = {};
+              
+              // Преобразуем Mapbox GL/Esri стили в Leaflet.VectorGrid
+              if (paint['fill-color']) {
+                layerStyle.fillColor = paint['fill-color'];
+              }
+              if (paint['fill-opacity'] !== undefined) {
+                layerStyle.fillOpacity = paint['fill-opacity'];
+              }
+              if (paint['line-color']) {
+                layerStyle.color = paint['line-color'];
+              }
+              if (paint['line-width'] !== undefined) {
+                layerStyle.weight = paint['line-width'];
+              }
+              if (paint['line-opacity'] !== undefined) {
+                layerStyle.opacity = paint['line-opacity'];
+              }
+              
+              vectorTileStyles[layer.id] = layerStyle;
+            });
+            
+            console.log('[loadTileLayer] Styles loaded successfully:', Object.keys(vectorTileStyles).length, 'layers');
+          } else {
+            console.warn('[loadTileLayer] Style JSON has unexpected format, using fallback');
+          }
+        } else {
+          console.warn('[loadTileLayer] Styles not available (HTTP', styleResp.status, '), using fallback');
+        }
+      } catch (styleErr) {
+        console.warn('[loadTileLayer] Failed to load styles, using fallback:', styleErr);
+      }
       
-      // Универсальный стиль для всех слоёв векторных тайлов
-      const genericStyle = {
-        weight: 1,
-        color: isDarkTheme ? '#3d8ef0' : '#2563eb',
-        fillColor: isDarkTheme ? '#1c2128' : '#e5e7eb',
-        fillOpacity: isDarkTheme ? 0.3 : 0.5,
-      };
+      // Если стили не загрузились, используем универсальный fallback
+      if (!vectorTileStyles || Object.keys(vectorTileStyles).length === 0) {
+        const isDarkTheme = true;  // Карта всегда в тёмной теме
+        
+        vectorTileStyles = {
+          '*': {  // Применяется ко всем слоям
+            weight: 1,
+            color: isDarkTheme ? '#3d8ef0' : '#2563eb',
+            fillColor: isDarkTheme ? '#1c2128' : '#e5e7eb',
+            fillOpacity: isDarkTheme ? 0.3 : 0.5,
+          }
+        };
+        
+        console.log('[loadTileLayer] Using default fallback styles');
+      }
       
       // Создаём слой векторных тайлов
       const vectorLayer = L.vectorGrid.protobuf(cfg.tile_url, {
         attribution: cfg.attribution,
-        maxZoom: cfg.max_zoom,
-        vectorTileLayerStyles: { 
-          '*': genericStyle  // Применяется ко всем слоям
-        },
+        maxZoom: 24,  // Увеличено до 24 для поддержки детального масштабирования
+        maxNativeZoom: cfg.max_zoom || 18,  // Реальный zoom уровень тайлов
+        vectorTileLayerStyles: vectorTileStyles,
         interactive: false,  // Отключаем интерактивность векторной подложки
       });
       
