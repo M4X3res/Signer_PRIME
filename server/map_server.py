@@ -241,11 +241,22 @@ def api_map_config():
     try:
         from configs.settings import get_app_settings
         settings = get_app_settings()
+        
+        # Для векторных тайлов можно использовать прокси если есть проблемы с CORS
+        # По умолчанию используем прямой URL, прокси активируется вручную при необходимости
+        tile_url = settings.map_tile_url
+        use_proxy = False  # Флаг для будущего расширения (можно добавить в настройки)
+        
+        # Если нужен прокси (опционально, для CORS-проблем)
+        if settings.map_tile_type == "vector" and use_proxy:
+            tile_url = "/api/vector_tile_proxy/{z}/{x}/{y}"
+        
         return jsonify({
-            "tile_url": settings.map_tile_url,
+            "tile_url": tile_url,
             "attribution": settings.map_tile_attribution,
             "max_zoom": settings.map_tile_max_zoom,
-            "tile_type": settings.map_tile_type,  # NEW: "raster" | "vector"
+            "tile_type": settings.map_tile_type,  # "raster" | "vector"
+            "use_proxy": use_proxy,  # Информация для клиента
         })
     except Exception as e:
         logger.error(f"ERROR in /api/map_config: {e}")
@@ -254,8 +265,75 @@ def api_map_config():
             "tile_url": "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
             "attribution": "© OpenStreetMap",
             "max_zoom": 19,
-            "tile_type": "raster",  # NEW: fallback на растровые тайлы
+            "tile_type": "raster",  # fallback на растровые тайлы
+            "use_proxy": False,
         })
+
+
+@app.route("/api/vector_tile_proxy/<int:z>/<int:x>/<int:y>")
+def api_vector_tile_proxy(z, x, y):
+    """
+    Опциональный CORS-прокси для векторных тайлов.
+    
+    Используется если провайдер блокирует прямые cross-origin запросы
+    из QWebEngineView. Flask-сервер проксирует запрос к upstream-серверу
+    и отдаёт результат с корректными CORS-заголовками.
+    
+    Формирует upstream URL из настроек (map_tile_url с подставленными
+    {z}/{x}/{y}) и пробрасывает ответ как application/x-protobuf.
+    """
+    try:
+        from configs.settings import get_app_settings
+        import requests as req
+        
+        settings = get_app_settings()
+        
+        # Проверяем, что векторные тайлы настроены
+        if settings.map_tile_type != "vector":
+            logger.warning(f"[vector_tile_proxy] Called but map_tile_type={settings.map_tile_type}")
+            return jsonify({"error": "vector tiles not configured"}), 400
+        
+        # Формируем upstream URL
+        upstream_url = (
+            settings.map_tile_url
+            .replace("{z}", str(z))
+            .replace("{x}", str(x))
+            .replace("{y}", str(y))
+            .replace("{s}", "a")  # Если есть поддомены, используем 'a'
+        )
+        
+        logger.info(f"[vector_tile_proxy] Proxying: {upstream_url}")
+        
+        # Делаем запрос к upstream-серверу
+        resp = req.get(upstream_url, timeout=10)
+        resp.raise_for_status()
+        
+        # Возвращаем ответ с правильным MIME-типом
+        return Response(
+            resp.content,
+            mimetype="application/x-protobuf",
+            headers={
+                "Cache-Control": "public, max-age=86400",  # Кэшируем на 24 часа
+            }
+        )
+        
+    except req.exceptions.HTTPError as e:
+        status_code = e.response.status_code if e.response else 502
+        logger.warning(f"[vector_tile_proxy] HTTP error: {status_code} - {e}")
+        return jsonify({
+            "error": f"Upstream HTTP {status_code}",
+            "message": str(e)
+        }), status_code
+        
+    except req.exceptions.Timeout:
+        logger.warning(f"[vector_tile_proxy] Timeout for {upstream_url}")
+        return jsonify({"error": "Upstream timeout"}), 504
+        
+    except Exception as e:
+        logger.error(f"[vector_tile_proxy] Error: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({"error": str(e)}), 502
 
 
 @app.route("/api/signs")

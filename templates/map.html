@@ -829,12 +829,22 @@ async function loadTileLayer() {
     if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
     const cfg = await resp.json();
     
+    console.log('[loadTileLayer] Config loaded:', {
+      tile_type: cfg.tile_type,
+      tile_url: cfg.tile_url,
+      max_zoom: cfg.max_zoom
+    });
+    
     // Проверяем тип подложки: raster (по умолчанию) или vector
     if (cfg.tile_type === 'vector') {
       // Векторные тайлы через Leaflet.VectorGrid
       if (typeof L.vectorGrid === 'undefined') {
-        throw new Error('Leaflet.VectorGrid library not loaded');
+        const err = new Error('Leaflet.VectorGrid library not loaded - check internet connection or CDN availability');
+        console.error('[loadTileLayer]', err);
+        throw err;
       }
+      
+      console.log('[loadTileLayer] Creating vector tile layer...');
       
       // Определяем текущую тему для выбора цветовой схемы
       const isDarkTheme = true;  // Карта всегда в тёмной теме (см. CSS .leaflet-tile filter)
@@ -847,16 +857,91 @@ async function loadTileLayer() {
         fillOpacity: isDarkTheme ? 0.3 : 0.5,
       };
       
-      L.vectorGrid.protobuf(cfg.tile_url, {
+      // Создаём слой векторных тайлов
+      const vectorLayer = L.vectorGrid.protobuf(cfg.tile_url, {
         attribution: cfg.attribution,
         maxZoom: cfg.max_zoom,
         vectorTileLayerStyles: { 
           '*': genericStyle  // Применяется ко всем слоям
         },
         interactive: false,  // Отключаем интерактивность векторной подложки
-      }).addTo(map);
+      });
       
-      console.log('[loadTileLayer] Vector tiles loaded:', cfg.tile_url);
+      // Обработчики событий для диагностики
+      vectorLayer.on('tileload', function(e) {
+        console.log('[VectorGrid] Tile loaded:', e.coords);
+      });
+      
+      vectorLayer.on('tileerror', function(e) {
+        console.error('[VectorGrid] Tile error:', {
+          coords: e.coords,
+          error: e.error,
+          tile: e.tile
+        });
+        
+        // Формируем URL тайла для детальной диагностики
+        const tileUrl = cfg.tile_url
+          .replace('{z}', e.coords.z)
+          .replace('{x}', e.coords.x)
+          .replace('{y}', e.coords.y)
+          .replace('{s}', 'a');  // Если есть поддомены
+        
+        console.error('[VectorGrid] Failed tile URL:', tileUrl);
+      });
+      
+      vectorLayer.on('tileloadstart', function(e) {
+        console.log('[VectorGrid] Tile load start:', {
+          coords: e.coords,
+          url: e.tile ? e.tile.src : 'unknown'
+        });
+      });
+      
+      // Добавляем слой на карту
+      vectorLayer.addTo(map);
+      
+      console.log('[loadTileLayer] ✅ Vector tile layer added to map');
+      
+      // Проверка доступности тайлов: делаем HEAD-запрос к центральному тайлу
+      setTimeout(async () => {
+        try {
+          const center = map.getCenter();
+          const zoom = Math.min(map.getZoom(), cfg.max_zoom);
+          
+          // Вычисляем координаты тайла для текущего центра карты
+          const tileSize = 256;
+          const numTiles = Math.pow(2, zoom);
+          const x = Math.floor(((center.lng + 180) / 360) * numTiles);
+          const y = Math.floor(((1 - Math.log(Math.tan(center.lat * Math.PI / 180) + 1 / Math.cos(center.lat * Math.PI / 180)) / Math.PI) / 2) * numTiles);
+          
+          const testTileUrl = cfg.tile_url
+            .replace('{z}', zoom)
+            .replace('{x}', x)
+            .replace('{y}', y)
+            .replace('{s}', 'a');
+          
+          console.log('[loadTileLayer] Testing tile availability:', testTileUrl);
+          
+          const testResp = await fetch(testTileUrl, { method: 'HEAD' });
+          
+          if (!testResp.ok) {
+            const errorMsg = `Не удалось загрузить векторные тайлы (HTTP ${testResp.status}). Проверьте URL и токен в настройках карты.`;
+            console.error('[loadTileLayer]', errorMsg);
+            toast(errorMsg, 'err');
+            
+            // Если токен явно неверный (401/403), показываем более конкретное сообщение
+            if (testResp.status === 401 || testResp.status === 403) {
+              toast('Ошибка авторизации: проверьте токен API', 'err');
+            }
+          } else {
+            console.log('[loadTileLayer] ✅ Test tile available (HTTP 200)');
+          }
+        } catch (testErr) {
+          console.warn('[loadTileLayer] Tile availability test failed (CORS or network):', testErr);
+          // Не показываем toast для CORS-ошибок, так как это может быть нормально
+          // (браузер блокирует HEAD-запросы, но GET с тайлами может работать)
+        }
+      }, 1000);
+      
     } else {
       // Растровые тайлы (PNG/JPG) - стандартный путь
       L.tileLayer(cfg.tile_url, {
@@ -864,15 +949,29 @@ async function loadTileLayer() {
         maxZoom: cfg.max_zoom,
       }).addTo(map);
       
-      console.log('[loadTileLayer] Raster tiles loaded:', cfg.tile_url);
+      console.log('[loadTileLayer] ✅ Raster tiles loaded:', cfg.tile_url);
     }
   } catch (err) {
-    console.error('Failed to load map config, using fallback OSM:', err);
+    console.error('[loadTileLayer] ❌ FATAL ERROR - Fallback to OSM:', {
+      error: err.message,
+      stack: err.stack,
+      config_attempted: err.config || 'not available'
+    });
+    
+    // Показываем понятное сообщение пользователю
+    const userMsg = err.message.includes('VectorGrid') 
+      ? 'Библиотека векторных тайлов не загрузилась. Проверьте подключение к интернету.'
+      : 'Не удалось загрузить настройки карты. Используется OpenStreetMap.';
+    
+    toast(userMsg, 'warn');
+    
     // Безопасный fallback на OSM, если сервер недоступен или VectorGrid не загружен
     L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
       attribution: "© OpenStreetMap",
       maxZoom: 19,
     }).addTo(map);
+    
+    console.log('[loadTileLayer] ✅ Fallback OSM tiles loaded');
   }
 }
 

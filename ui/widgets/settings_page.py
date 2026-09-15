@@ -1157,31 +1157,66 @@ class SettingsPage(QWidget):
             return
         
         tile_type = "vector" if self._map_tile_type_combo.currentIndex() == 1 else "raster"
-        tile_url = self._map_tile_url_edit.text().strip().lower()
+        tile_url = self._map_tile_url_edit.text().strip()
+        tile_url_lower = tile_url.lower()
         
-        warning_msg = None
+        warning_msgs = []
         
         # Проверяем векторный тип с растровым URL
-        if tile_type == "vector" and any(ext in tile_url for ext in ['.png', '.jpg', '.jpeg']):
-            warning_msg = (
+        if tile_type == "vector" and any(ext in tile_url_lower for ext in ['.png', '.jpg', '.jpeg']):
+            warning_msgs.append(
                 "⚠️ Вы выбрали векторные тайлы, но URL содержит расширение растрового изображения (.png/.jpg).\n\n"
                 "Векторные тайлы обычно имеют расширение .pbf или .mvt.\n\n"
                 "Карта может не отображаться корректно."
             )
         
         # Проверяем растровый тип с векторным URL
-        elif tile_type == "raster" and any(ext in tile_url for ext in ['.pbf', '.mvt']):
-            warning_msg = (
+        elif tile_type == "raster" and any(ext in tile_url_lower for ext in ['.pbf', '.mvt']):
+            warning_msgs.append(
                 "⚠️ Вы выбрали растровые тайлы, но URL содержит расширение векторного формата (.pbf/.mvt).\n\n"
                 "Для векторных тайлов выберите тип 'Векторные тайлы' в выпадающем списке.\n\n"
                 "Карта может не отображаться корректно."
             )
         
-        if warning_msg:
+        # Проверка токена для векторных тайлов (Задача 3c)
+        if tile_type == "vector":
+            # Проверяем на подозрительные символы/паттерны в токене
+            suspicious_patterns = []
+            
+            # Проверка 1: Есть ли пробелы в URL (часто результат неправильного копирования)
+            if ' ' in tile_url:
+                suspicious_patterns.append("пробелы")
+            
+            # Проверка 2: Есть ли символ * (признак склеенных токенов)
+            if '*' in tile_url:
+                suspicious_patterns.append("символ '*' (возможно склеенные токены)")
+            
+            # Проверка 3: Несколько параметров token= или &token=
+            token_count = tile_url.count('token=')
+            if token_count > 1:
+                suspicious_patterns.append(f"дублированный параметр 'token=' ({token_count} раз)")
+            
+            # Проверка 4: Двойной амперсанд && (ошибка копирования)
+            if '&&' in tile_url:
+                suspicious_patterns.append("двойной амперсанд '&&'")
+            
+            if suspicious_patterns:
+                warning_msgs.append(
+                    f"⚠️ В URL обнаружены подозрительные символы: {', '.join(suspicious_patterns)}.\n\n"
+                    "Пожалуйста, проверьте:\n"
+                    "• Токен скопирован полностью и без лишних символов\n"
+                    "• Нет дублирования параметра token=\n"
+                    "• Нет пробелов и специальных символов\n\n"
+                    "Некорректный токен приведёт к ошибкам загрузки карты."
+                )
+        
+        # Показываем все накопленные предупреждения
+        if warning_msgs:
+            combined_msg = "\n\n─────────────────────\n\n".join(warning_msgs)
             QMessageBox.warning(
                 self,
-                "Несоответствие типа и URL подложки",
-                warning_msg
+                "Проверка настроек подложки карты",
+                combined_msg
             )
 
     def _check_backend_readiness(self):
