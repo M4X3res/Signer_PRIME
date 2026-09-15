@@ -1,0 +1,132 @@
+name: Install Test
+
+on:
+  push:
+    branches: [master]
+    paths:
+      - 'CodeDependencies.iss'
+      - '.github/TestSetup.iss'
+      - '.github/workflows/install-test.yml'
+  pull_request:
+    paths:
+      - 'CodeDependencies.iss'
+      - '.github/TestSetup.iss'
+      - '.github/workflows/install-test.yml'
+  schedule:
+    # Run weekly on Wednesday at 10:00 AM UTC (after the update checks at 9:00)
+    - cron: '0 10 * * 3'
+  workflow_dispatch:
+
+jobs:
+  install-test:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-latest, windows-11-arm]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 30
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+
+      - name: Install Inno Setup if not present
+        shell: pwsh
+        run: |
+          if (-not (Test-Path "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe")) {
+            Invoke-WebRequest -Uri 'https://jrsoftware.org/download.php/is.exe' -OutFile "$env:RUNNER_TEMP\innosetup.exe"
+            Start-Process "$env:RUNNER_TEMP\innosetup.exe" -ArgumentList '/VERYSILENT', '/SUPPRESSMSGBOXES', '/NORESTART' -Wait
+          }
+
+      - name: Compile test setup
+        shell: pwsh
+        run: |
+          & "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe" /Qp "/O$env:RUNNER_TEMP" ".github\TestSetup.iss"
+          if ($LASTEXITCODE -ne 0) {
+            Write-Error "ISCC failed with exit code $LASTEXITCODE"
+            exit $LASTEXITCODE
+          }
+
+      - name: First run - installs missing dependencies
+        shell: pwsh
+        run: |
+          $setup = Start-Process "$env:RUNNER_TEMP\TestSetup.exe" -ArgumentList '/VERYSILENT', '/SUPPRESSMSGBOXES', '/NORESTART', "/LOG=$env:RUNNER_TEMP\install1.log" -Wait -PassThru
+          Write-Host "Setup exited with code $($setup.ExitCode)"
+          if ($setup.ExitCode -ne 0) {
+            Get-Content "$env:RUNNER_TEMP\install1.log" -Tail 100
+            exit 1
+          }
+
+          # Prove the install path was actually exercised, not just skipped by detection
+          $downloads = @(Select-String -Path "$env:RUNNER_TEMP\install1.log" -Pattern 'download')
+          Write-Host "$($downloads.Count) download log entries:"
+          $downloads | ForEach-Object { Write-Host "  $($_.Line.Trim())" }
+          if ($downloads.Count -eq 0) {
+            if ('${{ matrix.os }}' -eq 'windows-latest') {
+              Write-Error 'Nothing was downloaded - expected at least VC++ 2013, Access Database Engine and VSTO to be missing on a fresh image.'
+              exit 1
+            }
+            Write-Warning 'Nothing was downloaded - all dependencies seem preinstalled on this image, so the install path was not exercised.'
+          }
+
+      - name: Verify dependencies are actually installed
+        shell: pwsh
+        run: |
+          $failures = @()
+
+          # VC++ v14: runtime DLL in System32
+          if (-not (Test-Path "$env:windir\System32\vcruntime140.dll")) { $failures += 'VC++ v14 runtime' }
+
+          # .NET Desktop Runtime 8.0: listed by dotnet.exe
+          $runtimes = & "$env:ProgramFiles\dotnet\dotnet.exe" --list-runtimes
+          if (-not ($runtimes -match 'Microsoft\.WindowsDesktop\.App 8\.')) { $failures += '.NET Desktop Runtime 8.0' }
+
+          # WebView2: version value registered per-machine or per-user
+          $webview2 = (Get-ItemProperty 'HKLM:\SOFTWARE\WOW6432Node\Microsoft\EdgeUpdate\Clients\{F3017226-FE2A-4295-8BDF-00C3A9A7E4C5}' -Name pv -ErrorAction SilentlyContinue) `
+            -or (Get-ItemProperty 'HKCU:\SOFTWARE\Microsoft\EdgeUpdate\Clients\{F3017226-FE2A-4295-8BDF-00C3A9A7E4C5}' -Name pv -ErrorAction SilentlyContinue)
+          if (-not $webview2) { $failures += 'WebView2 Runtime' }
+
+          # ODBC Driver 18
+          if (-not (Test-Path 'HKLM:\SOFTWARE\ODBC\ODBCINST.INI\ODBC Driver 18 for SQL Server')) { $failures += 'ODBC Driver 18' }
+
+          if ($env:PROCESSOR_ARCHITECTURE -ne 'ARM64') {
+            # VC++ 2013: runtime DLL in System32
+            if (-not (Test-Path "$env:windir\System32\msvcp120.dll")) { $failures += 'VC++ 2013 runtime' }
+
+            # Access Database Engine 2016
+            if (-not (Test-Path 'HKLM:\SOFTWARE\Microsoft\Office\16.0\Access Connectivity Engine\Engines\ACE')) { $failures += 'Access Database Engine 2016' }
+
+            # VSTO Runtime
+            if (-not (Test-Path 'HKLM:\SOFTWARE\WOW6432Node\Microsoft\VSTO Runtime Setup\v4R')) { $failures += 'VSTO Runtime' }
+          }
+
+          if ($failures.Count -gt 0) {
+            $failures | ForEach-Object { Write-Host "MISSING: $_" }
+            exit 1
+          }
+          Write-Host 'All dependencies verified as installed.'
+
+      - name: Second run - must detect everything and download nothing
+        shell: pwsh
+        run: |
+          $setup = Start-Process "$env:RUNNER_TEMP\TestSetup.exe" -ArgumentList '/VERYSILENT', '/SUPPRESSMSGBOXES', '/NORESTART', "/LOG=$env:RUNNER_TEMP\install2.log" -Wait -PassThru
+          Write-Host "Setup exited with code $($setup.ExitCode)"
+          if ($setup.ExitCode -ne 0) {
+            Get-Content "$env:RUNNER_TEMP\install2.log" -Tail 100
+            exit 1
+          }
+
+          $downloads = @(Select-String -Path "$env:RUNNER_TEMP\install2.log" -Pattern 'download')
+          if ($downloads.Count -gt 0) {
+            Write-Error 'A dependency installed by the first run was not detected as installed:'
+            $downloads | ForEach-Object { Write-Host "  $($_.Line.Trim())" }
+            exit 1
+          }
+          Write-Host 'No downloads on second run - detection is consistent.'
+
+      - name: Upload setup logs
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: install-logs-${{ matrix.os }}
+          path: ${{ runner.temp }}/install*.log
+          if-no-files-found: ignore
