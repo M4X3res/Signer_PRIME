@@ -158,8 +158,8 @@ class DeactivateWorker(QThread):
 class LicenseDialog(QDialog):
     """
     Диалог лицензии с двумя состояниями:
-    1. Ввод ключа (NOT_ACTIVATED, EXPIRED, REVOKED)
-    2. Информация о лицензии (VALID, GRACE_PERIOD)
+    1. Ввод ключа (NOT_ACTIVATED, EXPIRED, REVOKED, NETWORK_ERROR)
+    2. Информация о лицензии (VALID)
     """
     
     def __init__(self, manager: LicenseManager, parent=None):
@@ -273,7 +273,7 @@ class LicenseDialog(QDialog):
         btn_layout = QHBoxLayout()
         btn_layout.setSpacing(12)
         
-        # Кнопка деактивации (только для VALID/GRACE_PERIOD)
+        # Кнопка деактивации (только для VALID)
         self.deactivate_btn = BtnSecondary("Деактивировать устройство")
         self.deactivate_btn.clicked.connect(self._deactivate)
         btn_layout.addWidget(self.deactivate_btn)
@@ -297,7 +297,7 @@ class LicenseDialog(QDialog):
     
     def _refresh_state(self):
         """Обновляет UI в зависимости от статуса лицензии."""
-        if self.status in (LicenseStatus.VALID, LicenseStatus.GRACE_PERIOD):
+        if self.status == LicenseStatus.VALID:
             self._show_info_state()
         else:
             self._show_input_state()
@@ -344,17 +344,9 @@ class LicenseDialog(QDialog):
             return
         
         self.title_label.setText("Лицензия активна")
-        
-        if self.status == LicenseStatus.GRACE_PERIOD:
-            self.description_label.setText(
-                "⚠️ Не удалось обновить лицензию онлайн. "
-                "Убедитесь, что у вас есть подключение к интернету. "
-                "Приложение продолжит работать в течение grace period."
-            )
-        else:
-            self.description_label.setText(
-                "Ваша подписка активна. Спасибо за использование Signer PRIME!"
-            )
+        self.description_label.setText(
+            "Ваша подписка активна. Спасибо за использование Signer PRIME!"
+        )
         
         # План
         plan_name = PLAN_DISPLAY_NAMES.get(plan_info["plan"], plan_info["plan"])

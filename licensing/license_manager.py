@@ -35,7 +35,6 @@ class LicenseStatus(Enum):
     EXPIRED = "expired"                 # Подписка истекла (current_period_end < now)
     REVOKED = "revoked"                 # Лицензия отозвана (status != active)
     NOT_ACTIVATED = "not_activated"     # Токен отсутствует (первый запуск)
-    GRACE_PERIOD = "grace_period"       # Токен просрочен для refresh, но в grace period
     NETWORK_ERROR = "network_error"     # Ошибка сети (для информирования UI)
 
 

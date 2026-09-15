@@ -57,21 +57,38 @@ scripts\build\prepare_release.bat
 ### Основные файлы
 - `main.py` — точка входа в приложение
 - `version.json` — версия приложения
-- `signer.spec`, `updater.spec` — конфигурация PyInstaller
+- `signer.spec`, `updater.spec` — конфигурация PyInstaller  
+- `build_config.json` — production конфигурация (URL лицензионного сервера)
 
 ### Пакеты
 - `app/` — утилиты и версионирование
 - `updater/` — система автообновлений
-- `licensing/` — система лицензирования по подписке
+- `licensing/` — система лицензирования по подписке (обфусцируется PyArmor перед релизом)
 - `core/` — ядро системы: детекторы, обработчики знаков, GPS
 - `configs/` — конфигурация моделей и настройки
 - `processing/` — потоки обработки видео, OCR, детекция
 - `server/` — Flask-сервер для карты
 - `ui/` — графический интерфейс (PyQt6)
 - `templates/` — HTML-шаблоны для карты
-- `scripts/build/` — скрипты сборки и релиза
-- `scripts/dev/` — разовые dev/git-скрипты
-- `scripts/archive/` — архив старых скриптов разработки
-- `tests/` — тесты
+
+### Скрипты и тесты
+- `scripts/build/` — скрипты сборки и релиза:
+  - `prepare_release.bat` — главный скрипт подготовки релиза
+  - `obfuscate_licensing.py` — обфускация через PyArmor (пишет в `build/obfuscated/`)
+  - `restore_originals.py` — восстановление исходников после обфускации
+  - `upload_release.ps1` — публикация релиза на GitHub
+- `scripts/dev/` — dev-утилиты и git-хелперы
+- `scripts/archive/` — архив старых скриптов
+- `tests/` — unit/integration тесты
 - `docs/` — документация
 - `docs/archive/` — архивные отчёты AI-сессий
+
+### Ресурсы и модели
+- `assets/` — иконки, изображения
+- `installer/` — конфигурация Inno Setup + 7z.exe/7z.dll
+- `CNN_side/`, `lane_guidance_models/`, `small_models/` — ML-модели (не в git)
+- `sings/`, `sings_text/` — датасеты знаков
+- `templates/` — HTML-шаблоны для карты
+
+### Сторонние проекты
+- `signer-license-server/` — backend лицензионного сервера (отдельный поддиректорий, не трогать при клиентской разработке)

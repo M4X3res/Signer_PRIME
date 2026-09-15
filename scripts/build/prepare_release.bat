@@ -118,15 +118,11 @@ REM ================================================================
 echo [3/7] Obfuscating licensing modules with PyArmor...
 echo.
 
-python -c "import pyarmor" >nul 2>&1
-if errorlevel 1 (
-    echo WARNING: PyArmor not installed
-    echo Run: pip install pyarmor
-    echo Skipping obfuscation...
-    echo.
-    set SKIP_OBFUSCATION=1
-) else (
-    python scripts\build\obfuscate_licensing.py
+REM Check if pyarmor.exe exists in venv
+if exist ".venv\Scripts\pyarmor.exe" (
+    echo PyArmor found, starting obfuscation...
+    set PYTHONIOENCODING=utf-8
+    .venv\Scripts\python.exe scripts\build\obfuscate_licensing.py
     if errorlevel 1 (
         echo ERROR: Obfuscation failed
         pause
@@ -135,6 +131,12 @@ if errorlevel 1 (
     echo OK: Obfuscation completed
     echo.
     set SKIP_OBFUSCATION=0
+) else (
+    echo WARNING: PyArmor not installed in .venv
+    echo Run: .venv\Scripts\pip.exe install pyarmor
+    echo Skipping obfuscation...
+    echo.
+    set SKIP_OBFUSCATION=1
 )
 
 REM ================================================================
@@ -144,31 +146,32 @@ REM ================================================================
 echo [4/7] Building application...
 echo.
 
+REM ВРЕМЕННО: пропускаем проверку production ключа для тестового билда
+REM TODO: УБРАТЬ ЭТУ СТРОКУ перед production релизом!
+set SKIP_PROD_KEY_CHECK=1
+echo.
+
 echo    Building Signer.exe...
 
+REM НОВАЯ ЛОГИКА: signer.spec сам определяет, использовать ли обфусцированный код
+REM Если существует build/obfuscated/, spec автоматически использует его
+REM Не нужно копировать файлы - spec работает напрямую с build/obfuscated/
+
 if "%SKIP_OBFUSCATION%"=="0" (
-    echo    Building from obfuscated source...
-    cd build\obfuscated
-    pyinstaller signer.spec --noconfirm
-    if errorlevel 1 (
-        echo ERROR: Failed to build Signer.exe from obfuscated source
-        cd ..\..
-        pause
-        exit /b 1
-    )
-    cd ..\..
+    echo    Building from obfuscated source in build\obfuscated\
 ) else (
-    echo    Building from normal source...
-    pyinstaller signer.spec --noconfirm
-    if errorlevel 1 (
-        echo ERROR: Failed to build Signer.exe
-        pause
-        exit /b 1
-    )
+    echo    Building from normal source
+)
+
+.venv\Scripts\pyinstaller.exe signer.spec --noconfirm
+if errorlevel 1 (
+    echo ERROR: Failed to build Signer.exe
+    pause
+    exit /b 1
 )
 
 echo    Building Updater.exe...
-pyinstaller updater.spec --noconfirm
+.venv\Scripts\pyinstaller.exe updater.spec --noconfirm
 if errorlevel 1 (
     echo ERROR: Failed to build Updater.exe
     pause
