@@ -97,6 +97,7 @@ class AppSettings:
     map_tile_attribution: str = "© OpenStreetMap"
     map_tile_max_zoom: int = 19
     map_tile_type: Literal["raster", "vector"] = "raster"  # Тип подложки: растровые (PNG/JPG) или векторные (.pbf)
+    map_tile_use_proxy: bool = True  # Использовать серверный прокси для векторных тайлов (обходит CORS)
     
     # ── Обновления ────────────────────────────────────────────────
     auto_check_updates: bool = True

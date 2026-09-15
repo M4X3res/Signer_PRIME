@@ -336,6 +336,21 @@ class SettingsPage(QWidget):
             self._map_max_zoom_spin,
         )
 
+        # Прокси для векторных тайлов (CORS bypass)
+        self._map_use_proxy_toggle = ToggleButton(self._settings.map_tile_use_proxy)
+        self._map_use_proxy_toggle.setToolTip(
+            "Проксирует запросы к векторным тайлам через локальный сервер,\n"
+            "обходя CORS-блокировку большинства ArcGIS/Esri серверов.\n\n"
+            "✅ Включено (рекомендуется): Запросы идут через http://127.0.0.1:3000/api/vector_tile_proxy/\n"
+            "❌ Выключено: Прямые запросы к провайдеру (только если он поддерживает CORS)"
+        )
+        map_group.add_row(
+            "Прокси для векторных тайлов",
+            "Обходит блокировку CORS у большинства ArcGIS/Esri серверов векторных тайлов. "
+            "Отключайте только если ваш провайдер тайлов сам поддерживает CORS.",
+            self._map_use_proxy_toggle,
+        )
+
         content_layout.addWidget(map_group)
 
         # ── Task E: Группа "Режим обработки" УДАЛЕНА ────
@@ -1037,6 +1052,8 @@ class SettingsPage(QWidget):
                 self._settings.map_tile_attribution = self._map_attribution_edit.text().strip()
             if hasattr(self, '_map_max_zoom_spin'):
                 self._settings.map_tile_max_zoom = self._map_max_zoom_spin.value()
+            if hasattr(self, '_map_use_proxy_toggle'):
+                self._settings.map_tile_use_proxy = self._map_use_proxy_toggle.is_checked()
             
             # CUDA settings
             if hasattr(self, '_cuda_toggle'):
@@ -1371,6 +1388,8 @@ class SettingsPage(QWidget):
                 self._map_attribution_edit.setText(defaults.map_tile_attribution)
             if hasattr(self, '_map_max_zoom_spin'):
                 self._map_max_zoom_spin.setValue(defaults.map_tile_max_zoom)
+            if hasattr(self, '_map_use_proxy_toggle'):
+                self._map_use_proxy_toggle.set_checked(defaults.map_tile_use_proxy)
             
             if hasattr(self, '_theme_combo'):
                 self._theme_combo.setCurrentIndex(0 if defaults.theme == "dark" else 1)
@@ -1856,6 +1875,8 @@ class SettingsPage(QWidget):
                 self._map_attribution_edit.setText(settings_dict.get("map_tile_attribution", "© OpenStreetMap"))
             if hasattr(self, '_map_max_zoom_spin'):
                 self._map_max_zoom_spin.setValue(settings_dict.get("map_tile_max_zoom", 19))
+            if hasattr(self, '_map_use_proxy_toggle'):
+                self._map_use_proxy_toggle.set_checked(settings_dict.get("map_tile_use_proxy", True))
             
             self._log_toggle.set_checked(settings_dict.get("verbose_log", True))
             self._save_frames_toggle.set_checked(settings_dict.get("save_error_frames", False))

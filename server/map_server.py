@@ -191,6 +191,44 @@ def _render_text_sign(sign_type: str, description: str, out_path: str):
     img.save(out_path)
 
 
+def _build_upstream_tile_url(template: str, z: int, x: int, y: int) -> str:
+    """
+    Построение upstream URL для векторного тайла с сохранением query string.
+    
+    Критично: не потерять параметры (токен!) при подстановке {z}/{x}/{y}.
+    Пример: template = "http://api.maps.by/.../tile/{z}/{y}/{x}.pbf?token=ABC&key=123"
+           → "http://api.maps.by/.../tile/9/163/291.pbf?token=ABC&key=123"
+    """
+    url = (
+        template
+        .replace("{z}", str(z))
+        .replace("{x}", str(x))
+        .replace("{y}", str(y))
+        .replace("{s}", "a")  # Поддомены (если есть)
+    )
+    return url
+
+
+def _mask_token_for_log(url: str) -> str:
+    """
+    Маскирует значения параметра token= в URL для безопасного логирования.
+    
+    Пример: "...?token=ABC123XYZ&..." → "...?token=****XYZ&..."
+    Показывает только последние 3 символа токена.
+    """
+    import re
+    
+    def mask_match(match):
+        token_value = match.group(1)
+        if len(token_value) <= 4:
+            return f"token=****"
+        return f"token=****{token_value[-3:]}"
+    
+    # Маскируем все вхождения token=...
+    masked = re.sub(r'token=([^&\s]+)', mask_match, url)
+    return masked
+
+
 # ── Роуты ──────────────────────────────────────────────────────────────────
 
 @app.route("/")
@@ -242,14 +280,20 @@ def api_map_config():
         from configs.settings import get_app_settings
         settings = get_app_settings()
         
-        # Для векторных тайлов можно использовать прокси если есть проблемы с CORS
-        # По умолчанию используем прямой URL, прокси активируется вручную при необходимости
+        # Для векторных тайлов можно использовать прокси для обхода CORS
+        # По умолчанию прокси включён (map_tile_use_proxy = True)
         tile_url = settings.map_tile_url
-        use_proxy = False  # Флаг для будущего расширения (можно добавить в настройки)
+        use_proxy = False
         
-        # Если нужен прокси (опционально, для CORS-проблем)
-        if settings.map_tile_type == "vector" and use_proxy:
+        # Если векторный режим И прокси включён в настройках
+        if settings.map_tile_type == "vector" and settings.map_tile_use_proxy:
+            # Отдаём относительный путь прокси вместо прямого URL
+            # Это устраняет CORS (запрос идёт на тот же origin) И скрывает токен от клиента
             tile_url = "/api/vector_tile_proxy/{z}/{x}/{y}"
+            use_proxy = True
+            logger.info("[api_map_config] Vector tiles via proxy (CORS bypass)")
+        elif settings.map_tile_type == "vector":
+            logger.info("[api_map_config] Vector tiles direct (proxy disabled in settings)")
         
         return jsonify({
             "tile_url": tile_url,
@@ -273,14 +317,23 @@ def api_map_config():
 @app.route("/api/vector_tile_proxy/<int:z>/<int:x>/<int:y>")
 def api_vector_tile_proxy(z, x, y):
     """
-    Опциональный CORS-прокси для векторных тайлов.
+    Прокси для векторных тайлов — обходит CORS-блокировку.
     
-    Используется если провайдер блокирует прямые cross-origin запросы
-    из QWebEngineView. Flask-сервер проксирует запрос к upstream-серверу
-    и отдаёт результат с корректными CORS-заголовками.
+    ДИАГНОСТИКА (Задача 0): До реализации прокси запрос из QWebEngineView
+    к api.maps.by падал с ошибкой в консоли браузера:
+    "blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present"
+    
+    Большинство ArcGIS/Esri VectorTileServer инстансов не отдают
+    Access-Control-Allow-Origin, а QWebEngineView (как и любой браузер)
+    блокирует fetch/XHR с другого origin без этого заголовка.
+    
+    Прокси решает проблему: Flask-сервер делает запрос к upstream (который
+    не подчиняется CORS для серверных HTTP-клиентов), а клиенту отдаёт
+    с корректным Access-Control-Allow-Origin: *.
     
     Формирует upstream URL из настроек (map_tile_url с подставленными
-    {z}/{x}/{y}) и пробрасывает ответ как application/x-protobuf.
+    {z}/{x}/{y}), сохраняя query string (токен!) как есть, и пробрасывает
+    ответ как application/x-protobuf.
     """
     try:
         from configs.settings import get_app_settings
@@ -293,41 +346,42 @@ def api_vector_tile_proxy(z, x, y):
             logger.warning(f"[vector_tile_proxy] Called but map_tile_type={settings.map_tile_type}")
             return jsonify({"error": "vector tiles not configured"}), 400
         
-        # Формируем upstream URL
-        upstream_url = (
-            settings.map_tile_url
-            .replace("{z}", str(z))
-            .replace("{x}", str(x))
-            .replace("{y}", str(y))
-            .replace("{s}", "a")  # Если есть поддомены, используем 'a'
-        )
+        # Формируем upstream URL с сохранением query string
+        upstream_url = _build_upstream_tile_url(settings.map_tile_url, z, x, y)
         
-        logger.info(f"[vector_tile_proxy] Proxying: {upstream_url}")
+        # Логируем с маскированным токеном
+        masked = _mask_token_for_log(upstream_url)
+        logger.info(f"[vector_tile_proxy] GET {masked}")
         
         # Делаем запрос к upstream-серверу
         resp = req.get(upstream_url, timeout=10)
         resp.raise_for_status()
         
-        # Возвращаем ответ с правильным MIME-типом
+        # Возвращаем ответ с корректными CORS-заголовками
         return Response(
             resp.content,
             mimetype="application/x-protobuf",
             headers={
+                "Access-Control-Allow-Origin": "*",  # CORS fix
                 "Cache-Control": "public, max-age=86400",  # Кэшируем на 24 часа
             }
         )
         
     except req.exceptions.HTTPError as e:
-        status_code = e.response.status_code if e.response else 502
-        logger.warning(f"[vector_tile_proxy] HTTP error: {status_code} - {e}")
-        return jsonify({
-            "error": f"Upstream HTTP {status_code}",
-            "message": str(e)
-        }), status_code
+        status = e.response.status_code if e.response is not None else 502
+        masked = _mask_token_for_log(upstream_url) if 'upstream_url' in locals() else 'unknown'
+        logger.warning(f"[vector_tile_proxy] Upstream HTTP {status} for {masked}")
+        return jsonify({"error": f"Upstream HTTP {status}"}), status
         
     except req.exceptions.Timeout:
-        logger.warning(f"[vector_tile_proxy] Timeout for {upstream_url}")
+        masked = _mask_token_for_log(upstream_url) if 'upstream_url' in locals() else 'unknown'
+        logger.warning(f"[vector_tile_proxy] Timeout for {masked}")
         return jsonify({"error": "Upstream timeout"}), 504
+        
+    except Exception as e:
+        masked = _mask_token_for_log(upstream_url) if 'upstream_url' in locals() else 'unknown'
+        logger.warning(f"[vector_tile_proxy] {e} for {masked}")
+        return jsonify({"error": str(e)}), 502
         
     except Exception as e:
         logger.error(f"[vector_tile_proxy] Error: {e}")
