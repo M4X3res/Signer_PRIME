@@ -288,6 +288,24 @@ class SettingsPage(QWidget):
         # ── Group: Карта (BLOCK MAP-TILES) ─────────────────────────
         map_group = SettingsGroup("Карта")
 
+        # Тип подложки (raster/vector)
+        self._map_tile_type_combo = QComboBox()
+        self._map_tile_type_combo.setFixedWidth(280)
+        self._map_tile_type_combo.addItems([
+            "Растровые тайлы (PNG/JPG)",
+            "Векторные тайлы (.pbf, Mapbox Vector Tiles)"
+        ])
+        self._map_tile_type_combo.setCurrentIndex(
+            0 if self._settings.map_tile_type == "raster" else 1
+        )
+        connect_combobox_theme_updates(self._map_tile_type_combo)
+        map_group.add_row(
+            "Тип подложки",
+            "Для векторных тайлов URL должен содержать {z}/{x}/{y} или {z}/{y}/{x}. "
+            "⚠️ Для некоторых провайдеров (в т.ч. api.maps.by) порядок координат в пути — z/y/x, а не z/x/y — сверьтесь с документацией провайдера",
+            self._map_tile_type_combo,
+        )
+
         self._map_tile_url_edit = QLineEdit()
         self._map_tile_url_edit.setFixedWidth(400)
         self._map_tile_url_edit.setText(self._settings.map_tile_url)
@@ -1010,6 +1028,9 @@ class SettingsPage(QWidget):
             # processing_mode всегда будет "single_thread" (устанавливается в ProcessingController)
             
             # Map tile configuration (BLOCK MAP-TILES)
+            if hasattr(self, '_map_tile_type_combo'):
+                type_idx = self._map_tile_type_combo.currentIndex()
+                self._settings.map_tile_type = "raster" if type_idx == 0 else "vector"
             if hasattr(self, '_map_tile_url_edit'):
                 self._settings.map_tile_url = self._map_tile_url_edit.text().strip()
             if hasattr(self, '_map_attribution_edit'):
@@ -1082,6 +1103,9 @@ class SettingsPage(QWidget):
             
             self._collect_settings()
             
+            # Валидация URL тайлов vs тип подложки (мягкое предупреждение)
+            self._check_tile_url_mismatch()
+            
             # BLOCK FIX-4.2: Проверка готовности backend перед сохранением
             self._check_backend_readiness()
             
@@ -1121,6 +1145,44 @@ class SettingsPage(QWidget):
             if sender and original_text:
                 sender.setText(original_text)
                 sender.setEnabled(True)
+
+    def _check_tile_url_mismatch(self):
+        """
+        Валидация соответствия URL и типа подложки.
+        Показывает мягкое предупреждение, не блокируя сохранение.
+        """
+        from PyQt6.QtWidgets import QMessageBox
+        
+        if not hasattr(self, '_map_tile_type_combo') or not hasattr(self, '_map_tile_url_edit'):
+            return
+        
+        tile_type = "vector" if self._map_tile_type_combo.currentIndex() == 1 else "raster"
+        tile_url = self._map_tile_url_edit.text().strip().lower()
+        
+        warning_msg = None
+        
+        # Проверяем векторный тип с растровым URL
+        if tile_type == "vector" and any(ext in tile_url for ext in ['.png', '.jpg', '.jpeg']):
+            warning_msg = (
+                "⚠️ Вы выбрали векторные тайлы, но URL содержит расширение растрового изображения (.png/.jpg).\n\n"
+                "Векторные тайлы обычно имеют расширение .pbf или .mvt.\n\n"
+                "Карта может не отображаться корректно."
+            )
+        
+        # Проверяем растровый тип с векторным URL
+        elif tile_type == "raster" and any(ext in tile_url for ext in ['.pbf', '.mvt']):
+            warning_msg = (
+                "⚠️ Вы выбрали растровые тайлы, но URL содержит расширение векторного формата (.pbf/.mvt).\n\n"
+                "Для векторных тайлов выберите тип 'Векторные тайлы' в выпадающем списке.\n\n"
+                "Карта может не отображаться корректно."
+            )
+        
+        if warning_msg:
+            QMessageBox.warning(
+                self,
+                "Несоответствие типа и URL подложки",
+                warning_msg
+            )
 
     def _check_backend_readiness(self):
         """
@@ -1264,6 +1326,16 @@ class SettingsPage(QWidget):
             if hasattr(self, '_turn_ray_dist_spin'):
                 self._turn_ray_dist_spin.setValue(int(defaults.turn_ray_max_distance_m))
             # BLOCK N.3: turn_radius_spin удалён
+            
+            # Map tile configuration (BLOCK MAP-TILES)
+            if hasattr(self, '_map_tile_type_combo'):
+                self._map_tile_type_combo.setCurrentIndex(0 if defaults.map_tile_type == "raster" else 1)
+            if hasattr(self, '_map_tile_url_edit'):
+                self._map_tile_url_edit.setText(defaults.map_tile_url)
+            if hasattr(self, '_map_attribution_edit'):
+                self._map_attribution_edit.setText(defaults.map_tile_attribution)
+            if hasattr(self, '_map_max_zoom_spin'):
+                self._map_max_zoom_spin.setValue(defaults.map_tile_max_zoom)
             
             if hasattr(self, '_theme_combo'):
                 self._theme_combo.setCurrentIndex(0 if defaults.theme == "dark" else 1)
@@ -1738,6 +1810,17 @@ class SettingsPage(QWidget):
             if hasattr(self, '_turn_ray_dist_spin'):
                 self._turn_ray_dist_spin.setValue(int(settings_dict.get("turn_ray_max_distance_m", 40)))
             # BLOCK N.3: turn_radius_spin удалён
+            
+            # Map tile configuration (BLOCK MAP-TILES)
+            if hasattr(self, '_map_tile_type_combo'):
+                map_tile_type = settings_dict.get("map_tile_type", "raster")
+                self._map_tile_type_combo.setCurrentIndex(0 if map_tile_type == "raster" else 1)
+            if hasattr(self, '_map_tile_url_edit'):
+                self._map_tile_url_edit.setText(settings_dict.get("map_tile_url", "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"))
+            if hasattr(self, '_map_attribution_edit'):
+                self._map_attribution_edit.setText(settings_dict.get("map_tile_attribution", "© OpenStreetMap"))
+            if hasattr(self, '_map_max_zoom_spin'):
+                self._map_max_zoom_spin.setValue(settings_dict.get("map_tile_max_zoom", 19))
             
             self._log_toggle.set_checked(settings_dict.get("verbose_log", True))
             self._save_frames_toggle.set_checked(settings_dict.get("save_error_frames", False))

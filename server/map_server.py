@@ -245,6 +245,7 @@ def api_map_config():
             "tile_url": settings.map_tile_url,
             "attribution": settings.map_tile_attribution,
             "max_zoom": settings.map_tile_max_zoom,
+            "tile_type": settings.map_tile_type,  # NEW: "raster" | "vector"
         })
     except Exception as e:
         logger.error(f"ERROR in /api/map_config: {e}")
@@ -253,6 +254,7 @@ def api_map_config():
             "tile_url": "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
             "attribution": "© OpenStreetMap",
             "max_zoom": 19,
+            "tile_type": "raster",  # NEW: fallback на растровые тайлы
         })
 
 

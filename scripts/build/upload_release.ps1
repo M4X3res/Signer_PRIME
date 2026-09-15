@@ -196,22 +196,49 @@ if (Test-Path "release\BUILD_AUTOUPDATE.md") {
     $allFiles += Get-ChildItem "release\BUILD_AUTOUPDATE.md"
 }
 
-$current = 0
 $total = $allFiles.Count
+Write-Host "   Total files: $total" -ForegroundColor White
+Write-Host "   Starting sequential upload..." -ForegroundColor White
+Write-Host ""
+
+# Sequential upload with progress
+$current = 0
+$failed = @()
 
 foreach ($file in $allFiles) {
     $current++
     $percent = [math]::Round(($current / $total) * 100)
-    Write-Host "   [$current/$total] $($file.Name)... ($percent%)" -ForegroundColor White
+    $sizeMB = [math]::Round($file.Length / 1MB, 2)
     
-    gh release upload $tagName $file.FullName --repo $repoFullName --clobber
+    Write-Host "[$current/$total] ($percent%) Uploading: $($file.Name) ($sizeMB MB)..." -ForegroundColor Cyan
+    
+    # Show progress bar
+    $barLength = 50
+    $filled = [math]::Floor($barLength * $current / $total)
+    $empty = $barLength - $filled
+    $bar = ("[" + ("=" * $filled) + ("." * $empty) + "]")
+    Write-Host "   $bar" -ForegroundColor Gray
+    
+    # Upload file
+    $output = gh release upload $tagName $file.FullName --repo $repoFullName --clobber 2>&1
     
     if ($LASTEXITCODE -ne 0) {
-        Write-Host "   ERROR" -ForegroundColor Red
-        exit 1
+        $failed += $file.Name
+        Write-Host "   ERROR: Upload failed" -ForegroundColor Red
+        Write-Host ""
+    } else {
+        Write-Host "   OK: Upload complete" -ForegroundColor Green
+        Write-Host ""
     }
-    
-    Write-Host "   OK: Uploaded" -ForegroundColor Green
+}
+
+if ($failed.Count -gt 0) {
+    Write-Host ""
+    Write-Host "ERROR: Failed to upload $($failed.Count) file(s)" -ForegroundColor Red
+    foreach ($file in $failed) {
+        Write-Host "   - $file" -ForegroundColor Red
+    }
+    exit 1
 }
 
 Write-Host ""

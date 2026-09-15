@@ -12,6 +12,17 @@
 ;     license/info files) — picked up automatically if present,
 ;     safely skipped if not, so the script always compiles.
 ;
+; ЗАДАЧА (обновление):
+;   1. Профессиональный прогресс загрузки: общий % по всему архиву +
+;      % и скорость текущего файла — через кастомный OnDownloadProgress.
+;   2. Исправлена ошибка/зависание при прерывании загрузки: список
+;      файлов теперь пересобирается (Clear + Add) перед КАЖДОЙ попыткой
+;      скачивания внутри retry-цикла, а не один раз в InitializeWizard.
+;      Это официально рекомендуемый Inno-паттерн для download-страниц —
+;      без него внутреннее состояние TDownloadWizardPage после
+;      прерванной попытки могло рассинхронизироваться при повторном
+;      запуске Download().
+;
 ; Build:
 ;   "%ProgramFiles(x86)%\Inno Setup 6\ISCC.exe" installer\SignerInstaller.iss
 ;
@@ -37,6 +48,16 @@
 #define RELEASE_TAG "v2.0.0"
 #define RELEASE_BASE_URL "https://github.com/M4X3res/Signer_PRIME/releases/download/" + RELEASE_TAG
 #define SIGNER_PART_COUNT 41
+
+; ──────────────────────────────────────────────────────────────────
+; Optional components — URLs for additional downloads
+; ──────────────────────────────────────────────────────────────────
+#define CUDA_URL "https://developer.download.nvidia.com/compute/cuda/12.6.0/network_installers/cuda_12.6.0_windows_network.exe"
+#define CUDA_SIZE 3200000
+#define FFMPEG_URL "https://github.com/BtbN/FFmpeg-Builds/releases/latest/download/ffmpeg-master-latest-win64-gpl.zip"
+#define FFMPEG_SIZE 115000000
+#define KLITE_URL "https://files2.codecguide.com/K-Lite_Codec_Pack_1995_Standard.exe"
+#define KLITE_SIZE 60000000
 
 ; ──────────────────────────────────────────────────────────────────
 ; Branding assets (installer/assets) — optional, auto-detected
@@ -115,6 +136,17 @@ InfoAfterFile={#AssetsDir}\info_after.txt
 Name: "russian"; MessagesFile: "compiler:Languages\Russian.isl"
 Name: "english"; MessagesFile: "compiler:Default.isl"
 
+[Types]
+Name: "full"; Description: "Полная установка (с CUDA, FFmpeg, K-Lite)"
+Name: "compact"; Description: "Только базовая программа"
+Name: "custom"; Description: "Выборочная установка"; Flags: iscustom
+
+[Components]
+Name: "core"; Description: "Signer (основная программа)"; Types: full compact custom; Flags: fixed
+Name: "cuda"; Description: "NVIDIA CUDA Toolkit (ускорение AI, ~3 ГБ)"; Types: full
+Name: "ffmpeg"; Description: "FFmpeg (обработка видео, ~115 МБ)"; Types: full
+Name: "klite"; Description: "K-Lite Codec Pack (кодеки, ~60 МБ)"; Types: full
+
 [Tasks]
 Name: "desktopicon"; Description: "Создать ярлык на рабочем столе"; GroupDescription: "Дополнительно:"; Flags: unchecked
 Name: "launchafter"; Description: "Запустить Signer после установки"; GroupDescription: "Дополнительно:"; Flags: unchecked checkedonce
@@ -141,11 +173,24 @@ var
   DownloadPage: TDownloadWizardPage;
   ExtractProgressPage: TOutputProgressWizardPage;
 
+  { ── Прогресс загрузки (общий % + % и скорость текущего файла) ── }
+  TotalDownloadSize:   Int64;
+  DownloadFileNames:   TArrayOfString;
+  DownloadFileSizes:   array of Int64;
+  DownloadFileCount:   Integer;
+
+  DownloadLastFileName: String;
+  DownloadLastTick:     DWORD;
+  DownloadLastProgress: Int64;
+  DownloadSpeedBps:     Double;
+
 { ══════════════════════════════════════════════════════════════════
   Dependencies (InnoDependencyInstaller)
   ══════════════════════════════════════════════════════════════════ }
-
+function GetTickCount: DWORD;
+  external 'GetTickCount@kernel32.dll stdcall';
 function InitializeSetup: Boolean;
+
 begin
   { Prerequisites Signer actually needs at runtime:
       - VC++ v14 Redistributable: required by PyTorch/OpenCV/ONNX Runtime DLLs
@@ -178,6 +223,50 @@ begin
     Result := Format('%d Б', [Bytes]);
 end;
 
+function FormatSpeed(BytesPerSec: Double): String;
+begin
+  if BytesPerSec >= 1048576 then
+    Result := Format('%.2f МБ/с', [BytesPerSec / 1048576])
+  else if BytesPerSec >= 1024 then
+    Result := Format('%.1f КБ/с', [BytesPerSec / 1024])
+  else if BytesPerSec > 0 then
+    Result := Format('%.0f Б/с', [BytesPerSec])
+  else
+    Result := '—';
+end;
+
+{ ══════════════════════════════════════════════════════════════════
+  Detection helpers for optional components
+  ══════════════════════════════════════════════════════════════════ }
+
+function DetectCuda: Boolean;
+begin
+  Result :=
+    DirExists(ExpandConstant('{pf}\NVIDIA GPU Computing Toolkit\CUDA')) or
+    DirExists(ExpandConstant('{pf64}\NVIDIA GPU Computing Toolkit\CUDA'));
+end;
+
+function DetectFFmpeg: Boolean;
+var
+  EnvPath: String;
+begin
+  Result := False;
+  EnvPath := ExpandConstant('{%PATH}');
+  if Pos('ffmpeg', LowerCase(EnvPath)) > 0 then
+    Result := True;
+
+  if FileExists(ExpandConstant('{pf}\ffmpeg\bin\ffmpeg.exe')) or
+     FileExists(ExpandConstant('{pf64}\ffmpeg\bin\ffmpeg.exe')) then
+    Result := True;
+end;
+
+function DetectKLite: Boolean;
+begin
+  Result :=
+    RegKeyExists(HKLM, 'SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\K-Lite Codec Pack_is1') or
+    RegKeyExists(HKLM64, 'SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\K-Lite Codec Pack_is1');
+end;
+
 function GetPartFileName(PartIndex: Integer): String;
 begin
   if PartIndex < 10 then
@@ -196,6 +285,117 @@ begin
   else
     { Last part is smaller — approximation only, used for progress display }
     Result := 13700000;
+end;
+
+{ ── Построение списка файлов для расчёта прогресса ────────────────
+  Вызывается один раз в InitializeWizard. Хранит имена и ОЖИДАЕМЫЕ
+  (приблизительные) размеры каждой части архива + checksum-файла,
+  чтобы взвешенно считать общий процент загрузки по байтам, а не
+  просто по количеству файлов (последняя часть архива намного
+  меньше остальных). }
+procedure BuildDownloadFileList;
+var
+  I: Integer;
+begin
+  SetArrayLength(DownloadFileNames, {#SIGNER_PART_COUNT} + 1);
+  SetArrayLength(DownloadFileSizes, {#SIGNER_PART_COUNT} + 1);
+
+  TotalDownloadSize := 0;
+  for I := 1 to {#SIGNER_PART_COUNT} do
+  begin
+    DownloadFileNames[I - 1] := GetPartFileName(I);
+    DownloadFileSizes[I - 1] := GetPartSize(I, {#SIGNER_PART_COUNT});
+    TotalDownloadSize := TotalDownloadSize + DownloadFileSizes[I - 1];
+  end;
+
+  DownloadFileNames[{#SIGNER_PART_COUNT}] := 'checksum.sha256';
+  DownloadFileSizes[{#SIGNER_PART_COUNT}] := 2048; { маленький текстовый файл }
+  TotalDownloadSize := TotalDownloadSize + DownloadFileSizes[{#SIGNER_PART_COUNT}];
+
+  DownloadFileCount := {#SIGNER_PART_COUNT} + 1;
+end;
+
+{ Сумма ожидаемых размеров всех файлов, идущих ПЕРЕД указанным —
+  используется чтобы посчитать сколько байт уже гарантированно
+  скачано из предыдущих файлов при отображении общего прогресса. }
+function GetCompletedBytesBefore(const AFileName: String): Int64;
+var
+  I: Integer;
+begin
+  Result := 0;
+  for I := 0 to DownloadFileCount - 1 do
+  begin
+    if DownloadFileNames[I] = AFileName then
+      Break;
+    Result := Result + DownloadFileSizes[I];
+  end;
+end;
+
+{ ══════════════════════════════════════════════════════════════════
+  Кастомный обработчик прогресса загрузки.
+
+  Показывает ОДНОВРЕМЕННО:
+    - строка 1: имя текущего файла, его % и объём (скачано/всего)
+    - строка 2: общий % по всему архиву + скорость текущего файла
+  Прогресс-бар страницы отражает ОБЩИЙ прогресс (полезнее для
+  многотомного архива, чем прогресс одного 100MB-куска).
+  ══════════════════════════════════════════════════════════════════ }
+function OnDownloadProgress(const Url, FileName: String; const Progress, ProgressMax: Int64): Boolean;
+var
+  FilePercent:    Integer;
+  OverallPercent: Integer;
+  CompletedBytes: Int64;
+  OverallPosition: Int64;
+  NowTick:  DWORD;
+  ElapsedMs: Int64;
+  SpeedText: String;
+  Line1, Line2: String;
+begin
+  { Новый файл начал качаться — сбрасываем счётчик скорости }
+  if FileName <> DownloadLastFileName then
+  begin
+    DownloadLastFileName := FileName;
+    DownloadLastTick     := GetTickCount;
+    DownloadLastProgress := 0;
+    DownloadSpeedBps     := 0;
+  end;
+
+  if ProgressMax > 0 then
+    FilePercent := (Progress * 100) div ProgressMax
+  else
+    FilePercent := 0;
+
+  CompletedBytes  := GetCompletedBytesBefore(FileName);
+  OverallPosition := CompletedBytes + Progress;
+
+  if TotalDownloadSize > 0 then
+    OverallPercent := (OverallPosition * 100) div TotalDownloadSize
+  else
+    OverallPercent := 0;
+  if OverallPercent > 100 then
+    OverallPercent := 100;
+
+  { Скорость пересчитываем не чаще раза в ~300мс — иначе "скачет" }
+  NowTick   := GetTickCount;
+  ElapsedMs := NowTick - DownloadLastTick;
+  if ElapsedMs >= 300 then
+  begin
+    DownloadSpeedBps     := (Progress - DownloadLastProgress) * 1000.0 / ElapsedMs;
+    DownloadLastTick     := NowTick;
+    DownloadLastProgress := Progress;
+  end;
+
+  SpeedText := FormatSpeed(DownloadSpeedBps);
+
+  Line1 := Format('Файл: %s — %d%%  (%s / %s)', [FileName, FilePercent, FormatBytes(Progress), FormatBytes(ProgressMax)]);
+  Line2 := Format('Общий прогресс: %d%%   Скорость: %s', [OverallPercent, SpeedText]);
+  DownloadPage.SetText(Line1, Line2);
+  DownloadPage.SetProgress(OverallPosition, TotalDownloadSize);
+
+  { True = продолжить загрузку. Возврат False прервал бы скачивание
+    программно — нам это не нужно, прерывание делает сам пользователь
+    через кнопку отмены на странице загрузки. }
+  Result := True;
 end;
 
 { ══════════════════════════════════════════════════════════════════
@@ -331,80 +531,178 @@ end;
   Download and extraction of the main Signer archive
   ══════════════════════════════════════════════════════════════════ }
 
+procedure CreateSignerDownloadPage;
+begin
+  DownloadPage := CreateDownloadPage(
+    'Скачивание файлов Signer',
+    'Установка скачивает основные файлы приложения с GitHub',
+    @OnDownloadProgress
+  );
+end;
+
+{ ══════════════════════════════════════════════════════════════════
+  Add optional components to download list
+  ══════════════════════════════════════════════════════════════════ }
+
+procedure AddOptionalComponentsToDownload;
+var
+  HasCuda, HasFFmpeg, HasKLite: Boolean;
+begin
+  HasCuda := DetectCuda;
+  HasFFmpeg := DetectFFmpeg;
+  HasKLite := DetectKLite;
+
+  { Add CUDA if selected and not already installed }
+  if IsComponentSelected('cuda') and not HasCuda then
+  begin
+    Log('Adding CUDA to download list (~3.2 MB network installer)');
+    DownloadPage.Add('{#CUDA_URL}', 'cuda.exe', '');
+  end;
+
+  { Add FFmpeg if selected and not already installed }
+  if IsComponentSelected('ffmpeg') and not HasFFmpeg then
+  begin
+    Log('Adding FFmpeg to download list (~115 MB)');
+    DownloadPage.Add('{#FFMPEG_URL}', 'ffmpeg.zip', '');
+  end;
+
+  { Add K-Lite if selected and not already installed }
+  if IsComponentSelected('klite') and not HasKLite then
+  begin
+    Log('Adding K-Lite Codec Pack to download list (~60 MB)');
+    DownloadPage.Add('{#KLITE_URL}', 'klite.exe', '');
+  end;
+end;
+
 procedure InitializeWizard;
 var
+  HasCuda, HasFFmpeg, HasKLite: Boolean;
   I: Integer;
-  PartName: String;
-  TotalSize: Int64;
 begin
   { Extract 7-Zip executables }
   ExtractTemporaryFile('7z.exe');
   ExtractTemporaryFile('7z.dll');
 
-  { Create download page for the application archive.
-    Prerequisite downloads (VC++/.NET/WebView2/ODBC) are handled
-    separately by InnoDependencyInstaller's own download page, which
-    runs automatically before this one via PrepareToInstall. }
-  DownloadPage := CreateDownloadPage(
-    'Скачивание файлов Signer',
-    'Установка скачивает основные файлы приложения с GitHub',
-    nil
-  );
+  { Готовим данные для расчёта прогресса (имена/веса файлов) }
+  BuildDownloadFileList;
+  CreateSignerDownloadPage;
+  { Create download page for the application archive, с кастомным
+    обработчиком прогресса (общий % + % и скорость текущего файла).
+    Prerequisite downloads (VC++/.NET/WebView2/ODBC) обрабатываются
+    отдельной страницей загрузки самого InnoDependencyInstaller —
+    она запускается автоматически через PrepareToInstall до этой. }
+  
 
-  TotalSize := 0;
-  for I := 1 to {#SIGNER_PART_COUNT} do
-  begin
-    PartName := GetPartFileName(I);
-    DownloadPage.Add(
-      '{#RELEASE_BASE_URL}/' + PartName,
-      PartName,
-      ''
-    );
-    TotalSize := TotalSize + GetPartSize(I, {#SIGNER_PART_COUNT});
-  end;
-
-  { Also fetch the checksum file used for post-download verification }
-  DownloadPage.Add('{#RELEASE_BASE_URL}/checksum.sha256', 'checksum.sha256', '');
-
-  Log('Total Signer archive download size (approx): ' + FormatBytes(TotalSize));
+  Log('Total Signer archive download size (approx): ' + FormatBytes(TotalDownloadSize));
 
   ExtractProgressPage := CreateOutputProgressPage(
     'Распаковка архива',
     'Пожалуйста, подождите...'
   );
+
+  { Auto-detect optional components and pre-select if not installed }
+  HasCuda := DetectCuda;
+  HasFFmpeg := DetectFFmpeg;
+  HasKLite := DetectKLite;
+
+  { Adjust welcome message to mention optional components }
+  WizardForm.WelcomeLabel2.Caption :=
+    'Signer автоматически загрузит версию ' + '{#AppVersion}' + ' программы с GitHub, ' +
+    'установит необходимые компоненты и подготовит приложение к работе.' + #13#10#13#10 +
+    'Для полной установки потребуется около 4,3 ГБ свободного места и стабильное ' +
+    'подключение к интернету.' + #13#10#13#10 +
+    'Вы можете выбрать дополнительные компоненты (CUDA, FFmpeg, K-Lite) на следующем шаге.';
 end;
 
 function NextButtonClick(CurPageID: Integer): Boolean;
+var
+  I: Integer;
+  RetryDownload: Boolean;
+  UserChoice: Integer;
 begin
   Result := True;
 
   if CurPageID = wpReady then
   begin
-    try
+    repeat
+      RetryDownload := False;
+
+      { ── ИСПРАВЛЕНИЕ БАГА С ПРЕРЫВАНИЕМ ЗАГРУЗКИ ──────────────────
+        Список файлов пересобирается (Clear + Add) перед КАЖДОЙ
+        попыткой скачивания, а не один раз в InitializeWizard.
+        Раньше при прерывании/ошибке и повторном нажатии "Далее"
+        внутреннее состояние TDownloadWizardPage (частично скачанные
+        файлы, позиции в списке) могло рассинхронизироваться при
+        повторном вызове Download(), что приводило к ошибке. Этот
+        паттерн — Clear/Add прямо перед Download() внутри retry-цикла —
+        официально рекомендован документацией Inno Setup для
+        страниц загрузки. }
+      
+      DownloadPage.Clear;
+
+      { Добавляем основные файлы архива }
+      for I := 1 to {#SIGNER_PART_COUNT} do
+        DownloadPage.Add(
+          '{#RELEASE_BASE_URL}/' + GetPartFileName(I),
+          GetPartFileName(I),
+          ''
+        );
+      DownloadPage.Add('{#RELEASE_BASE_URL}/checksum.sha256', 'checksum.sha256', '');
+
+      { Добавляем опциональные компоненты если выбраны }
+      AddOptionalComponentsToDownload;
+
+      { Сбрасываем счётчики прогресса/скорости перед новой попыткой }
+      DownloadLastFileName := '';
+      DownloadLastTick     := GetTickCount;
+      DownloadLastProgress := 0;
+      DownloadSpeedBps     := 0;
+
       DownloadPage.Show;
       try
-        DownloadPage.Download;
-        Result := True;
-      except
-        if DownloadPage.AbortedByUser then
-        begin
-          Log('Download aborted by user');
-          SuppressibleMsgBox('Установка отменена пользователем.', mbInformation, MB_OK, IDOK);
-          Result := False;
-        end
-        else
-        begin
-          Log('Download failed: ' + GetExceptionMessage);
-          SuppressibleMsgBox(
-            'Ошибка при скачивании файлов:' + #13#10 + GetExceptionMessage,
-            mbError, MB_OK, IDOK
-          );
-          Result := False;
+        try
+          DownloadPage.Download;
+          { Успех: загрузка завершена без ошибок }
+          Result := True;
+        except
+          { КРИТИЧНО: В блоке except Result ВСЕГДА должен быть False!
+            Это официальный паттерн Inno Setup для TDownloadWizardPage.
+            Исключение будет "поглощено" только если мы установим Result := False.
+            Если оставить Result := True, исключение пробросится дальше. }
+          if DownloadPage.AbortedByUser then
+          begin
+            Log('Download aborted by user');
+            UserChoice := SuppressibleMsgBox(
+              'Загрузка файлов была прервана.' + #13#10 + #13#10 +
+              'Повторить попытку загрузки?',
+              mbConfirmation, MB_YESNO, IDYES
+            );
+            if UserChoice = IDYES then
+              RetryDownload := True;
+            { Если retry, то цикл продолжится, а Result пересчитается }
+          end
+          else
+          begin
+            Log('Download failed: ' + GetExceptionMessage);
+            UserChoice := SuppressibleMsgBox(
+              'Ошибка при скачивании файлов:' + #13#10 + GetExceptionMessage + #13#10 + #13#10 +
+              'Повторить попытку загрузки?',
+              mbError, MB_YESNO, IDYES
+            );
+            if UserChoice = IDYES then
+              RetryDownload := True
+            else
+              Log('User declined retry after error, cancelling install');
+          end;
+          Result := False;  { КРИТИЧНО: Всегда False в except! }
         end;
+      finally
+        DownloadPage.Hide;
       end;
-    finally
-      DownloadPage.Hide;
-    end;
+
+      { Если RetryDownload = True, цикл повторится,
+        и Result будет пересчитан в следующей итерации }
+    until not RetryDownload;
   end;
 end;
 
@@ -414,6 +712,7 @@ var
   PartName, PartPath, ChecksumPath: String;
   ResultCode: Integer;
   AllVerified: Boolean;
+  CudaPath, FFmpegPath, KLitePath: String;
 begin
   if CurStep = ssInstall then
   begin
@@ -485,6 +784,90 @@ begin
 
       Log('✓ Temporary files cleaned up');
 
+    finally
+      ExtractProgressPage.Hide;
+    end;
+  end
+  else if CurStep = ssPostInstall then
+  begin
+    { ── Install optional components if downloaded ── }
+    ExtractProgressPage.Show;
+    try
+      { Install CUDA if downloaded }
+      CudaPath := ExpandConstant('{tmp}\cuda.exe');
+      if FileExists(CudaPath) then
+      begin
+        ExtractProgressPage.SetText('Установка NVIDIA CUDA Toolkit...', 'Пожалуйста, подождите');
+        ExtractProgressPage.SetProgress(0, 100);
+        Log('Installing CUDA from ' + CudaPath);
+        
+        if Exec(CudaPath, '-s', '', SW_SHOW, ewWaitUntilTerminated, ResultCode) then
+        begin
+          if ResultCode = 0 then
+            Log('✓ CUDA installed successfully')
+          else
+            Log('Warning: CUDA installer returned code ' + IntToStr(ResultCode));
+        end
+        else
+          Log('Warning: Failed to launch CUDA installer');
+        
+        DeleteFile(CudaPath);
+      end;
+
+      { Install FFmpeg if downloaded }
+      FFmpegPath := ExpandConstant('{tmp}\ffmpeg.zip');
+      if FileExists(FFmpegPath) then
+      begin
+        ExtractProgressPage.SetText('Установка FFmpeg...', 'Распаковка в Program Files');
+        ExtractProgressPage.SetProgress(33, 100);
+        Log('Installing FFmpeg from ' + FFmpegPath);
+        
+        if Exec(
+          ExpandConstant('{tmp}\7z.exe'),
+          Format('x "%s" -o"%s" -aoa -y', [FFmpegPath, ExpandConstant('{pf}\ffmpeg')]),
+          '',
+          SW_HIDE,
+          ewWaitUntilTerminated,
+          ResultCode
+        ) and (ResultCode = 0) then
+        begin
+          Log('✓ FFmpeg extracted successfully');
+          { Note: Adding to PATH would require registry modification or user action }
+          MsgBox(
+            'FFmpeg установлен в ' + ExpandConstant('{pf}\ffmpeg') + #13#10 +
+            'Для использования из командной строки добавьте в PATH:' + #13#10 +
+            ExpandConstant('{pf}\ffmpeg\bin'),
+            mbInformation, MB_OK
+          );
+        end
+        else
+          Log('Warning: Failed to extract FFmpeg, code ' + IntToStr(ResultCode));
+        
+        DeleteFile(FFmpegPath);
+      end;
+
+      { Install K-Lite Codec Pack if downloaded }
+      KLitePath := ExpandConstant('{tmp}\klite.exe');
+      if FileExists(KLitePath) then
+      begin
+        ExtractProgressPage.SetText('Установка K-Lite Codec Pack...', 'Пожалуйста, подождите');
+        ExtractProgressPage.SetProgress(66, 100);
+        Log('Installing K-Lite from ' + KLitePath);
+        
+        if Exec(KLitePath, '/VERYSILENT /NORESTART', '', SW_SHOW, ewWaitUntilTerminated, ResultCode) then
+        begin
+          if ResultCode = 0 then
+            Log('✓ K-Lite installed successfully')
+          else
+            Log('Warning: K-Lite installer returned code ' + IntToStr(ResultCode));
+        end
+        else
+          Log('Warning: Failed to launch K-Lite installer');
+        
+        DeleteFile(KLitePath);
+      end;
+
+      ExtractProgressPage.SetProgress(100, 100);
     finally
       ExtractProgressPage.Hide;
     end;

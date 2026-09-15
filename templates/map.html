@@ -9,6 +9,7 @@
 <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.Default.css"/>
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script src="https://unpkg.com/leaflet.markercluster@1.5.3/dist/leaflet.markercluster.js"></script>
+<script src="https://unpkg.com/leaflet.vectorgrid@1.3.0/dist/Leaflet.VectorGrid.bundled.js"></script>
 <script src="https://unpkg.com/socket.io-client@4.7.4/dist/socket.io.min.js"></script>
 <style>
   :root {
@@ -828,13 +829,46 @@ async function loadTileLayer() {
     if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
     const cfg = await resp.json();
     
-    L.tileLayer(cfg.tile_url, {
-      attribution: cfg.attribution,
-      maxZoom: cfg.max_zoom,
-    }).addTo(map);
+    // Проверяем тип подложки: raster (по умолчанию) или vector
+    if (cfg.tile_type === 'vector') {
+      // Векторные тайлы через Leaflet.VectorGrid
+      if (typeof L.vectorGrid === 'undefined') {
+        throw new Error('Leaflet.VectorGrid library not loaded');
+      }
+      
+      // Определяем текущую тему для выбора цветовой схемы
+      const isDarkTheme = true;  // Карта всегда в тёмной теме (см. CSS .leaflet-tile filter)
+      
+      // Универсальный стиль для всех слоёв векторных тайлов
+      const genericStyle = {
+        weight: 1,
+        color: isDarkTheme ? '#3d8ef0' : '#2563eb',
+        fillColor: isDarkTheme ? '#1c2128' : '#e5e7eb',
+        fillOpacity: isDarkTheme ? 0.3 : 0.5,
+      };
+      
+      L.vectorGrid.protobuf(cfg.tile_url, {
+        attribution: cfg.attribution,
+        maxZoom: cfg.max_zoom,
+        vectorTileLayerStyles: { 
+          '*': genericStyle  // Применяется ко всем слоям
+        },
+        interactive: false,  // Отключаем интерактивность векторной подложки
+      }).addTo(map);
+      
+      console.log('[loadTileLayer] Vector tiles loaded:', cfg.tile_url);
+    } else {
+      // Растровые тайлы (PNG/JPG) - стандартный путь
+      L.tileLayer(cfg.tile_url, {
+        attribution: cfg.attribution,
+        maxZoom: cfg.max_zoom,
+      }).addTo(map);
+      
+      console.log('[loadTileLayer] Raster tiles loaded:', cfg.tile_url);
+    }
   } catch (err) {
     console.error('Failed to load map config, using fallback OSM:', err);
-    // Безопасный fallback на OSM, если сервер недоступен
+    // Безопасный fallback на OSM, если сервер недоступен или VectorGrid не загружен
     L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
       attribution: "© OpenStreetMap",
       maxZoom: 19,

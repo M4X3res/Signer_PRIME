@@ -96,6 +96,7 @@ class AppSettings:
     map_tile_url: str = "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
     map_tile_attribution: str = "© OpenStreetMap"
     map_tile_max_zoom: int = 19
+    map_tile_type: Literal["raster", "vector"] = "raster"  # Тип подложки: растровые (PNG/JPG) или векторные (.pbf)
     
     # ── Обновления ────────────────────────────────────────────────
     auto_check_updates: bool = True
