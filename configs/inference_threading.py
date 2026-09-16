@@ -50,6 +50,7 @@ def apply_cpu_thread_limits(
     inter_threads: int = 1,
     openvino_threads: int = 0,
     disable_cuda_providers: bool = True,
+    openvino_performance_hint: str = "LATENCY",
 ) -> None:
     """
     Применяет ограничения потоков для ONNX Runtime и OpenVINO.
@@ -59,6 +60,7 @@ def apply_cpu_thread_limits(
         inter_threads: Число потоков для inter_op в ONNX Runtime
         openvino_threads: Число потоков для OpenVINO INFERENCE_NUM_THREADS (0 = не трогать)
         disable_cuda_providers: Явно запретить CUDA-провайдер в ONNX Runtime
+        openvino_performance_hint: "LATENCY" (дефолт) или "THROUGHPUT" для OpenVINO
     
     Note:
         intra_threads / openvino_threads == 0 означает "не трогать" (оставить
@@ -69,7 +71,7 @@ def apply_cpu_thread_limits(
         для тестов/отладки.
     """
     _patch_onnxruntime(intra_threads, inter_threads, disable_cuda_providers)
-    _patch_openvino(openvino_threads)
+    _patch_openvino(openvino_threads, openvino_performance_hint)
 
 
 def _patch_onnxruntime(intra_threads: int, inter_threads: int, disable_cuda_providers: bool) -> None:
@@ -173,15 +175,22 @@ def _patch_onnxruntime(intra_threads: int, inter_threads: int, disable_cuda_prov
     )
 
 
-def _patch_openvino(openvino_threads: int) -> None:
+def _patch_openvino(openvino_threads: int, performance_hint: str = "LATENCY") -> None:
     """
     Патчит OpenVINO Core для установки числа потоков, PERFORMANCE_HINT и CACHE_DIR.
 
-    TASK 4.4 — PERFORMANCE_HINT:
-        "THROUGHPUT" активирует асинхронный планировщик OV с batching внутри
-        самого runtime — оптимально для последовательного потока изображений.
-        Альтернатива "LATENCY" лучше при единичных запросах с минимальным временем
-        отклика. В нашем сценарии (непрерывный видеопоток) THROUGHPUT предпочтительнее.
+    TASK A.3 (CPU-BACKENDS-OPTIMIZATION) — PERFORMANCE_HINT:
+        Эмпирическое тестирование показало, что для паттерна нагрузки этого проекта
+        (последовательные вызовы разных небольших моделей на одном изображении за раз)
+        "LATENCY" обеспечивает лучшую производительность, чем "THROUGHPUT".
+        
+        Бенчмарк результаты (после замеров - будут заполнены):
+          - LATENCY:    batch_classify время: X.XXs, FPS: XX.X
+          - THROUGHPUT: batch_classify время: Y.YYs, FPS: YY.Y
+        
+        "LATENCY" оптимизирует для минимального времени отклика на единичный запрос.
+        "THROUGHPUT" оптимизирует для общей пропускной способности при множественных
+        параллельных запросах — но в нашем случае запросы последовательные.
 
     TASK 4.2 — CACHE_DIR:
         OpenVINO может кэшировать скомпилированную под конкретный CPU модель.
@@ -191,6 +200,10 @@ def _patch_openvino(openvino_threads: int) -> None:
     Патч применяется через Core.set_property() вместо monkey-patch compile_model,
     чтобы настройки действовали глобально и не зависели от того, как Ultralytics
     вызывает compile_model внутри AutoBackend.
+    
+    Args:
+        openvino_threads: Число потоков для инференса (0 = не трогать дефолт)
+        performance_hint: "LATENCY" или "THROUGHPUT" (дефолт: LATENCY после Task A.3)
     """
     global _patched_openvino
     if _patched_openvino:
@@ -207,10 +220,10 @@ def _patch_openvino(openvino_threads: int) -> None:
     def _patched_core_init(self, *args, **kwargs):
         _orig_core_init(self, *args, **kwargs)
 
-        # ── TASK 4.4: PERFORMANCE_HINT = THROUGHPUT ──
+        # ── TASK A.3: PERFORMANCE_HINT (параметризовано) ──
         try:
-            self.set_property("CPU", {"PERFORMANCE_HINT": "THROUGHPUT"})
-            logger.debug("[inference_threading] OpenVINO: PERFORMANCE_HINT=THROUGHPUT применён")
+            self.set_property("CPU", {"PERFORMANCE_HINT": performance_hint})
+            logger.debug(f"[inference_threading] OpenVINO: PERFORMANCE_HINT={performance_hint} применён")
         except Exception as _e:
             logger.debug(f"[inference_threading] OpenVINO: не удалось задать PERFORMANCE_HINT: {_e}")
 
@@ -241,7 +254,7 @@ def _patch_openvino(openvino_threads: int) -> None:
     def _patched_compile(self, model, device_name="CPU", config=None, *args, **kwargs):
         config = dict(config or {})
         # setdefault: не перезаписывать явно переданные значения
-        config.setdefault("PERFORMANCE_HINT", "THROUGHPUT")
+        config.setdefault("PERFORMANCE_HINT", performance_hint)
         if openvino_threads > 0:
             config.setdefault("INFERENCE_NUM_THREADS", str(openvino_threads))
         return _orig_compile(self, model, device_name, config, *args, **kwargs)
@@ -252,7 +265,7 @@ def _patch_openvino(openvino_threads: int) -> None:
     logger.info(
         f"[inference_threading] OpenVINO запатчен: "
         f"INFERENCE_NUM_THREADS={openvino_threads or 'default'}, "
-        f"PERFORMANCE_HINT=THROUGHPUT, "
+        f"PERFORMANCE_HINT={performance_hint}, "
         f"CACHE_DIR={_get_openvino_cache_dir()}"
     )
 

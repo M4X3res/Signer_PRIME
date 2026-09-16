@@ -1,24 +1,398 @@
-13:09:34 [INFO] processing.detector_thread: [SmartSkip] Обработано: 86, Пропущено: 76 (46.9%), Текущий интервал: 1/2, FPS: 1.9, Cache: 0.0% (0/0) size=0, OCR Cache: 0.0% (0/0) size=0
-13:09:35 [INFO] processing.detector_thread: [SmartSkip] Обработано: 89, Пропущено: 79 (47.0%), Текущий интервал: 1/2, FPS: 2.3, Cache: 0.0% (0/0) size=0, OCR Cache: 0.0% (0/0) size=0
-13:09:36 [INFO] processing.detector_thread: [SmartSkip] Обработано: 92, Пропущено: 82 (47.1%), Текущий интервал: 1/2, FPS: 2.2, Cache: 0.0% (0/0) size=0, OCR Cache: 0.0% (0/0) size=0
-13:09:37 [ERROR] processing.detector_thread: [DetectorThread] Ошибка обработки кадра abs_frame=1725: name 'logger' is not defined
+(.venv) PS C:\Users\DUBATOUKA\PycharmProjects\Signer PRIME> python -B scripts/benchmark_cpu_backends.py --video E:\Urban\vid\test\GOPR0064\GP010064.MP4 --backend onnx --max-frames 100
+14:20:49 [INFO] configs.inference_threading: [inference_threading] ONNX Runtime запатчен: intra_op_num_threads=15, inter_op_num_threads=1, disable_cuda_providers=True, graph_opt=ORT_ENABLE_ALL, exec_mode=ORT_SEQUENTIAL, mem_pattern=True, cpu_mem_arena=True, optimized_model_filepath=<model>.opt.onnx
+14:20:49 [INFO] configs.inference_threading: [inference_threading] OpenVINO запатчен: INFERENCE_NUM_THREADS=15, PERFORMANCE_HINT=LATENCY, CACHE_DIR=C:\Users\DUBATOUKA\PycharmProjects\Signer PRIME\.kiro\model_cache\openvino
+14:20:49 [INFO] __main__: Backend: onnx, intra_threads: 15
+14:20:50 [INFO] configs.settings: Загружен license_server_url из build_config.json: https://signer-license-server-1047715133540.europe-west1.run.app
+14:20:50 [INFO] __main__: Настройки: use_cuda=False, cpu_inference_backend=onnx
+14:20:50 [INFO] core.profiler: Профилирование включено
+14:20:50 [INFO] core.profiler: Статистики профилирования сброшены
+14:20:50 [INFO] __main__: Запуск бенчмарка: video=E:\Urban\vid\test\GOPR0064\GP010064.MP4, backend=onnx, max_frames=100, warmup=50
+14:20:50 [INFO] core.lane_detector: [LaneDetector] Инициализирован: CONF_DETECT=0.65, CONF_SEGMENT=0.65
+14:20:50 [INFO] core.detector: Detector инициализирован: CONF_SIDE=0.55, CONF_RUBE=0.70, CONF_CNN=0.60, IOU=0.15, save_error_frames=False
+14:20:50 [INFO] __main__: Видео: FPS=59.94005994005994, кадров=63600
+14:20:50 [INFO] __main__: Прогрев: обработка первых 50 кадров...
+14:20:52 [INFO] configs.sign_models: [sign_models] Загружена ONNX-модель: best.onnx (CPU mode)
+Loading C:\Users\DUBATOUKA\PycharmProjects\Signer PRIME\CNN_side\best.onnx for ONNX Runtime inference...
+Preferring ONNX Runtime AzureExecutionProvider
+[0;93m2026-09-16 14:20:53.3656207 [W:onnxruntime:, inference_session.cc:2039 onnxruntime::InferenceSession::Initialize] Serializing optimized model with Graph Optimization level greater than ORT_ENABLE_EXTENDED and the NchwcTransformer enabled. The generated model may contain hardware specific optimizations, and should only be used in the same environment the model was optimized in.[m
+14:20:55 [INFO] core.detector: [_classify_rube_batch] Backend detected: None
+14:20:55 [INFO] configs.sign_models: [sign_models] Загружена ONNX-модель: rude.onnx (CPU mode)
+Loading C:\Users\DUBATOUKA\PycharmProjects\Signer PRIME\small_models\rude.onnx for ONNX Runtime inference...
+Preferring ONNX Runtime AzureExecutionProvider
+[0;93m2026-09-16 14:20:55.2143078 [W:onnxruntime:, inference_session.cc:2039 onnxruntime::InferenceSession::Initialize] Serializing optimized model with Graph Optimization level greater than ORT_ENABLE_EXTENDED and the NchwcTransformer enabled. The generated model may contain hardware specific optimizations, and should only be used in the same environment the model was optimized in.[m
 Traceback (most recent call last):
-  File "C:\Users\DUBATOUKA\PycharmProjects\Signer PRIME\processing\processing_controller.py", line 458, in save_checkpoint
-    logger.info(f"[Checkpoint] Сохранено: {len(sign_handler.result_signs)} знаков, "
-    ^^^^^^
-NameError: name 'logger' is not defined
+  File "C:\Users\DUBATOUKA\PycharmProjects\Signer PRIME\scripts\benchmark_cpu_backends.py", line 274, in <module>
+    main()
+  File "C:\Users\DUBATOUKA\PycharmProjects\Signer PRIME\scripts\benchmark_cpu_backends.py", line 267, in main
+    results = run_benchmark(args.video, args.backend, args.max_frames, args.warmup_frames)
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\DUBATOUKA\PycharmProjects\Signer PRIME\scripts\benchmark_cpu_backends.py", line 127, in run_benchmark
+    _ = detector.detect(frame, skip_ocr=True)
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\DUBATOUKA\PycharmProjects\Signer PRIME\core\detector.py", line 305, in detect
+    rube_results = self._classify_rube_batch([cd[3] for cd in crops_data])
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\DUBATOUKA\PycharmProjects\Signer PRIME\core\detector.py", line 697, in _classify_rube_batch
+    results = rube_modal.predict(crops32, conf=self.CONF_RUBE, imgsz=self.CLASSIFY_IMGSZ, verbose=False)
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\DUBATOUKA\PycharmProjects\Signer PRIME\configs\sign_models.py", line 333, in predict
+    result = model.predict(*args, **kwargs)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\DUBATOUKA\PycharmProjects\Signer PRIME\.venv\Lib\site-packages\ultralytics\engine\model.py", line 554, in predict
+    return self.predictor.predict_cli(source=source) if is_cli else self.predictor(source=source, stream=stream)
+                                                                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\DUBATOUKA\PycharmProjects\Signer PRIME\.venv\Lib\site-packages\ultralytics\engine\predictor.py", line 173, in __call__
+    return list(self.stream_inference(source, model, *args, **kwargs))  # merge list of Result into one
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\DUBATOUKA\PycharmProjects\Signer PRIME\.venv\Lib\site-packages\torch\utils\_contextlib.py", line 36, in generator_context
+    response = gen.send(None)
+               ^^^^^^^^^^^^^^
+  File "C:\Users\DUBATOUKA\PycharmProjects\Signer PRIME\.venv\Lib\site-packages\ultralytics\engine\predictor.py", line 259, in stream_inference
+    preds = self.inference(im, *args, **kwargs)
+            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\DUBATOUKA\PycharmProjects\Signer PRIME\.venv\Lib\site-packages\ultralytics\engine\predictor.py", line 143, in inference
+    return self.model(im, augment=self.args.augment, visualize=visualize, embed=self.args.embed, *args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\DUBATOUKA\PycharmProjects\Signer PRIME\.venv\Lib\site-packages\torch\nn\modules\module.py", line 1751, in _wrapped_call_impl
+    return self._call_impl(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\DUBATOUKA\PycharmProjects\Signer PRIME\.venv\Lib\site-packages\torch\nn\modules\module.py", line 1762, in _call_impl
+    return forward_call(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\DUBATOUKA\PycharmProjects\Signer PRIME\.venv\Lib\site-packages\ultralytics\nn\autobackend.py", line 554, in forward
+    self.session.run_with_iobinding(self.io)
+  File "C:\Users\DUBATOUKA\PycharmProjects\Signer PRIME\.venv\Lib\site-packages\onnxruntime\capi\onnxruntime_inference_collection.py", line 331, in run_with_iobinding
+    self._sess.run_with_iobinding(iobinding._iobinding, run_options)
+RuntimeError: Error in execution: Got invalid dimensions for input: images for the following indices
+ index: 0 Got: 4 Expected: 1
+ Please fix either the inputs/outputs or the model.
+(.venv) PS C:\Users\DUBATOUKA\PycharmProjects\Signer PRIME> python scripts/export_models_onnx.py --format all --force
+2026-09-16 14:22:42,660 [INFO] ✅ ultralytics 8.3.35
+2026-09-16 14:22:42,743 [INFO] ✅ onnx 1.17.0
+2026-09-16 14:22:42,837 [INFO] ✅ openvino 2024.4.0-16579-c3152d32c9c-releases/2024/4
+2026-09-16 14:22:42,837 [INFO]
+================================================================================
+2026-09-16 14:22:42,837 [INFO] Экспорт 18 моделей в формат ONNX
+2026-09-16 14:22:42,838 [INFO] ================================================================================
 
-During handling of the above exception, another exception occurred:
+2026-09-16 14:22:42,892 [INFO] 📦 Экспорт CNN_side/best.pt (detect, imgsz=608) → ONNX
+2026-09-16 14:22:43,084 [ERROR]   ❌ Ошибка экспорта CNN_side/best.pt: 'dynamic={'batch': True}' is of invalid type dict. 'dynamic' must be a bool (i.e. 'dynamic=True' or 'dynamic=False')
+2026-09-16 14:22:43,085 [INFO] 📦 Экспорт lane_guidance_models/arrow_detect.pt (detect, imgsz=640) → ONNX
+2026-09-16 14:22:43,119 [ERROR]   ❌ Ошибка экспорта lane_guidance_models/arrow_detect.pt: 'dynamic={'batch': True}' is of invalid type dict. 'dynamic' must be a bool (i.e. 'dynamic=True' or 'dynamic=False')
+2026-09-16 14:22:43,119 [INFO] 📦 Экспорт small_models/rude.pt (classify, imgsz=32) → ONNX
+2026-09-16 14:22:44,135 [ERROR]   ❌ Ошибка экспорта small_models/rude.pt: 'dynamic={'batch': True}' is of invalid type dict. 'dynamic' must be a bool (i.e. 'dynamic=True' or 'dynamic=False')
+2026-09-16 14:22:44,136 [INFO] 📦 Экспорт small_models/blue.pt (classify, imgsz=32) → ONNX
+2026-09-16 14:22:44,156 [ERROR]   ❌ Ошибка экспорта small_models/blue.pt: 'dynamic={'batch': True}' is of invalid type dict. 'dynamic' must be a bool (i.e. 'dynamic=True' or 'dynamic=False')
+2026-09-16 14:22:44,157 [INFO] 📦 Экспорт small_models/treugolnik.pt (classify, imgsz=32) → ONNX
+2026-09-16 14:22:44,178 [ERROR]   ❌ Ошибка экспорта small_models/treugolnik.pt: 'dynamic={'batch': True}' is of invalid type dict. 'dynamic' must be a bool (i.e. 'dynamic=True' or 'dynamic=False')
+2026-09-16 14:22:44,179 [INFO] 📦 Экспорт small_models/krug.pt (classify, imgsz=32) → ONNX
+2026-09-16 14:22:44,200 [ERROR]   ❌ Ошибка экспорта small_models/krug.pt: 'dynamic={'batch': True}' is of invalid type dict. 'dynamic' must be a bool (i.e. 'dynamic=True' or 'dynamic=False')
+2026-09-16 14:22:44,200 [INFO] 📦 Экспорт small_models/red.pt (classify, imgsz=32) → ONNX
+2026-09-16 14:22:44,222 [ERROR]   ❌ Ошибка экспорта small_models/red.pt: 'dynamic={'batch': True}' is of invalid type dict. 'dynamic' must be a bool (i.e. 'dynamic=True' or 'dynamic=False')
+2026-09-16 14:22:44,223 [INFO] 📦 Экспорт small_models/servises.pt (classify, imgsz=32) → ONNX
+2026-09-16 14:22:44,244 [ERROR]   ❌ Ошибка экспорта small_models/servises.pt: 'dynamic={'batch': True}' is of invalid type dict. 'dynamic' must be a bool (i.e. 'dynamic=True' or 'dynamic=False')
+2026-09-16 14:22:44,244 [INFO] 📦 Экспорт small_models/tabl l.pt (classify, imgsz=32) → ONNX
+2026-09-16 14:22:44,265 [ERROR]   ❌ Ошибка экспорта small_models/tabl l.pt: 'dynamic={'batch': True}' is of invalid type dict. 'dynamic' must be a bool (i.e. 'dynamic=True' or 'dynamic=False')
+2026-09-16 14:22:44,266 [INFO] 📦 Экспорт small_models/tabl.pt (classify, imgsz=32) → ONNX
+2026-09-16 14:22:44,287 [ERROR]   ❌ Ошибка экспорта small_models/tabl.pt: 'dynamic={'batch': True}' is of invalid type dict. 'dynamic' must be a bool (i.e. 'dynamic=True' or 'dynamic=False')
+2026-09-16 14:22:44,288 [INFO] 📦 Экспорт small_models/tupic.pt (classify, imgsz=32) → ONNX
+2026-09-16 14:22:44,308 [ERROR]   ❌ Ошибка экспорта small_models/tupic.pt: 'dynamic={'batch': True}' is of invalid type dict. 'dynamic' must be a bool (i.e. 'dynamic=True' or 'dynamic=False')
+2026-09-16 14:22:44,309 [INFO] 📦 Экспорт small_models/5.38.pt (classify, imgsz=32) → ONNX
+2026-09-16 14:22:44,329 [ERROR]   ❌ Ошибка экспорта small_models/5.38.pt: 'dynamic={'batch': True}' is of invalid type dict. 'dynamic' must be a bool (i.e. 'dynamic=True' or 'dynamic=False')
+2026-09-16 14:22:44,330 [INFO] 📦 Экспорт small_models/5.9.1-5.14.pt (classify, imgsz=32) → ONNX
+2026-09-16 14:22:44,350 [ERROR]   ❌ Ошибка экспорта small_models/5.9.1-5.14.pt: 'dynamic={'batch': True}' is of invalid type dict. 'dynamic' must be a bool (i.e. 'dynamic=True' or 'dynamic=False')
+2026-09-16 14:22:44,351 [INFO] 📦 Экспорт small_models/one_side.pt (classify, imgsz=32) → ONNX
+2026-09-16 14:22:44,370 [ERROR]   ❌ Ошибка экспорта small_models/one_side.pt: 'dynamic={'batch': True}' is of invalid type dict. 'dynamic' must be a bool (i.e. 'dynamic=True' or 'dynamic=False')
+2026-09-16 14:22:44,371 [INFO] 📦 Экспорт small_models/danger.pt (classify, imgsz=32) → ONNX
+2026-09-16 14:22:44,392 [ERROR]   ❌ Ошибка экспорта small_models/danger.pt: 'dynamic={'batch': True}' is of invalid type dict. 'dynamic' must be a bool (i.e. 'dynamic=True' or 'dynamic=False')
+2026-09-16 14:22:44,393 [INFO] 📦 Экспорт small_models/pimicanie.pt (classify, imgsz=32) → ONNX
+2026-09-16 14:22:44,413 [ERROR]   ❌ Ошибка экспорта small_models/pimicanie.pt: 'dynamic={'batch': True}' is of invalid type dict. 'dynamic' must be a bool (i.e. 'dynamic=True' or 'dynamic=False')
+2026-09-16 14:22:44,414 [INFO] 📦 Экспорт small_models/suzenie.pt (classify, imgsz=32) → ONNX
+2026-09-16 14:22:44,435 [ERROR]   ❌ Ошибка экспорта small_models/suzenie.pt: 'dynamic={'batch': True}' is of invalid type dict. 'dynamic' must be a bool (i.e. 'dynamic=True' or 'dynamic=False')
+2026-09-16 14:22:44,435 [INFO] 📦 Экспорт lane_guidance_models/arrow_segment.pt (segment, imgsz=640) → ONNX
+2026-09-16 14:22:44,560 [ERROR]   ❌ Ошибка экспорта lane_guidance_models/arrow_segment.pt: 'dynamic={'batch': True}' is of invalid type dict. 'dynamic' must be a bool (i.e. 'dynamic=True' or 'dynamic=False')
+2026-09-16 14:22:44,561 [INFO]
+================================================================================
+2026-09-16 14:22:44,561 [INFO] Экспорт ONNX завершён: 0/18 успешно
+2026-09-16 14:22:44,561 [INFO] ================================================================================
+2026-09-16 14:22:44,561 [WARNING] ⚠️  Некоторые модели не удалось экспортировать в ONNX
+2026-09-16 14:22:44,561 [INFO]
+================================================================================
+2026-09-16 14:22:44,562 [INFO] Экспорт 18 моделей в формат OPENVINO
+2026-09-16 14:22:44,562 [INFO] ================================================================================
 
-Traceback (most recent call last):
-  File "C:\Users\DUBATOUKA\PycharmProjects\Signer PRIME\processing\detector_thread.py", line 253, in _process_loop
-    turn, last_position_update = self._process_single_frame(
-                                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "C:\Users\DUBATOUKA\PycharmProjects\Signer PRIME\processing\detector_thread.py", line 406, in _process_single_frame
-    self._controller.save_checkpoint()
-  File "C:\Users\DUBATOUKA\PycharmProjects\Signer PRIME\processing\processing_controller.py", line 462, in save_checkpoint
-    logger.error(f"[Checkpoint] Ошибка сохранения: {e}")
-    ^^^^^^
-NameError: name 'logger' is not defined
-13:09:38 [INFO] processing.detector_thread: [SmartSkip] Обработано: 94, Пропущено: 85 (47.5%), Текущий интервал: 1/2, FPS: 1.3, Cache: 0.0% (0/0) size=0, OCR Cache: 0.0% (0/0) size=0
-13:09:39 [INFO] processing.detector_thread: [SmartSkip] Обработано: 97, Пропущено: 88 (47.6%), Текущий интервал: 1/2, FPS: 2.3, Cache: 0.0% (0/0) size=0, OCR Cache: 0.0% (0/0) size=0
+2026-09-16 14:22:44,562 [INFO] 📦 Экспорт CNN_side/best.pt (detect, imgsz=608) → OPENVINO
+Ultralytics 8.3.35 🚀 Python-3.12.3 torch-2.7.1+cu118 CPU (Intel Core(TM) i7-10700K 3.80GHz)
+Model summary (fused): 268 layers, 68,125,494 parameters, 0 gradients, 257.4 GFLOPs
+
+PyTorch: starting from 'C:\Users\DUBATOUKA\PycharmProjects\Signer PRIME\CNN_side\best.pt' with input shape (1, 3, 608, 608) BCHW and output shape(s) (1, 6, 7581) (260.5 MB)
+
+OpenVINO: starting export with openvino 2024.4.0-16579-c3152d32c9c-releases/2024/4...
+OpenVINO: export success ✅ 5.2s, saved as 'C:\Users\DUBATOUKA\PycharmProjects\Signer PRIME\CNN_side\best_openvino_model\' (260.3 MB)
+
+Export complete (7.0s)
+Results saved to C:\Users\DUBATOUKA\PycharmProjects\Signer PRIME\CNN_side
+Predict:         yolo predict task=detect model=C:\Users\DUBATOUKA\PycharmProjects\Signer PRIME\CNN_side\best_openvino_model imgsz=608
+Validate:        yolo val task=detect model=C:\Users\DUBATOUKA\PycharmProjects\Signer PRIME\CNN_side\best_openvino_model imgsz=608 data=data.yaml
+Visualize:       https://netron.app
+2026-09-16 14:22:51,691 [INFO]   ✅ Экспорт завершён за 7.0с, размер: 1301.6 МБ
+2026-09-16 14:22:51,693 [INFO] 📦 Экспорт lane_guidance_models/arrow_detect.pt (detect, imgsz=640) → OPENVINO
+Ultralytics 8.3.35 🚀 Python-3.12.3 torch-2.7.1+cu118 CPU (Intel Core(TM) i7-10700K 3.80GHz)
+Model summary (fused): 168 layers, 11,127,132 parameters, 0 gradients, 28.4 GFLOPs
+
+PyTorch: starting from 'C:\Users\DUBATOUKA\PycharmProjects\Signer PRIME\lane_guidance_models\arrow_detect.pt' with input shape (1, 3, 640, 640) BCHW and output shape(s) (1, 8, 8400) (21.5 MB)
+
+OpenVINO: starting export with openvino 2024.4.0-16579-c3152d32c9c-releases/2024/4...
+OpenVINO: export success ✅ 2.0s, saved as 'C:\Users\DUBATOUKA\PycharmProjects\Signer PRIME\lane_guidance_models\arrow_detect_openvino_model\' (42.8 MB)
+
+Export complete (2.3s)
+Results saved to C:\Users\DUBATOUKA\PycharmProjects\Signer PRIME\lane_guidance_models
+Predict:         yolo predict task=detect model=C:\Users\DUBATOUKA\PycharmProjects\Signer PRIME\lane_guidance_models\arrow_detect_openvino_model imgsz=640
+Validate:        yolo val task=detect model=C:\Users\DUBATOUKA\PycharmProjects\Signer PRIME\lane_guidance_models\arrow_detect_openvino_model imgsz=640 data=data_arrow.yaml
+Visualize:       https://netron.app
+2026-09-16 14:22:54,039 [INFO]   ✅ Экспорт завершён за 2.3с, размер: 979.6 МБ
+2026-09-16 14:22:54,040 [INFO] 📦 Экспорт small_models/rude.pt (classify, imgsz=32) → OPENVINO
+Ultralytics 8.3.35 🚀 Python-3.12.3 torch-2.7.1+cu118 CPU (Intel Core(TM) i7-10700K 3.80GHz)
+YOLO11s-cls summary (fused): 112 layers, 5,469,996 parameters, 0 gradients, 12.0 GFLOPs
+
+PyTorch: starting from 'C:\Users\DUBATOUKA\PycharmProjects\Signer PRIME\small_models\rude.pt' with input shape (1, 3, 32, 32) BCHW and output shape(s) (1, 28) (21.1 MB)
+
+OpenVINO: starting export with openvino 2024.4.0-16579-c3152d32c9c-releases/2024/4...
+OpenVINO: export success ✅ 1.0s, saved as 'C:\Users\DUBATOUKA\PycharmProjects\Signer PRIME\small_models\rude_openvino_model\' (21.0 MB)
+
+Export complete (1.1s)
+Results saved to C:\Users\DUBATOUKA\PycharmProjects\Signer PRIME\small_models
+Predict:         yolo predict task=classify model=C:\Users\DUBATOUKA\PycharmProjects\Signer PRIME\small_models\rude_openvino_model imgsz=32
+Validate:        yolo val task=classify model=C:\Users\DUBATOUKA\PycharmProjects\Signer PRIME\small_models\rude_openvino_model imgsz=32 data=C:\SMALL_DATASET\big_test
+Visualize:       https://netron.app
+2026-09-16 14:22:55,139 [INFO]   ✅ Экспорт завершён за 1.1с, размер: 1116.8 МБ
+2026-09-16 14:22:55,140 [INFO] 📦 Экспорт small_models/blue.pt (classify, imgsz=32) → OPENVINO
+Ultralytics 8.3.35 🚀 Python-3.12.3 torch-2.7.1+cu118 CPU (Intel Core(TM) i7-10700K 3.80GHz)
+YOLO11s-cls summary (fused): 112 layers, 5,446,938 parameters, 0 gradients, 12.0 GFLOPs
+
+PyTorch: starting from 'C:\Users\DUBATOUKA\PycharmProjects\Signer PRIME\small_models\blue.pt' with input shape (1, 3, 32, 32) BCHW and output shape(s) (1, 10) (10.5 MB)
+
+OpenVINO: starting export with openvino 2024.4.0-16579-c3152d32c9c-releases/2024/4...
+OpenVINO: export success ✅ 1.0s, saved as 'C:\Users\DUBATOUKA\PycharmProjects\Signer PRIME\small_models\blue_openvino_model\' (20.9 MB)
+
+Export complete (1.1s)
+Results saved to C:\Users\DUBATOUKA\PycharmProjects\Signer PRIME\small_models
+Predict:         yolo predict task=classify model=C:\Users\DUBATOUKA\PycharmProjects\Signer PRIME\small_models\blue_openvino_model imgsz=32
+Validate:        yolo val task=classify model=C:\Users\DUBATOUKA\PycharmProjects\Signer PRIME\small_models\blue_openvino_model imgsz=32 data=C:\SMALL_DATASET\blue
+Visualize:       https://netron.app
+2026-09-16 14:22:56,252 [INFO]   ✅ Экспорт завершён за 1.1с, размер: 1116.8 МБ
+2026-09-16 14:22:56,253 [INFO] 📦 Экспорт small_models/treugolnik.pt (classify, imgsz=32) → OPENVINO
+Ultralytics 8.3.35 🚀 Python-3.12.3 torch-2.7.1+cu118 CPU (Intel Core(TM) i7-10700K 3.80GHz)
+YOLO11s-cls summary (fused): 112 layers, 5,446,938 parameters, 0 gradients, 12.0 GFLOPs
+
+PyTorch: starting from 'C:\Users\DUBATOUKA\PycharmProjects\Signer PRIME\small_models\treugolnik.pt' with input shape (1, 3, 32, 32) BCHW and output shape(s) (1, 10) (10.5 MB)
+
+OpenVINO: starting export with openvino 2024.4.0-16579-c3152d32c9c-releases/2024/4...
+OpenVINO: export success ✅ 1.0s, saved as 'C:\Users\DUBATOUKA\PycharmProjects\Signer PRIME\small_models\treugolnik_openvino_model\' (20.9 MB)
+
+Export complete (1.2s)
+Results saved to C:\Users\DUBATOUKA\PycharmProjects\Signer PRIME\small_models
+Predict:         yolo predict task=classify model=C:\Users\DUBATOUKA\PycharmProjects\Signer PRIME\small_models\treugolnik_openvino_model imgsz=32
+Validate:        yolo val task=classify model=C:\Users\DUBATOUKA\PycharmProjects\Signer PRIME\small_models\treugolnik_openvino_model imgsz=32 data=C:\SMALL_DATASET\treugolnik
+Visualize:       https://netron.app
+2026-09-16 14:22:57,435 [INFO]   ✅ Экспорт завершён за 1.2с, размер: 1116.8 МБ
+2026-09-16 14:22:57,436 [INFO] 📦 Экспорт small_models/krug.pt (classify, imgsz=32) → OPENVINO
+Ultralytics 8.3.35 🚀 Python-3.12.3 torch-2.7.1+cu118 CPU (Intel Core(TM) i7-10700K 3.80GHz)
+YOLO11s-cls summary (fused): 112 layers, 5,446,938 parameters, 0 gradients, 12.0 GFLOPs
+
+PyTorch: starting from 'C:\Users\DUBATOUKA\PycharmProjects\Signer PRIME\small_models\krug.pt' with input shape (1, 3, 32, 32) BCHW and output shape(s) (1, 10) (10.5 MB)
+
+OpenVINO: starting export with openvino 2024.4.0-16579-c3152d32c9c-releases/2024/4...
+OpenVINO: export success ✅ 1.0s, saved as 'C:\Users\DUBATOUKA\PycharmProjects\Signer PRIME\small_models\krug_openvino_model\' (20.9 MB)
+
+Export complete (1.1s)
+Results saved to C:\Users\DUBATOUKA\PycharmProjects\Signer PRIME\small_models
+Predict:         yolo predict task=classify model=C:\Users\DUBATOUKA\PycharmProjects\Signer PRIME\small_models\krug_openvino_model imgsz=32
+Validate:        yolo val task=classify model=C:\Users\DUBATOUKA\PycharmProjects\Signer PRIME\small_models\krug_openvino_model imgsz=32 data=C:\SMALL_DATASET\krug
+Visualize:       https://netron.app
+2026-09-16 14:22:58,544 [INFO]   ✅ Экспорт завершён за 1.1с, размер: 1116.8 МБ
+2026-09-16 14:22:58,545 [INFO] 📦 Экспорт small_models/red.pt (classify, imgsz=32) → OPENVINO
+Ultralytics 8.3.35 🚀 Python-3.12.3 torch-2.7.1+cu118 CPU (Intel Core(TM) i7-10700K 3.80GHz)
+YOLO11s-cls summary (fused): 112 layers, 5,436,690 parameters, 0 gradients, 12.0 GFLOPs
+
+PyTorch: starting from 'C:\Users\DUBATOUKA\PycharmProjects\Signer PRIME\small_models\red.pt' with input shape (1, 3, 32, 32) BCHW and output shape(s) (1, 2) (10.5 MB)
+
+OpenVINO: starting export with openvino 2024.4.0-16579-c3152d32c9c-releases/2024/4...
+OpenVINO: export success ✅ 1.0s, saved as 'C:\Users\DUBATOUKA\PycharmProjects\Signer PRIME\small_models\red_openvino_model\' (20.9 MB)
+
+Export complete (1.1s)
+Results saved to C:\Users\DUBATOUKA\PycharmProjects\Signer PRIME\small_models
+Predict:         yolo predict task=classify model=C:\Users\DUBATOUKA\PycharmProjects\Signer PRIME\small_models\red_openvino_model imgsz=32
+Validate:        yolo val task=classify model=C:\Users\DUBATOUKA\PycharmProjects\Signer PRIME\small_models\red_openvino_model imgsz=32 data=C:\SMALL_DATASET\red
+Visualize:       https://netron.app
+2026-09-16 14:22:59,718 [INFO]   ✅ Экспорт завершён за 1.1с, размер: 1116.8 МБ
+2026-09-16 14:22:59,718 [INFO] 📦 Экспорт small_models/servises.pt (classify, imgsz=32) → OPENVINO
+Ultralytics 8.3.35 🚀 Python-3.12.3 torch-2.7.1+cu118 CPU (Intel Core(TM) i7-10700K 3.80GHz)
+YOLO11s-cls summary (fused): 112 layers, 5,450,781 parameters, 0 gradients, 12.0 GFLOPs
+
+PyTorch: starting from 'C:\Users\DUBATOUKA\PycharmProjects\Signer PRIME\small_models\servises.pt' with input shape (1, 3, 32, 32) BCHW and output shape(s) (1, 13) (10.5 MB)
+
+OpenVINO: starting export with openvino 2024.4.0-16579-c3152d32c9c-releases/2024/4...
+OpenVINO: export success ✅ 1.0s, saved as 'C:\Users\DUBATOUKA\PycharmProjects\Signer PRIME\small_models\servises_openvino_model\' (20.9 MB)
+
+Export complete (1.1s)
+Results saved to C:\Users\DUBATOUKA\PycharmProjects\Signer PRIME\small_models
+Predict:         yolo predict task=classify model=C:\Users\DUBATOUKA\PycharmProjects\Signer PRIME\small_models\servises_openvino_model imgsz=32
+Validate:        yolo val task=classify model=C:\Users\DUBATOUKA\PycharmProjects\Signer PRIME\small_models\servises_openvino_model imgsz=32 data=C:\SMALL_DATASET\servises
+Visualize:       https://netron.app
+2026-09-16 14:23:00,842 [INFO]   ✅ Экспорт завершён за 1.1с, размер: 1116.8 МБ
+2026-09-16 14:23:00,843 [INFO] 📦 Экспорт small_models/tabl l.pt (classify, imgsz=32) → OPENVINO
+Ultralytics 8.3.35 🚀 Python-3.12.3 torch-2.7.1+cu118 CPU (Intel Core(TM) i7-10700K 3.80GHz)
+YOLO11s-cls summary (fused): 112 layers, 5,437,971 parameters, 0 gradients, 12.0 GFLOPs
+
+PyTorch: starting from 'C:\Users\DUBATOUKA\PycharmProjects\Signer PRIME\small_models\tabl l.pt' with input shape (1, 3, 32, 32) BCHW and output shape(s) (1, 3) (10.5 MB)
+
+OpenVINO: starting export with openvino 2024.4.0-16579-c3152d32c9c-releases/2024/4...
+OpenVINO: export success ✅ 1.0s, saved as 'C:\Users\DUBATOUKA\PycharmProjects\Signer PRIME\small_models\tabl l_openvino_model\' (20.9 MB)
+
+Export complete (1.1s)
+Results saved to C:\Users\DUBATOUKA\PycharmProjects\Signer PRIME\small_models
+Predict:         yolo predict task=classify model=C:\Users\DUBATOUKA\PycharmProjects\Signer PRIME\small_models\tabl l_openvino_model imgsz=32
+Validate:        yolo val task=classify model=C:\Users\DUBATOUKA\PycharmProjects\Signer PRIME\small_models\tabl l_openvino_model imgsz=32 data=C:\SMALL_DATASET\tabl l
+Visualize:       https://netron.app
+2026-09-16 14:23:01,964 [INFO]   ✅ Экспорт завершён за 1.1с, размер: 1116.8 МБ
+2026-09-16 14:23:01,989 [INFO] 📦 Экспорт small_models/tabl.pt (classify, imgsz=32) → OPENVINO
+Ultralytics 8.3.35 🚀 Python-3.12.3 torch-2.7.1+cu118 CPU (Intel Core(TM) i7-10700K 3.80GHz)
+YOLO11s-cls summary (fused): 112 layers, 5,449,500 parameters, 0 gradients, 12.0 GFLOPs
+
+PyTorch: starting from 'C:\Users\DUBATOUKA\PycharmProjects\Signer PRIME\small_models\tabl.pt' with input shape (1, 3, 32, 32) BCHW and output shape(s) (1, 12) (10.5 MB)
+
+OpenVINO: starting export with openvino 2024.4.0-16579-c3152d32c9c-releases/2024/4...
+OpenVINO: export success ✅ 1.1s, saved as 'C:\Users\DUBATOUKA\PycharmProjects\Signer PRIME\small_models\tabl_openvino_model\' (20.9 MB)
+
+Export complete (1.2s)
+Results saved to C:\Users\DUBATOUKA\PycharmProjects\Signer PRIME\small_models
+Predict:         yolo predict task=classify model=C:\Users\DUBATOUKA\PycharmProjects\Signer PRIME\small_models\tabl_openvino_model imgsz=32
+Validate:        yolo val task=classify model=C:\Users\DUBATOUKA\PycharmProjects\Signer PRIME\small_models\tabl_openvino_model imgsz=32 data=C:\SMALL_DATASET\tabl
+Visualize:       https://netron.app
+2026-09-16 14:23:03,196 [INFO]   ✅ Экспорт завершён за 1.2с, размер: 1116.8 МБ
+2026-09-16 14:23:03,208 [INFO] 📦 Экспорт small_models/tupic.pt (classify, imgsz=32) → OPENVINO
+Ultralytics 8.3.35 🚀 Python-3.12.3 torch-2.7.1+cu118 CPU (Intel Core(TM) i7-10700K 3.80GHz)
+YOLO11s-cls summary (fused): 112 layers, 5,437,971 parameters, 0 gradients, 12.0 GFLOPs
+
+PyTorch: starting from 'C:\Users\DUBATOUKA\PycharmProjects\Signer PRIME\small_models\tupic.pt' with input shape (1, 3, 32, 32) BCHW and output shape(s) (1, 3) (10.5 MB)
+
+OpenVINO: starting export with openvino 2024.4.0-16579-c3152d32c9c-releases/2024/4...
+OpenVINO: export success ✅ 1.0s, saved as 'C:\Users\DUBATOUKA\PycharmProjects\Signer PRIME\small_models\tupic_openvino_model\' (20.9 MB)
+
+Export complete (1.1s)
+Results saved to C:\Users\DUBATOUKA\PycharmProjects\Signer PRIME\small_models
+Predict:         yolo predict task=classify model=C:\Users\DUBATOUKA\PycharmProjects\Signer PRIME\small_models\tupic_openvino_model imgsz=32
+Validate:        yolo val task=classify model=C:\Users\DUBATOUKA\PycharmProjects\Signer PRIME\small_models\tupic_openvino_model imgsz=32 data=C:\SMALL_DATASET\tupic
+Visualize:       https://netron.app
+2026-09-16 14:23:04,321 [INFO]   ✅ Экспорт завершён за 1.1с, размер: 1116.8 МБ
+2026-09-16 14:23:04,323 [INFO] 📦 Экспорт small_models/5.38.pt (classify, imgsz=32) → OPENVINO
+Ultralytics 8.3.35 🚀 Python-3.12.3 torch-2.7.1+cu118 CPU (Intel Core(TM) i7-10700K 3.80GHz)
+YOLO11s-cls summary (fused): 112 layers, 5,436,690 parameters, 0 gradients, 12.0 GFLOPs
+
+PyTorch: starting from 'C:\Users\DUBATOUKA\PycharmProjects\Signer PRIME\small_models\5.38.pt' with input shape (1, 3, 32, 32) BCHW and output shape(s) (1, 2) (10.5 MB)
+
+OpenVINO: starting export with openvino 2024.4.0-16579-c3152d32c9c-releases/2024/4...
+OpenVINO: export success ✅ 1.0s, saved as 'C:\Users\DUBATOUKA\PycharmProjects\Signer PRIME\small_models\5.38_openvino_model\' (20.9 MB)
+
+Export complete (1.1s)
+Results saved to C:\Users\DUBATOUKA\PycharmProjects\Signer PRIME\small_models
+Predict:         yolo predict task=classify model=C:\Users\DUBATOUKA\PycharmProjects\Signer PRIME\small_models\5.38_openvino_model imgsz=32
+Validate:        yolo val task=classify model=C:\Users\DUBATOUKA\PycharmProjects\Signer PRIME\small_models\5.38_openvino_model imgsz=32 data=C:\SMALL_DATASET\5.38
+Visualize:       https://netron.app
+2026-09-16 14:23:05,445 [INFO]   ✅ Экспорт завершён за 1.1с, размер: 1116.8 МБ
+2026-09-16 14:23:05,446 [INFO] 📦 Экспорт small_models/5.9.1-5.14.pt (classify, imgsz=32) → OPENVINO
+Ultralytics 8.3.35 🚀 Python-3.12.3 torch-2.7.1+cu118 CPU (Intel Core(TM) i7-10700K 3.80GHz)
+YOLO11s-cls summary (fused): 112 layers, 5,436,690 parameters, 0 gradients, 12.0 GFLOPs
+
+PyTorch: starting from 'C:\Users\DUBATOUKA\PycharmProjects\Signer PRIME\small_models\5.9.1-5.14.pt' with input shape (1, 3, 32, 32) BCHW and output shape(s) (1, 2) (10.5 MB)
+
+OpenVINO: starting export with openvino 2024.4.0-16579-c3152d32c9c-releases/2024/4...
+OpenVINO: export success ✅ 1.0s, saved as 'C:\Users\DUBATOUKA\PycharmProjects\Signer PRIME\small_models\5.9.1-5.14_openvino_model\' (20.9 MB)
+
+Export complete (1.1s)
+Results saved to C:\Users\DUBATOUKA\PycharmProjects\Signer PRIME\small_models
+Predict:         yolo predict task=classify model=C:\Users\DUBATOUKA\PycharmProjects\Signer PRIME\small_models\5.9.1-5.14_openvino_model imgsz=32
+Validate:        yolo val task=classify model=C:\Users\DUBATOUKA\PycharmProjects\Signer PRIME\small_models\5.9.1-5.14_openvino_model imgsz=32 data=C:\SMALL_DATASET\5.9.1-5.14
+Visualize:       https://netron.app
+2026-09-16 14:23:06,577 [INFO]   ✅ Экспорт завершён за 1.1с, размер: 1116.8 МБ
+2026-09-16 14:23:06,579 [INFO] 📦 Экспорт small_models/one_side.pt (classify, imgsz=32) → OPENVINO
+Ultralytics 8.3.35 🚀 Python-3.12.3 torch-2.7.1+cu118 CPU (Intel Core(TM) i7-10700K 3.80GHz)
+YOLO11s-cls summary (fused): 112 layers, 5,436,690 parameters, 0 gradients, 12.0 GFLOPs
+
+PyTorch: starting from 'C:\Users\DUBATOUKA\PycharmProjects\Signer PRIME\small_models\one_side.pt' with input shape (1, 3, 32, 32) BCHW and output shape(s) (1, 2) (10.5 MB)
+
+OpenVINO: starting export with openvino 2024.4.0-16579-c3152d32c9c-releases/2024/4...
+OpenVINO: export success ✅ 1.0s, saved as 'C:\Users\DUBATOUKA\PycharmProjects\Signer PRIME\small_models\one_side_openvino_model\' (20.9 MB)
+
+Export complete (1.1s)
+Results saved to C:\Users\DUBATOUKA\PycharmProjects\Signer PRIME\small_models
+Predict:         yolo predict task=classify model=C:\Users\DUBATOUKA\PycharmProjects\Signer PRIME\small_models\one_side_openvino_model imgsz=32
+Validate:        yolo val task=classify model=C:\Users\DUBATOUKA\PycharmProjects\Signer PRIME\small_models\one_side_openvino_model imgsz=32 data=C:\SMALL_DATASET\one_side
+Visualize:       https://netron.app
+2026-09-16 14:23:07,743 [INFO]   ✅ Экспорт завершён за 1.1с, размер: 1116.8 МБ
+2026-09-16 14:23:07,762 [INFO] 📦 Экспорт small_models/danger.pt (classify, imgsz=32) → OPENVINO
+Ultralytics 8.3.35 🚀 Python-3.12.3 torch-2.7.1+cu118 CPU (Intel Core(TM) i7-10700K 3.80GHz)
+YOLO11s-cls summary (fused): 112 layers, 5,437,971 parameters, 0 gradients, 12.0 GFLOPs
+
+PyTorch: starting from 'C:\Users\DUBATOUKA\PycharmProjects\Signer PRIME\small_models\danger.pt' with input shape (1, 3, 32, 32) BCHW and output shape(s) (1, 3) (10.5 MB)
+
+OpenVINO: starting export with openvino 2024.4.0-16579-c3152d32c9c-releases/2024/4...
+OpenVINO: export success ✅ 1.0s, saved as 'C:\Users\DUBATOUKA\PycharmProjects\Signer PRIME\small_models\danger_openvino_model\' (20.9 MB)
+
+Export complete (1.1s)
+Results saved to C:\Users\DUBATOUKA\PycharmProjects\Signer PRIME\small_models
+Predict:         yolo predict task=classify model=C:\Users\DUBATOUKA\PycharmProjects\Signer PRIME\small_models\danger_openvino_model imgsz=32
+Validate:        yolo val task=classify model=C:\Users\DUBATOUKA\PycharmProjects\Signer PRIME\small_models\danger_openvino_model imgsz=32 data=C:\SMALL_DATASET\danger
+Visualize:       https://netron.app
+2026-09-16 14:23:08,867 [INFO]   ✅ Экспорт завершён за 1.1с, размер: 1116.8 МБ
+2026-09-16 14:23:08,869 [INFO] 📦 Экспорт small_models/pimicanie.pt (classify, imgsz=32) → OPENVINO
+Ultralytics 8.3.35 🚀 Python-3.12.3 torch-2.7.1+cu118 CPU (Intel Core(TM) i7-10700K 3.80GHz)
+YOLO11s-cls summary (fused): 112 layers, 5,437,971 parameters, 0 gradients, 12.0 GFLOPs
+
+PyTorch: starting from 'C:\Users\DUBATOUKA\PycharmProjects\Signer PRIME\small_models\pimicanie.pt' with input shape (1, 3, 32, 32) BCHW and output shape(s) (1, 3) (10.5 MB)
+
+OpenVINO: starting export with openvino 2024.4.0-16579-c3152d32c9c-releases/2024/4...
+OpenVINO: export success ✅ 1.1s, saved as 'C:\Users\DUBATOUKA\PycharmProjects\Signer PRIME\small_models\pimicanie_openvino_model\' (20.9 MB)
+
+Export complete (1.2s)
+Results saved to C:\Users\DUBATOUKA\PycharmProjects\Signer PRIME\small_models
+Predict:         yolo predict task=classify model=C:\Users\DUBATOUKA\PycharmProjects\Signer PRIME\small_models\pimicanie_openvino_model imgsz=32
+Validate:        yolo val task=classify model=C:\Users\DUBATOUKA\PycharmProjects\Signer PRIME\small_models\pimicanie_openvino_model imgsz=32 data=C:\SMALL_DATASET\pimicanie
+Visualize:       https://netron.app
+2026-09-16 14:23:10,078 [INFO]   ✅ Экспорт завершён за 1.2с, размер: 1116.8 МБ
+2026-09-16 14:23:10,078 [INFO] 📦 Экспорт small_models/suzenie.pt (classify, imgsz=32) → OPENVINO
+Ultralytics 8.3.35 🚀 Python-3.12.3 torch-2.7.1+cu118 CPU (Intel Core(TM) i7-10700K 3.80GHz)
+YOLO11s-cls summary (fused): 112 layers, 5,437,971 parameters, 0 gradients, 12.0 GFLOPs
+
+PyTorch: starting from 'C:\Users\DUBATOUKA\PycharmProjects\Signer PRIME\small_models\suzenie.pt' with input shape (1, 3, 32, 32) BCHW and output shape(s) (1, 3) (10.5 MB)
+
+OpenVINO: starting export with openvino 2024.4.0-16579-c3152d32c9c-releases/2024/4...
+OpenVINO: export success ✅ 1.0s, saved as 'C:\Users\DUBATOUKA\PycharmProjects\Signer PRIME\small_models\suzenie_openvino_model\' (20.9 MB)
+
+Export complete (1.1s)
+Results saved to C:\Users\DUBATOUKA\PycharmProjects\Signer PRIME\small_models
+Predict:         yolo predict task=classify model=C:\Users\DUBATOUKA\PycharmProjects\Signer PRIME\small_models\suzenie_openvino_model imgsz=32
+Validate:        yolo val task=classify model=C:\Users\DUBATOUKA\PycharmProjects\Signer PRIME\small_models\suzenie_openvino_model imgsz=32 data=C:\SMALL_DATASET\suzenie
+Visualize:       https://netron.app
+2026-09-16 14:23:11,204 [INFO]   ✅ Экспорт завершён за 1.1с, размер: 1116.8 МБ
+2026-09-16 14:23:11,212 [INFO] 📦 Экспорт lane_guidance_models/arrow_segment.pt (segment, imgsz=640) → OPENVINO
+Ultralytics 8.3.35 🚀 Python-3.12.3 torch-2.7.1+cu118 CPU (Intel Core(TM) i7-10700K 3.80GHz)
+YOLO11x-seg summary (fused): 491 layers, 62,003,283 parameters, 0 gradients, 295.9 GFLOPs
+
+PyTorch: starting from 'C:\Users\DUBATOUKA\PycharmProjects\Signer PRIME\lane_guidance_models\arrow_segment.pt' with input shape (1, 3, 640, 640) BCHW and output shape(s) ((1, 37, 8400), (1, 32, 160, 160)) (118.9 MB)
+
+OpenVINO: starting export with openvino 2024.4.0-16579-c3152d32c9c-releases/2024/4...
+OpenVINO: export success ✅ 8.2s, saved as 'C:\Users\DUBATOUKA\PycharmProjects\Signer PRIME\lane_guidance_models\arrow_segment_openvino_model\' (237.2 MB)
+
+Export complete (10.3s)
+Results saved to C:\Users\DUBATOUKA\PycharmProjects\Signer PRIME\lane_guidance_models
+Predict:         yolo predict task=segment model=C:\Users\DUBATOUKA\PycharmProjects\Signer PRIME\lane_guidance_models\arrow_segment_openvino_model imgsz=640
+Validate:        yolo val task=segment model=C:\Users\DUBATOUKA\PycharmProjects\Signer PRIME\lane_guidance_models\arrow_segment_openvino_model imgsz=640 data=data.yaml
+Visualize:       https://netron.app
+2026-09-16 14:23:21,699 [INFO]   ✅ Экспорт завершён за 10.3с, размер: 979.6 МБ
+2026-09-16 14:23:21,701 [INFO]
+================================================================================
+2026-09-16 14:23:21,701 [INFO] Экспорт OPENVINO завершён: 18/18 успешно
+2026-09-16 14:23:21,701 [INFO] ================================================================================
+(.venv) PS C:\Users\DUBATOUKA\PycharmProjects\Signer PRIME> 

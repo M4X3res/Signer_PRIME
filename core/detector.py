@@ -647,7 +647,55 @@ class Detector:
         if len(crops32) == 0:
             return []
         
-        # YOLO ultralytics поддерживает батчинг через список изображений
+        # TASK A.2: ONNX/OpenVINO модели экспортированы с batch=1
+        # Проверяем backend и обрабатываем по одному если нужно
+        # CRITICAL: загружаем модель ДО проверки backend!
+        rube_modal._load()
+        backend = rube_modal._backend
+        
+        # DEBUG: логируем backend первый раз
+        if not hasattr(self, '_logged_rube_backend'):
+            logger.info(f"[_classify_rube_batch] Backend detected: {backend}")
+            self._logged_rube_backend = True
+        
+        if backend in ("onnx", "openvino"):
+            # Для ONNX/OpenVINO обрабатываем по одному изображению
+            yolo_classes = []
+            for crop in crops32:
+                results = rube_modal.predict([crop], conf=self.CONF_RUBE, imgsz=self.CLASSIFY_IMGSZ, verbose=False)
+                
+                if not results or len(results) == 0:
+                    yolo_classes.append(None)
+                    continue
+                
+                result = results[0]
+                if not result or len(result.probs) == 0:
+                    yolo_classes.append(None)
+                    continue
+                
+                conf = float(result.probs.top1conf.cpu().numpy())
+                if conf < self.CONF_RUBE:
+                    yolo_classes.append(None)
+                    continue
+                
+                class_name = result.names[np.argmax(result.probs.data.tolist())]
+                
+                # Игнорируем пешеходный переход
+                if class_name == "5.16.2":
+                    yolo_classes.append(None)
+                    continue
+                
+                # Нормализация
+                if class_name == "7.13":
+                    class_name = "7.13.1"
+                if class_name == "5.7.1-5.7.2":
+                    class_name = "5.7.1"
+                
+                yolo_classes.append(class_name)
+            
+            return yolo_classes
+        
+        # PyTorch поддерживает батчинг через список изображений
         results = rube_modal.predict(crops32, conf=self.CONF_RUBE, imgsz=self.CLASSIFY_IMGSZ, verbose=False)
         
         yolo_classes = []
@@ -770,8 +818,57 @@ class Detector:
                 # YOLO-класс = CNN-класс
                 return [yolo_class] * len(crops32)
         
-        # Батчинг через ultralytics
+        # TASK A.2: Проверка backend для батчинга
         model = model_dict[yolo_class]
+        backend = getattr(model, '_backend', None)
+        
+        if backend in ("onnx", "openvino"):
+            # Для ONNX/OpenVINO обрабатываем по одному (модели экспортированы с batch=1)
+            results = []
+            for i, crop in enumerate(crops32):
+                batch_outputs = model([crop], imgsz=self.CLASSIFY_IMGSZ, verbose=False)
+                output = batch_outputs[0]
+                
+                conf = float(output.probs.top1conf.cpu().numpy())
+                result_type = output.names[np.argmax(output.probs.data.tolist())]
+                
+                # Субклассификация треугольников
+                if yolo_class == "treugolnik" and result_type in sub_models:
+                    img_hash = compute_image_hash(crop)
+                    sub_cache_key = f"sub_{result_type}:{img_hash}"
+                    
+                    sub_cached = self._cnn_cache.get(sub_cache_key)
+                    if sub_cached is not None:
+                        result_type, conf = sub_cached
+                    else:
+                        sub_out = sub_models[result_type]([crop], imgsz=self.CLASSIFY_IMGSZ, verbose=False)[0]
+                        sub_conf = float(sub_out.probs.top1conf.cpu().numpy())
+                        result_type = sub_out.names[np.argmax(sub_out.probs.data.tolist())]
+                        conf = sub_conf
+                        
+                        # Кэшируем результат субмодели
+                        self._cnn_cache.put(sub_cache_key, (result_type, sub_conf))
+                
+                # Сохраняем в основной кэш
+                final_result = result_type if result_type else yolo_class
+                img_hash = compute_image_hash(crop)
+                cache_key = f"{yolo_class}:{img_hash}"
+                self._cnn_cache.put(cache_key, (final_result, conf))
+                
+                # Проверяем порог уверенности
+                if conf < self.CONF_CNN:
+                    self._maybe_save_error_frame(crop, yolo_class, conf, frame_idx=i)
+                    results.append(-1)
+                else:
+                    results.append(final_result)
+            
+            # Периодически выводим статистику кэша
+            if self._counter % 100 == 0:
+                self._print_cache_stats()
+            
+            return results
+        
+        # PyTorch: батчинг через ultralytics
         batch_outputs = model(crops32, imgsz=self.CLASSIFY_IMGSZ, verbose=False)
         
         results = []

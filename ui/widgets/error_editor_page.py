@@ -84,6 +84,14 @@ class SignRecord:
             # Если нет готового значения — рассчитываем (50/50 как в core/sign.py)
             self.total_confidence = 0.5 * self.confidence + 0.5 * self.gps_confidence
 
+        # TASK B.1: Хронологический ключ для сортировки по времени обработки
+        # Среднее значение абсолютных номеров кадров — знаки идут в порядке появления в видео
+        if self._abs_frames:
+            self.chrono_key: float = sum(self._abs_frames) / len(self._abs_frames)
+        else:
+            # Знаки без данных о кадрах идут в конец списка независимо от направления
+            self.chrono_key: float = float("inf")
+
         # Изменения пользователя
         self.new_type: str  = self.type
         self.new_text: str  = self.text
@@ -261,18 +269,56 @@ class SignListModel(QAbstractListModel):
         super().__init__(parent)
         self._records: list[SignRecord] = []
 
-    def load(self, records: list[SignRecord], ascending: bool = True) -> None:
+    def load(self, records: list[SignRecord], ascending: bool = True, criteria: str = "confidence") -> None:
+        """
+        Загружает записи с сортировкой по указанному критерию.
+        
+        Args:
+            records: Список записей знаков
+            ascending: Направление сортировки (True = по возрастанию, False = по убыванию)
+            criteria: Критерий сортировки ("confidence" или "chrono")
+        """
         self.beginResetModel()
-        # ЗАДАЧА 3 (P2): Сортировка с учётом направления
-        self._records = sorted(
-            records, key=lambda r: r.total_confidence, reverse=not ascending
-        )
-        print(f"[SignListModel] Загружено {len(self._records)} записей (ascending={ascending})")
+        
+        # TASK B.3: Параметризованный ключ сортировки
+        if criteria == "chrono":
+            # Для хронологии: знаки с inf (нет данных) всегда в конце
+            # Используем двухуровневую сортировку: сначала по наличию данных, потом по ключу
+            def chrono_sort_key(r: SignRecord):
+                has_data = not (r.chrono_key == float("inf"))
+                if ascending:
+                    # По возрастанию: данные идут первыми (True > False), потом по chrono_key
+                    return (not has_data, r.chrono_key)
+                else:
+                    # По убыванию: данные идут первыми, но в обратном порядке
+                    return (not has_data, -r.chrono_key if has_data else r.chrono_key)
+            
+            self._records = sorted(records, key=chrono_sort_key)
+            print(f"[SignListModel] Загружено {len(self._records)} записей (criteria=chrono, ascending={ascending})")
+        else:
+            # По уверенности (существующая логика)
+            self._records = sorted(
+                records, key=lambda r: r.total_confidence, reverse=not ascending
+            )
+            print(f"[SignListModel] Загружено {len(self._records)} записей (criteria=confidence, ascending={ascending})")
+        
         if self._records:
-            print(f"[SignListModel] Диапазон уверенности: {self._records[0].total_confidence:.3f} - {self._records[-1].total_confidence:.3f}")
+            if criteria == "chrono":
+                # Показываем диапазон времени
+                first_time = self._records[0].time if self._records[0]._abs_frames else "N/A"
+                last_time = self._records[-1].time if self._records[-1]._abs_frames else "N/A"
+                print(f"[SignListModel] Временной диапазон: {first_time} - {last_time}")
+            else:
+                # Показываем диапазон уверенности
+                print(f"[SignListModel] Диапазон уверенности: {self._records[0].total_confidence:.3f} - {self._records[-1].total_confidence:.3f}")
+            
             print(f"[SignListModel] Первые 3 знака:")
             for i, r in enumerate(self._records[:3]):
-                print(f"  [{i}] {r.type} - confidence: {r.confidence:.3f}, gps: {r.gps_confidence:.3f}, total: {r.total_confidence:.3f}")
+                if criteria == "chrono":
+                    print(f"  [{i}] {r.type} - time: {r.time}, chrono_key: {r.chrono_key:.1f}")
+                else:
+                    print(f"  [{i}] {r.type} - confidence: {r.confidence:.3f}, gps: {r.gps_confidence:.3f}, total: {r.total_confidence:.3f}")
+        
         self.endResetModel()
 
     def rowCount(self, parent=QModelIndex()) -> int:
@@ -423,6 +469,7 @@ class ErrorEditorPage(QWidget):
         self._current_rec: Optional[SignRecord] = None
         self._cap: Optional[cv2.VideoCapture] = None
         self._sort_ascending: bool = True  # ЗАДАЧА 3 (P2): Состояние направления сортировки
+        self._sort_criteria: str = "confidence"  # TASK B.2: Критерий сортировки ("confidence" | "chrono")
 
         root = QVBoxLayout(self)
         root.setContentsMargins(0, 0, 0, 0)
@@ -542,7 +589,7 @@ class ErrorEditorPage(QWidget):
 
     def _restyle_list_panel(self) -> None:
         """
-        Перекрашивает левую панель списка и фильтр-комбобокс при смене темы.
+        Перекрашивает левую панель списка и фильтр-комбобоксы при смене темы.
         Они используют инлайн-стили с токенами темы и не покрываются
         статическим objectName-QSS.
         """
@@ -551,7 +598,9 @@ class ErrorEditorPage(QWidget):
             f"background: {t['bg_secondary']};"
             f"border-right: 1px solid {t['border_subtle']};"
         )
-        self._filter_combo.setStyleSheet(
+        
+        # Общий стиль для chip-комбобоксов
+        chip_style = (
             f"QComboBox#FilterChipCombo {{"
             f"  color: {t['text_secondary']}; font-size: 11px; background: {t['bg_tertiary']};"
             f"  border: 1px solid {t['border_subtle']}; border-radius: 12px; padding: 5px 12px;"
@@ -560,6 +609,9 @@ class ErrorEditorPage(QWidget):
             f"QComboBox#FilterChipCombo::drop-down {{ width: 0px; border: none; }}"
             f"QComboBox#FilterChipCombo::down-arrow {{ width: 0px; height: 0px; image: none; }}"
         )
+        
+        self._filter_combo.setStyleSheet(chip_style)
+        self._sort_criteria_combo.setStyleSheet(chip_style)  # TASK B.2: новый комбобокс
 
     # ── Левая панель: список ──────────────────────────────────────
 
@@ -579,8 +631,8 @@ class ErrorEditorPage(QWidget):
         # Фильтры
         filter_bar = QWidget()
         filter_bar.setObjectName("EditorFilterBar")
-        filter_bar.setMinimumHeight(78)  # Увеличено для двух рядов
-        filter_bar.setMaximumHeight(86)  # Увеличено для двух рядов
+        filter_bar.setMinimumHeight(110)  # TASK B.2: Увеличено для трёх рядов (было 78)
+        filter_bar.setMaximumHeight(120)  # TASK B.2: Увеличено для трёх рядов (было 86)
         fb_lay = QVBoxLayout(filter_bar)  # Изменено на вертикальный layout
         fb_lay.setContentsMargins(10, 6, 10, 6)
         fb_lay.setSpacing(6)
@@ -594,9 +646,45 @@ class ErrorEditorPage(QWidget):
         self._search.textChanged.connect(self._apply_filter)
         fb_lay.addWidget(self._search)
 
-        # Ряд 2: Фильтр уверенности + кнопка сортировки
+        # Ряд 2: Критерий сортировки + направление
         row2 = QHBoxLayout()
         row2.setSpacing(6)
+        
+        # TASK B.2: Комбобокс выбора критерия сортировки
+        self._sort_criteria_combo = QComboBox()
+        self._sort_criteria_combo.setObjectName("FilterChipCombo")
+        self._sort_criteria_combo.addItems(["По уверенности", "По хронологии"])
+        self._sort_criteria_combo.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
+        self._sort_criteria_combo.setStyleSheet(
+            f"QComboBox#FilterChipCombo {{"
+            f"  color: {t['text_secondary']}; font-size: 11px; background: {t['bg_tertiary']};"
+            f"  border: 1px solid {t['border_subtle']}; border-radius: 12px; padding: 5px 12px;"
+            f"}}"
+            f"QComboBox#FilterChipCombo:hover {{ border-color: {t['border_strong']}; }}"
+            f"QComboBox#FilterChipCombo::drop-down {{ width: 0px; border: none; }}"
+            f"QComboBox#FilterChipCombo::down-arrow {{ width: 0px; height: 0px; image: none; }}"
+        )
+        self._sort_criteria_combo.currentIndexChanged.connect(self._on_sort_criteria_changed)
+        connect_combobox_theme_updates(self._sort_criteria_combo)
+        
+        row2.addWidget(self._sort_criteria_combo, 1)   # stretch=1 — забирает всё свободное место
+
+        # ЗАДАЧА 3 (P2): Кнопка переключения направления сортировки
+        self._sort_dir_btn = QPushButton("↑")
+        self._sort_dir_btn.setObjectName("BtnNavCompact")
+        self._sort_dir_btn.setCheckable(True)
+        self._sort_dir_btn.setChecked(False)  # False = по возрастанию (дефолт)
+        self._sort_dir_btn.setFixedSize(36, 32)             # компактный квадрат под иконку
+        self._sort_dir_btn.setToolTip("По возрастанию")
+        self._sort_dir_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        self._sort_dir_btn.clicked.connect(self._on_sort_direction_toggled)
+        row2.addWidget(self._sort_dir_btn, 0)   # stretch=0 — фиксированный квадрат
+        
+        fb_lay.addLayout(row2)
+
+        # Ряд 3: Фильтр уверенности
+        row3 = QHBoxLayout()
+        row3.setSpacing(6)
         
         self._filter_combo = QComboBox()
         self._filter_combo.setObjectName("FilterChipCombo")
@@ -617,20 +705,9 @@ class ErrorEditorPage(QWidget):
         # ЗАДАЧА 1: Стилизация popup для корректного отображения темы
         connect_combobox_theme_updates(self._filter_combo)
         
-        row2.addWidget(self._filter_combo, 1)   # stretch=1 — забирает всё свободное место
-
-        # ЗАДАЧА 3 (P2): Кнопка переключения направления сортировки
-        self._sort_dir_btn = QPushButton("↑")
-        self._sort_dir_btn.setObjectName("BtnNavCompact")
-        self._sort_dir_btn.setCheckable(True)
-        self._sort_dir_btn.setChecked(False)  # False = по возрастанию (дефолт)
-        self._sort_dir_btn.setFixedSize(36, 32)             # компактный квадрат под иконку
-        self._sort_dir_btn.setToolTip("По возрастанию")
-        self._sort_dir_btn.setCursor(Qt.CursorShape.PointingHandCursor)
-        self._sort_dir_btn.clicked.connect(self._on_sort_direction_toggled)
-        row2.addWidget(self._sort_dir_btn, 0)   # stretch=0 — фиксированный квадрат
+        row3.addWidget(self._filter_combo, 1)   # stretch=1 — забирает всё свободное место
         
-        fb_lay.addLayout(row2)
+        fb_lay.addLayout(row3)
 
         lay.addWidget(filter_bar)
 
@@ -905,8 +982,8 @@ class ErrorEditorPage(QWidget):
             
             print(f"[ErrorEditor] Создано {len(records)} SignRecord объектов")
 
-            # ЗАДАЧА 3 (P2): Передаём ascending при первичной загрузке
-            self._model.load(records, ascending=self._sort_ascending)
+            # ЗАДАЧА 3 (P2) + TASK B.3: Передаём ascending и criteria при первичной загрузке
+            self._model.load(records, ascending=self._sort_ascending, criteria=self._sort_criteria)
             self._populate_type_combo("")
             self._update_counters()
             self._btn_save.setEnabled(True)
@@ -1120,6 +1197,12 @@ class ErrorEditorPage(QWidget):
 
     # ── Фильтрация и сортировка ───────────────────────────────────
 
+    def _on_sort_criteria_changed(self) -> None:
+        """TASK B.3: Обработчик изменения критерия сортировки."""
+        idx = self._sort_criteria_combo.currentIndex()
+        self._sort_criteria = "chrono" if idx == 1 else "confidence"
+        self._resort_model()
+
     def _on_sort_direction_toggled(self) -> None:
         """ЗАДАЧА 3 (P2): Обработчик переключения направления сортировки."""
         self._sort_ascending = not self._sort_dir_btn.isChecked()
@@ -1133,9 +1216,9 @@ class ErrorEditorPage(QWidget):
         self._resort_model()
 
     def _resort_model(self) -> None:
-        """ЗАДАЧА 3 (P2): Пересортировывает текущие записи без перезагрузки из файла."""
+        """ЗАДАЧА 3 (P2) + TASK B.3: Пересортировывает текущие записи без перезагрузки из файла."""
         records = self._model.all_records()
-        self._model.load(records, ascending=self._sort_ascending)
+        self._model.load(records, ascending=self._sort_ascending, criteria=self._sort_criteria)
         self._apply_filter()  # переприменяем текущий текст/чипы фильтра после пересортировки
 
     def _apply_filter(self) -> None:
