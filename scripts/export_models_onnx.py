@@ -205,17 +205,16 @@ def export_one(pt_path: str, task: str, imgsz: int, fmt: str, force: bool = Fals
         start_time = time.perf_counter()
         
         if fmt == "onnx":
-            # ИСПРАВЛЕНИЕ BUG-ROOT-CAUSE: Используем ФИКСИРОВАННЫЙ imgsz, НЕ dynamic
-            # dynamic=True без явного imgsz приводит к экспорту с дефолтным размером
-            # (224x224 для classify, 640x640 для detect/segment), что не соответствует
-            # runtime (32x32 для classify, 608 для side_detect).
-            # 
-            # Результат: модель получает вход неожиданного размера → мусорные результаты
-            # → ноль детекций на чистой машине (где нет fallback на .pt).
+            # TASK 3.1 (PROMPT_FIX_SIGN_MAP_MISMATCH_AND_CPU_PERF):
+            # Для классификационных моделей (32x32) используем dynamic=True для батчинга.
+            # Это позволяет передавать несколько кропов за один вызов инференса.
+            # Для детекторов оставляем dynamic=False (они не батчатся в текущей реализации).
+            use_dynamic = (task == "classify")
+            
             result = model.export(
                 format="onnx",
                 imgsz=imgsz,  # КРИТИЧНО: явно указываем размер из MODELS
-                dynamic=False,  # Фиксированный размер для стабильности
+                dynamic=use_dynamic,  # Динамический batch для classify, фиксированный для detect
                 simplify=True,
                 opset=12
             )
@@ -233,16 +232,32 @@ def export_one(pt_path: str, task: str, imgsz: int, fmt: str, force: bool = Fals
                     f"  ℹ️  При первом запуске ORT сохранит оптимизированный граф: "
                     f"{os.path.basename(opt_path)}"
                 )
+                if use_dynamic:
+                    logger.info(f"  ✓ Динамический batch включен (для эффективной обработки кропов)")
         elif fmt == "openvino":
-            # ИСПРАВЛЕНИЕ BUG-ROOT-CAUSE: Для OpenVINO тоже явный imgsz
-            result = model.export(
-                format="openvino",
-                imgsz=imgsz,  # КРИТИЧНО: явно указываем размер
-                dynamic=False  # Фиксированный размер
-            )
+            # TASK 3.1: Для OpenVINO тоже динамический batch для classify
+            use_dynamic = (task == "classify")
+            
+            # WORKAROUND: Для segment моделей OpenVINO может выдавать ошибку
+            # "Tensor without names" при dynamic=False. Используем half=False
+            # для обеспечения совместимости.
+            export_kwargs = {
+                "format": "openvino",
+                "imgsz": imgsz,
+                "dynamic": use_dynamic,
+            }
+            
+            # Для segment моделей добавляем дополнительные параметры
+            if task == "segment":
+                export_kwargs["half"] = False  # FP32 вместо FP16
+                logger.info(f"  ℹ️  Segment модель: используется FP32 для совместимости с OpenVINO")
+            
+            result = model.export(**export_kwargs)
             # ultralytics возвращает путь к .xml файлу
             if isinstance(result, str):
                 export_path = os.path.dirname(result)
+                if use_dynamic:
+                    logger.info(f"  ✓ Динамический batch включен (для эффективной обработки кропов)")
         else:
             raise ValueError(f"Неизвестный формат: {fmt}")
         

@@ -212,7 +212,10 @@ class FinalHandler:
         features: list[Feature] = []
         processed_count = 0
 
-        for group_key, group_signs in grouped_post_snap.items():
+        # TASK C (PROMPT_FIX_SIGN_MAP_MISMATCH_AND_CPU_PERF): Сортируем ключи групп
+        # для детерминированного порядка назначения coefficient
+        for group_key in sorted(grouped_post_snap.keys()):
+            group_signs = grouped_post_snap[group_key]
             # BLOCK I.3: Сортируем знаки внутри группы по distance_m (от дороги)
             # Знаки ближе к дороге получают меньший coefficient
             sorted_signs = self._sort_signs_by_distance(group_signs, sign_to_snap)
@@ -297,11 +300,15 @@ class FinalHandler:
     ) -> dict[str, list[TrackedSign]]:
         """
         Группирует знаки стоящие на одном столбе/месте.
-        Ключ: последняя координата автомобиля + сторона.
+        Ключ: пространственная сетка (car_x, car_y) + сторона (is_left).
         Также разворачивает составные знаки 5.8 (A-B → [A, B]).
         
         ЗАДАЧА 1: Улучшена логика - перед группировкой мержит реальные дубликаты
         и разделяет знаки на противоположных сторонах широких дорог.
+        
+        TASK A (PROMPT_FIX_SIGN_MAP_MISMATCH_AND_CPU_PERF): Исправлена группировка
+        на 2D-сетку (car_x, car_y) вместо только car_x. Это предотвращает попадание
+        знаков с одинаковым car_x но разным car_y (разные участки дороги) в одну группу.
         """
         from configs.settings import get_app_settings
         settings = get_app_settings()
@@ -320,10 +327,19 @@ class FinalHandler:
         
         logger.info(f"[FinalHandler] После merge дубликатов: {len(signs)} → {len(merged_signs)} знаков")
         
-        # Группируем по позиции
+        # TASK A: Группируем по 2D-сетке (car_x, car_y) + is_left
+        # Размер ячейки сетки = GRID_CELL_M (по умолчанию dedup_radius / 2)
         groups: dict[str, list[TrackedSign]] = {}
         for sign in merged_signs:
-            key = f"{sign.car_x[-1]:.0f}_{sign.is_left}"
+            if not sign.car_x or not sign.car_y:
+                continue
+            
+            # Округляем координаты до ячеек сетки
+            x_grid = round(sign.car_x[-1] / self.GRID_CELL_M) * self.GRID_CELL_M
+            y_grid = round(sign.car_y[-1] / self.GRID_CELL_M) * self.GRID_CELL_M
+            
+            # Ключ: x_y_side (пространственная позиция + сторона дороги)
+            key = f"{x_grid:.0f}_{y_grid:.0f}_{sign.is_left}"
             groups.setdefault(key, []).append(sign)
 
         return groups

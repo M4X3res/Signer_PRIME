@@ -328,11 +328,50 @@ class _LazyModel:
                 pass
 
     def predict(self, *args, **kwargs):
+        """
+        Выполняет предсказание с автоматическим fallback на PyTorch при ошибках
+        ONNX/OpenVINO runtime.
+        
+        WORKAROUND: OpenVINO может выдавать "Tensor without names" для некоторых
+        моделей (особенно segment). В таких случаях автоматически откатываемся
+        на PyTorch backend.
+        """
         model = self._load()
         kwargs = self._predict_kwargs_with_cpu_pin(kwargs)
-        result = model.predict(*args, **kwargs)
-        self._reassert_cpu_predictor(model)
-        return result
+        
+        try:
+            result = model.predict(*args, **kwargs)
+            self._reassert_cpu_predictor(model)
+            return result
+        except RuntimeError as e:
+            # WORKAROUND: OpenVINO "Tensor without names" или другие runtime ошибки
+            if self._backend in ("onnx", "openvino") and ("Tensor without names" in str(e) or "Exception from" in str(e)):
+                logger.warning(
+                    f"[sign_models] {self._backend} runtime error: {e}. "
+                    f"Автоматический откат на PyTorch backend."
+                )
+                
+                # Перезагружаем модель как PyTorch
+                from ultralytics import YOLO  # Локальный импорт для fallback
+                
+                self._model = None
+                self._backend = None
+                
+                # Принудительно загружаем PyTorch версию
+                pt_path = self._path_fn()
+                self._model = YOLO(pt_path)
+                try:
+                    self._model.to(self._device)
+                    logger.info(f"[sign_models] Загружена PyTorch-модель (fallback): {os.path.basename(pt_path)}")
+                except Exception:
+                    logger.info(f"[sign_models] Загружена PyTorch-модель (fallback): {os.path.basename(pt_path)}")
+                self._backend = "torch"
+                
+                # Повторяем предсказание с PyTorch моделью
+                return self._model.predict(*args, **kwargs)
+            else:
+                # Другие ошибки пробрасываем наверх
+                raise
 
     def __call__(self, *args, **kwargs):
         # ВАЖНО (BUG-1 fix): раньше здесь был прямой self._load()(*args, **kwargs),

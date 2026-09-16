@@ -450,12 +450,19 @@ class SignHandler:
         Проверяет что похожий знак уже есть в result_signs
         в радиусе NEARBY_SIGN_RADIUS_M.
         Заменяет оба: check_presence_of_nearby_sign + is_duplicate_sign.
+        
+        TASK B (PROMPT_FIX_SIGN_MAP_MISMATCH_AND_CPU_PERF): is_left не используется
+        как критерий различия на этом раннем этапе, так как это пиксельная эвристика
+        которая может "дрожать" при малом количестве наблюдений. Вместо этого
+        проверяем только тип знака и расстояние. Окончательная оценка is_left
+        (с учётом OSM snap) происходит позже в FinalHandler.
         """
         for existing in self.result_signs:
             if existing.best_cnn != new_sign.best_cnn:
                 continue
-            if existing.is_left != new_sign.is_left:
-                continue
+            # TASK B: Убрали проверку is_left на раннем этапе трекинга
+            # if existing.is_left != new_sign.is_left:
+            #     continue
             if not existing.car_x or not new_sign.car_x:
                 continue
 

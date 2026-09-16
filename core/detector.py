@@ -808,6 +808,11 @@ class Detector:
             
         Returns:
             Список cnn_class (или -1 если не прошёл порог)
+        
+        TASK 3.1 (PROMPT_FIX_SIGN_MAP_MISMATCH_AND_CPU_PERF):
+        Для ONNX/OpenVINO с динамическим batch теперь используется реальный батчинг
+        (передаём весь список crops32 за один вызов model()), что значительно ускоряет
+        CPU-инференс за счёт векторизации и уменьшения overhead.
         """
         # Специальные случаи (без модели)
         if yolo_class not in model_dict:
@@ -818,58 +823,62 @@ class Detector:
                 # YOLO-класс = CNN-класс
                 return [yolo_class] * len(crops32)
         
-        # TASK A.2: Проверка backend для батчинга
         model = model_dict[yolo_class]
-        backend = getattr(model, '_backend', None)
         
-        if backend in ("onnx", "openvino"):
-            # Для ONNX/OpenVINO обрабатываем по одному (модели экспортированы с batch=1)
+        # TASK 3.1: Для всех бэкендов теперь используем батчинг
+        # (ONNX/OpenVINO модели экспортированы с dynamic=True для classify)
+        try:
+            batch_outputs = model(crops32, imgsz=self.CLASSIFY_IMGSZ, verbose=False)
+        except Exception as e:
+            # Fallback: если батчинг не поддерживается, обрабатываем по одному
+            logger.warning(f"Батчинг не удался для {yolo_class}: {e}, fallback на поштучную обработку")
             results = []
             for i, crop in enumerate(crops32):
-                batch_outputs = model([crop], imgsz=self.CLASSIFY_IMGSZ, verbose=False)
-                output = batch_outputs[0]
-                
-                conf = float(output.probs.top1conf.cpu().numpy())
-                result_type = output.names[np.argmax(output.probs.data.tolist())]
-                
-                # Субклассификация треугольников
-                if yolo_class == "treugolnik" and result_type in sub_models:
-                    img_hash = compute_image_hash(crop)
-                    sub_cache_key = f"sub_{result_type}:{img_hash}"
+                try:
+                    batch_outputs = model([crop], imgsz=self.CLASSIFY_IMGSZ, verbose=False)
+                    output = batch_outputs[0]
                     
-                    sub_cached = self._cnn_cache.get(sub_cache_key)
-                    if sub_cached is not None:
-                        result_type, conf = sub_cached
-                    else:
-                        sub_out = sub_models[result_type]([crop], imgsz=self.CLASSIFY_IMGSZ, verbose=False)[0]
-                        sub_conf = float(sub_out.probs.top1conf.cpu().numpy())
-                        result_type = sub_out.names[np.argmax(sub_out.probs.data.tolist())]
-                        conf = sub_conf
+                    conf = float(output.probs.top1conf.cpu().numpy())
+                    result_type = output.names[np.argmax(output.probs.data.tolist())]
+                    
+                    # Субклассификация треугольников
+                    if yolo_class == "treugolnik" and result_type in sub_models:
+                        img_hash = compute_image_hash(crop)
+                        sub_cache_key = f"sub_{result_type}:{img_hash}"
                         
-                        # Кэшируем результат субмодели
-                        self._cnn_cache.put(sub_cache_key, (result_type, sub_conf))
-                
-                # Сохраняем в основной кэш
-                final_result = result_type if result_type else yolo_class
-                img_hash = compute_image_hash(crop)
-                cache_key = f"{yolo_class}:{img_hash}"
-                self._cnn_cache.put(cache_key, (final_result, conf))
-                
-                # Проверяем порог уверенности
-                if conf < self.CONF_CNN:
-                    self._maybe_save_error_frame(crop, yolo_class, conf, frame_idx=i)
+                        sub_cached = self._cnn_cache.get(sub_cache_key)
+                        if sub_cached is not None:
+                            result_type, conf = sub_cached
+                        else:
+                            sub_out = sub_models[result_type]([crop], imgsz=self.CLASSIFY_IMGSZ, verbose=False)[0]
+                            sub_conf = float(sub_out.probs.top1conf.cpu().numpy())
+                            result_type = sub_out.names[np.argmax(sub_out.probs.data.tolist())]
+                            conf = sub_conf
+                            
+                            # Кэшируем результат субмодели
+                            self._cnn_cache.put(sub_cache_key, (result_type, sub_conf))
+                    
+                    # Сохраняем в основной кэш
+                    final_result = result_type if result_type else yolo_class
+                    img_hash = compute_image_hash(crop)
+                    cache_key = f"{yolo_class}:{img_hash}"
+                    self._cnn_cache.put(cache_key, (final_result, conf))
+                    
+                    # Проверяем порог уверенности
+                    if conf < self.CONF_CNN:
+                        self._maybe_save_error_frame(crop, yolo_class, conf, frame_idx=i)
+                        results.append(-1)
+                    else:
+                        results.append(final_result)
+                except Exception as e2:
+                    logger.error(f"Ошибка обработки кропа {i}: {e2}")
                     results.append(-1)
-                else:
-                    results.append(final_result)
             
             # Периодически выводим статистику кэша
             if self._counter % 100 == 0:
                 self._print_cache_stats()
             
             return results
-        
-        # PyTorch: батчинг через ultralytics
-        batch_outputs = model(crops32, imgsz=self.CLASSIFY_IMGSZ, verbose=False)
         
         results = []
         for i, output in enumerate(batch_outputs):
