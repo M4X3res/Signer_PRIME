@@ -61,11 +61,55 @@ binaries += collect_dynamic_libs('torch')
 binaries += collect_dynamic_libs('torchvision')
 binaries += collect_dynamic_libs('cv2')
 
-# ONNX Runtime / OpenVINO — опциональные CPU-бэкенды (BLOCK M).
-# Если не установлены в venv сборки, collect_dynamic_libs просто
-# вернёт пустой список — ошибки не будет.
-binaries += collect_dynamic_libs('onnxruntime')
-binaries += collect_dynamic_libs('openvino')
+# ── CPU-бэкенды: ONNX Runtime / OpenVINO (ОБЯЗАТЕЛЬНО в v2.0.1+) ──
+# Проверяем наличие пакетов в venv сборки
+import subprocess
+import sys
+
+def check_package_installed(package_name: str) -> bool:
+    """Проверяет, установлен ли пакет в текущем venv."""
+    try:
+        result = subprocess.run(
+            [sys.executable, "-m", "pip", "show", package_name],
+            capture_output=True,
+            text=True,
+            check=False
+        )
+        return result.returncode == 0
+    except Exception:
+        return False
+
+# Проверяем ONNX Runtime
+onnx_installed = check_package_installed('onnxruntime')
+if onnx_installed:
+    onnx_libs = collect_dynamic_libs('onnxruntime')
+    binaries += onnx_libs
+    print(f"[signer.spec] ✅ ONNX Runtime: найдено {len(onnx_libs)} библиотек")
+else:
+    print(f"[signer.spec] ❌ ERROR: ONNX Runtime не установлен в venv сборки!")
+    print(f"[signer.spec]    Установите: pip install onnxruntime")
+    print(f"[signer.spec]    CPU-бэкенд ONNX НЕ будет работать в собранном приложении!")
+    # Прерываем сборку
+    raise RuntimeError(
+        "ONNX Runtime отсутствует. Для релиза v2.0.1+ это обязательная зависимость. "
+        "Установите: pip install onnxruntime"
+    )
+
+# Проверяем OpenVINO
+openvino_installed = check_package_installed('openvino')
+if openvino_installed:
+    openvino_libs = collect_dynamic_libs('openvino')
+    binaries += openvino_libs
+    print(f"[signer.spec] ✅ OpenVINO: найдено {len(openvino_libs)} библиотек")
+else:
+    print(f"[signer.spec] ❌ ERROR: OpenVINO не установлен в venv сборки!")
+    print(f"[signer.spec]    Установите: pip install openvino")
+    print(f"[signer.spec]    CPU-бэкенд OpenVINO НЕ будет работать в собранном приложении!")
+    # Прерываем сборку
+    raise RuntimeError(
+        "OpenVINO отсутствует. Для релиза v2.0.1+ это обязательная зависимость. "
+        "Установите: pip install openvino"
+    )
 
 # ═══════════════════════════════════════════════════════════════════
 # ДАННЫЕ (не-код файлы, нужные во время выполнения)
@@ -78,8 +122,12 @@ datas += collect_data_files('geopy')
 datas += collect_data_files('certifi')           # requests/geopy используют CA-сертификаты
 
 # Опционально — если бэкенды установлены
-datas += collect_data_files('onnxruntime')
-datas += collect_data_files('openvino')
+onnx_data = collect_data_files('onnxruntime')
+openvino_data = collect_data_files('openvino')
+datas += onnx_data
+datas += openvino_data
+print(f"[signer.spec] ✅ ONNX Runtime data: {len(onnx_data)} файлов")
+print(f"[signer.spec] ✅ OpenVINO data: {len(openvino_data)} файлов")
 
 # ── Собственные ресурсы проекта ────────────────────────────────────
 # Обёрнуто в проверку на существование, чтобы явная ошибка была видна
@@ -100,6 +148,47 @@ for src, dst in _project_dirs:
         datas.append((full, dst))
     else:
         print(f"[signer.spec] ПРЕДУПРЕЖДЕНИЕ: папка не найдена и НЕ будет включена: {full}")
+
+# ── CPU-бэкенды: проверка наличия экспортированных моделей (v2.0.1+) ──
+import glob
+
+# Проверяем наличие .onnx файлов
+onnx_models = []
+for model_dir in ['CNN_side', 'lane_guidance_models', 'small_models']:
+    pattern = os.path.join(ROOT, model_dir, '*.onnx')
+    found = glob.glob(pattern)
+    onnx_models.extend(found)
+
+if onnx_models:
+    print(f"[signer.spec] ✅ Найдено {len(onnx_models)} ONNX моделей")
+else:
+    print(f"[signer.spec] ❌ ERROR: ONNX модели не найдены!")
+    print(f"[signer.spec]    Запустите: python scripts/export_models_onnx.py --format onnx")
+    print(f"[signer.spec]    CPU-бэкенд ONNX НЕ будет работать без экспортированных моделей!")
+    raise RuntimeError(
+        "ONNX модели не найдены. Для релиза v2.0.1+ необходимо экспортировать модели. "
+        "Запустите: python scripts/export_models_onnx.py --format onnx"
+    )
+
+# Проверяем наличие OpenVINO моделей
+openvino_models = []
+for model_dir in ['CNN_side', 'lane_guidance_models', 'small_models']:
+    pattern = os.path.join(ROOT, model_dir, '*_openvino_model')
+    found = glob.glob(pattern)
+    # Проверяем, что это действительно директории
+    found = [d for d in found if os.path.isdir(d)]
+    openvino_models.extend(found)
+
+if openvino_models:
+    print(f"[signer.spec] ✅ Найдено {len(openvino_models)} OpenVINO моделей")
+else:
+    print(f"[signer.spec] ❌ ERROR: OpenVINO модели не найдены!")
+    print(f"[signer.spec]    Запустите: python scripts/export_models_onnx.py --format openvino")
+    print(f"[signer.spec]    CPU-бэкенд OpenVINO НЕ будет работать без экспортированных моделей!")
+    raise RuntimeError(
+        "OpenVINO модели не найдены. Для релиза v2.0.1+ необходимо экспортировать модели. "
+        "Запустите: python scripts/export_models_onnx.py --format openvino"
+    )
 
 _project_files = [
     'configs/data/signs.json',
@@ -188,8 +277,13 @@ hiddenimports += [
 ]
 
 # Опциональные CPU-инференс бэкенды (configs/sign_models.py, configs/inference_threading.py)
-hiddenimports += collect_submodules('onnxruntime')
-hiddenimports += collect_submodules('openvino')
+# ОБЯЗАТЕЛЬНЫ в v2.0.1+ для поддержки ONNX Runtime и OpenVINO
+onnx_submodules = collect_submodules('onnxruntime')
+openvino_submodules = collect_submodules('openvino')
+hiddenimports += onnx_submodules
+hiddenimports += openvino_submodules
+print(f"[signer.spec] ✅ ONNX Runtime submodules: {len(onnx_submodules)}")
+print(f"[signer.spec] ✅ OpenVINO submodules: {len(openvino_submodules)}")
 
 # Автообновление, лицензирование и утилиты (app/, updater/, licensing/, ui/)
 hiddenimports += [

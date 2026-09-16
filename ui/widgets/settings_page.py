@@ -309,7 +309,7 @@ class SettingsPage(QWidget):
         self._map_tile_url_edit = QLineEdit()
         self._map_tile_url_edit.setFixedWidth(400)
         self._map_tile_url_edit.setText(self._settings.map_tile_url)
-        self._map_tile_url_edit.setPlaceholderText("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png")
+        self._map_tile_url_edit.setPlaceholderText("https://api.maps.by/api/wmts/noLabel/QGIS/{z}/{y}/{x}?apiKey=...")
         map_group.add_row(
             "URL тайлов",
             "Шаблон подложки карты: {s}=сервер, {z}=zoom, {x}/{y}=координаты тайла",

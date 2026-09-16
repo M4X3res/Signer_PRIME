@@ -112,10 +112,48 @@ echo OK: Cleaned
 echo.
 
 REM ================================================================
-REM [3/7] Obfuscate licensing modules (TASK 3)
+REM [3/9] Export models to ONNX/OpenVINO (NEW in v2.0.1)
 REM ================================================================
 
-echo [3/7] Obfuscating licensing modules with PyArmor...
+echo [3/9] Exporting models to ONNX and OpenVINO formats...
+echo.
+
+REM Check if venv python exists
+if not exist ".venv\Scripts\python.exe" (
+    echo ERROR: Python not found in .venv\Scripts\
+    echo Please create and activate virtual environment first
+    pause
+    exit /b 1
+)
+
+REM Export models (both formats at once)
+echo    Exporting models...
+.venv\Scripts\python.exe scripts\export_models_onnx.py --format all
+if errorlevel 1 (
+    echo.
+    echo ERROR: Model export failed!
+    echo.
+    echo CPU backends ONNX Runtime and OpenVINO will NOT work in the built application.
+    echo.
+    echo Possible reasons:
+    echo   1. Dependencies not installed: pip install onnx onnxruntime openvino openvino-dev
+    echo   2. Source .pt model files not found
+    echo   3. Export error - see logs above
+    echo.
+    echo Build aborted. Fix errors and try again.
+    echo.
+    pause
+    exit /b 1
+)
+
+echo OK: Models exported
+echo.
+
+REM ================================================================
+REM [4/9] Obfuscate licensing modules
+REM ================================================================
+
+echo [4/9] Obfuscating licensing modules with PyArmor...
 echo.
 
 REM Check if pyarmor.exe exists in venv
@@ -140,10 +178,10 @@ if exist ".venv\Scripts\pyarmor.exe" (
 )
 
 REM ================================================================
-REM [4/7] Build application
+REM [5/9] Build application
 REM ================================================================
 
-echo [4/7] Building application...
+echo [5/9] Building application...
 echo.
 
 REM ВРЕМЕННО: пропускаем проверку production ключа для тестового билда
@@ -215,10 +253,39 @@ echo OK: Build completed
 echo.
 
 REM ================================================================
-REM [5/7] Create archive
+REM [6/9] Verify CPU backends (NEW in v2.0.1)
 REM ================================================================
 
-echo [5/7] Creating archive...
+echo [6/9] Verifying CPU backends (ONNX Runtime, OpenVINO)...
+echo.
+
+.venv\Scripts\python.exe scripts\build\verify_cpu_backends.py
+if errorlevel 1 (
+    echo.
+    echo ERROR: CPU backend verification failed!
+    echo.
+    echo This means ONNX Runtime and/or OpenVINO backends are NOT working
+    echo in the built application and fall back to slower PyTorch.
+    echo.
+    echo Possible reasons:
+    echo   1. onnxruntime/openvino not installed in build venv
+    echo   2. Exported models not found or corrupted
+    echo   3. signer.spec did not include models/libraries in build
+    echo.
+    echo Build aborted. Fix errors and try again.
+    echo.
+    pause
+    exit /b 1
+)
+
+echo OK: CPU backends verified
+echo.
+
+REM ================================================================
+REM [7/9] Create archive
+REM ================================================================
+
+echo [7/9] Creating archive...
 echo.
 
 mkdir release 2>nul
@@ -240,10 +307,10 @@ echo OK: Archive created
 echo.
 
 REM ================================================================
-REM [6/7] Calculate checksums
+REM [8/9] Calculate checksums
 REM ================================================================
 
-echo [6/7] Calculating SHA-256 checksums...
+echo [8/9] Calculating SHA-256 checksums...
 echo.
 
 powershell -Command "Get-ChildItem 'Signer.7z.*' | ForEach-Object { $hash = (Get-FileHash $_.FullName -Algorithm SHA256).Hash; \"$hash  $($_.Name)\" } | Out-File -Encoding utf8 'checksum.sha256'"
@@ -259,10 +326,10 @@ echo OK: Checksums calculated
 echo.
 
 REM ================================================================
-REM [7/7] Prepare release/ folder
+REM [9/9] Prepare release/ folder
 REM ================================================================
 
-echo [7/7] Moving files to release\...
+echo [9/9] Moving files to release\...
 move /Y Signer.7z.* ..\release\ >nul
 move /Y checksum.sha256 ..\release\ >nul
 
@@ -277,6 +344,8 @@ if not exist "docs\release_notes.txt" (
     echo Signer PRIME v%VERSION% > docs\release_notes.txt
     echo. >> docs\release_notes.txt
     echo Changes in this version: >> docs\release_notes.txt
+    echo - CPU-backends ONNX Runtime and OpenVINO fully supported >> docs\release_notes.txt
+    echo - Guaranteed performance optimization on CPU-only systems >> docs\release_notes.txt
     echo - Optimized project structure >> docs\release_notes.txt
     echo - Simplified build scripts >> docs\release_notes.txt
     echo. >> docs\release_notes.txt

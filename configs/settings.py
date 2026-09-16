@@ -93,8 +93,8 @@ class AppSettings:
     settings_ui_mode: Literal["simple", "advanced"] = "simple"
     
     # ── Карта (подложка) ──────────────────────────────────────────
-    map_tile_url: str = "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-    map_tile_attribution: str = "© OpenStreetMap"
+    map_tile_url: str = "https://api.maps.by/api/wmts/noLabel/QGIS/{z}/{y}/{x}?apiKey=$2a$10$xZuvOAkmzOG0ShxJ0b.HieJz8AaPdMMhghCxFqemJOMkyfWBOo/h2*$2a$10$xZuvOAkmzOG0ShxJ0b.HieMeAAWpdW4pjfIOBjpUp3afqkCugXGFu"
+    map_tile_attribution: str = "© maps.by"
     map_tile_max_zoom: int = 19
     map_tile_type: Literal["raster", "vector"] = "raster"  # Тип подложки: растровые (PNG/JPG) или векторные (.pbf)
     map_tile_use_proxy: bool = True  # Использовать серверный прокси для векторных тайлов (обходит CORS)
