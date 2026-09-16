@@ -1,0 +1,149 @@
+<!doctype html>
+<html lang="ru">
+  <head>
+    <meta charset="utf-8" />
+    <title>geo.maps.by — MapLibre Vector Tiles</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link
+      href="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css"
+      rel="stylesheet"
+    />
+    <style>
+      html,
+      body {
+        margin: 0;
+        height: 100%;
+        font-family: system-ui, sans-serif;
+      }
+      #map {
+        position: absolute;
+        inset: 0;
+      }
+      #info {
+        position: absolute;
+        top: 10px;
+        left: 10px;
+        z-index: 1;
+        background: rgba(255, 255, 255, 0.9);
+        padding: 8px 12px;
+        border-radius: 6px;
+        font-size: 13px;
+        box-shadow: 0 1px 4px rgba(0, 0, 0, 0.3);
+        max-width: 280px;
+      }
+      #info code {
+        background: #eee;
+        padding: 1px 4px;
+        border-radius: 3px;
+      }
+      #zoomTip {
+        position: fixed;
+        z-index: 2;
+        pointer-events: none;
+        display: none;
+        background: rgba(0, 0, 0, 0.7);
+        color: #fff;
+        padding: 3px 7px;
+        border-radius: 4px;
+        font-size: 12px;
+        font-variant-numeric: tabular-nums;
+        transform: translate(14px, 14px);
+        white-space: nowrap;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="map"></div>
+    <div id="zoomTip">z: 0</div>
+    <div id="info">
+      Подложка: <b>geo.maps.by Vector Tiles</b><br />
+      ArcGIS Vector Tile Server (проксируется локально из-за CORS на
+      geo.maps.by).<br />
+      Zoom до <b>24</b>.
+    </div>
+
+    <script src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js"></script>
+    <script>
+      const ORIGIN = window.location.origin;
+      const STYLE_PROXY = ORIGIN + "/vt/resources/styles";
+      const TILES_PROXY = ORIGIN + "/vt/tile/{z}/{y}/{x}.pbf";
+      const SPRITE_PROXY = ORIGIN + "/vt/resources/sprites/sprite";
+      const GLYPHS_PROXY =
+        ORIGIN + "/vt/resources/fonts/{fontstack}/{range}.pbf";
+
+      async function loadStyle() {
+        const res = await fetch(STYLE_PROXY);
+        const style = await res.json();
+
+        style.sprite = SPRITE_PROXY;
+        style.glyphs = GLYPHS_PROXY;
+
+        const src = style.sources.esri;
+        style.sources.esri = {
+          type: "vector",
+          tiles: [TILES_PROXY],
+          bounds: src.bounds,
+          minzoom: src.minzoom,
+          maxzoom: src.maxzoom,
+          scheme: src.scheme || "xyz",
+        };
+
+        return style;
+      }
+
+      (async () => {
+        try {
+          const style = await loadStyle();
+
+          const map = new maplibregl.Map({
+            container: "map",
+            style: style,
+            center: [27.5615, 53.9006],
+            zoom: 9,
+            minZoom: 4,
+            maxZoom: 24,
+            attributionControl: false,
+          });
+
+          map.addControl(
+            new maplibregl.NavigationControl({ showZoom: true }),
+            "top-right",
+          );
+          map.addControl(
+            new maplibregl.ScaleControl({ unit: "metric" }),
+            "bottom-left",
+          );
+          map.addControl(
+            new maplibregl.AttributionControl({
+              customAttribution: "© geo.maps.by",
+            }),
+          );
+
+          const zoomTip = document.getElementById("zoomTip");
+          const updateZoom = () => {
+            zoomTip.textContent = "z: " + map.getZoom().toFixed(2);
+          };
+          updateZoom();
+          map.on("zoom", updateZoom);
+          map.on("mousemove", (e) => {
+            zoomTip.style.display = "block";
+            zoomTip.style.left = e.point.x + "px";
+            zoomTip.style.top = e.point.y + "px";
+          });
+          map.on("mouseout", () => {
+            zoomTip.style.display = "none";
+          });
+
+          map.on("error", (e) =>
+            console.error("MapLibre error:", e && e.error),
+          );
+        } catch (err) {
+          document.getElementById("info").innerHTML =
+            '<b style="color:#c00">Ошибка загрузки карты:</b><br>' +
+            err.message;
+          console.error(err);
+        }
+      })();
+    </script>
+  </body>
+</html>
