@@ -61,6 +61,9 @@ def verify_in_dev_mode() -> int:
             configs.settings.get_app_settings = lambda: temp_settings
             
             try:
+                # CRITICAL: Сбрасываем кеш моделей перед проверкой
+                sign_models.reload_all_models_if_device_changed()
+                
                 # Вызываем verify_backend_active
                 backend_status = sign_models.verify_backend_active()
                 
