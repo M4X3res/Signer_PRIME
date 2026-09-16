@@ -275,7 +275,8 @@ REM ================================================================
 echo [6/9] Verifying CPU backends (ONNX Runtime, OpenVINO)...
 echo.
 
-.venv\Scripts\python.exe scripts\build\verify_cpu_backends.py
+REM КРИТИЧНО: Проверяем собранный .exe, а не dev-venv!
+.venv\Scripts\python.exe scripts\build\verify_cpu_backends.py --exe-path dist\Signer\Signer.exe
 if errorlevel 1 (
     echo.
     echo ERROR: CPU backend verification failed!
@@ -284,9 +285,10 @@ if errorlevel 1 (
     echo in the built application and fall back to slower PyTorch.
     echo.
     echo Possible reasons:
-    echo   1. onnxruntime/openvino not installed in build venv
-    echo   2. Exported models not found or corrupted
-    echo   3. signer.spec did not include models/libraries in build
+    echo   1. onnxruntime/openvino DLLs not collected by PyInstaller
+    echo   2. Exported models not found in dist\Signer\
+    echo   3. signer.spec did not include all necessary files
+    echo   4. Version mismatch between export and runtime libraries
     echo.
     echo Build aborted. Fix errors and try again.
     echo.

@@ -13,6 +13,9 @@ from PyQt6.QtCore import QSettings
 class AppSettings:
     """Настройки приложения с персистентностью."""
     
+    # ── Миграции настроек ─────────────────────────────────────────
+    settings_schema_version: int = 0  # Версия схемы настроек (для миграций)
+    
     # ── Обработка кадров ──────────────────────────────────────────
     frame_step_mode: Literal["auto", "manual"] = "auto"
     frame_step_manual: int = 5  # Используется только если mode == "manual"
@@ -155,6 +158,33 @@ class AppSettings:
                     print(f"[AppSettings] Ошибка поля {field_name}: {e}, используем default")
                     data[field_name] = getattr(defaults, field_name)
             
+            # ═══════════════════════════════════════════════════════════════
+            # МИГРАЦИИ НАСТРОЕК
+            # ═══════════════════════════════════════════════════════════════
+            # Текущая версия схемы (целевая)
+            CURRENT_SCHEMA_VERSION = 1
+            
+            loaded_version = data.get("settings_schema_version", 0)
+            
+            # Миграция v0 → v1: Принудительное обновление map_tile_url
+            if loaded_version < 1:
+                TARGET_MAP_TILE_URL = "https://api.maps.by/api/wmts/noLabel/QGIS/{z}/{y}/{x}?apiKey=$2a$10$xZuvOAkmzOG0ShxJ0b.HieJz8AaPdMMhghCxFqemJOMkyfWBOo/h2*$2a$10$xZuvOAkmzOG0ShxJ0b.HieMeAAWpdW4pjfIOBjpUp3afqkCugXGFu"
+                old_url = data.get("map_tile_url", "")
+                
+                # Принудительно устанавливаем правильный URL
+                data["map_tile_url"] = TARGET_MAP_TILE_URL
+                data["settings_schema_version"] = 1
+                
+                import logging
+                logger = logging.getLogger(__name__)
+                logger.info(f"[AppSettings] Миграция v0→v1: обновлён map_tile_url")
+                if old_url and old_url != TARGET_MAP_TILE_URL:
+                    logger.info(f"  Старый URL: {old_url[:80]}...")
+                    logger.info(f"  Новый URL: {TARGET_MAP_TILE_URL[:80]}...")
+            
+            # Обновляем до текущей версии
+            data["settings_schema_version"] = CURRENT_SCHEMA_VERSION
+            
             # ЗАДАЧА 2: Приоритетная загрузка license_server_url
             # Приоритет: 1) SIGNER_LICENSE_SERVER_URL (env) 
             #            2) build_config.json 
@@ -206,7 +236,15 @@ class AppSettings:
                     logger.error(error_msg)
                     raise RuntimeError(error_msg)
             
-            return cls(**data)
+            # Создаём объект настроек
+            loaded_settings = cls(**data)
+            
+            # Если была миграция (settings_schema_version изменилась), сохраняем
+            if loaded_version < CURRENT_SCHEMA_VERSION:
+                logger.info(f"[AppSettings] Сохранение мигрированных настроек (v{loaded_version}→v{CURRENT_SCHEMA_VERSION})")
+                loaded_settings.save()
+            
+            return loaded_settings
             
         except Exception as e:
             print(f"[AppSettings] Критическая ошибка загрузки: {e}, используем defaults")

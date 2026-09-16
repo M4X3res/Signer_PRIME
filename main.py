@@ -512,6 +512,78 @@ def main():
 
 
 if __name__ == "__main__":
+    # ════════════════════════════════════════════════════════════════
+    # HEADLESS РЕЖИМ: --verify-backends (для scripts/build/verify_cpu_backends.py)
+    # ════════════════════════════════════════════════════════════════
+    if "--verify-backends" in sys.argv:
+        import json
+        
+        # Минимальная настройка окружения без GUI
+        os.environ["KMP_DUPLICATE_LIB_OK"] = "TRUE"
+        os.environ["OMP_NUM_THREADS"] = "1"
+        
+        # Базовое логирование
+        logging.basicConfig(
+            level=logging.INFO,
+            format='%(asctime)s [%(levelname)s] %(message)s',
+            handlers=[logging.StreamHandler(sys.stdout)]
+        )
+        logger = logging.getLogger(__name__)
+        
+        try:
+            from configs import sign_models
+            from configs.settings import AppSettings
+            
+            # Проверяем оба backend'а
+            results = {}
+            for backend_name in ["onnx", "openvino"]:
+                logger.info(f"Проверка backend: {backend_name}")
+                
+                # Временные настройки для этого backend
+                temp_settings = AppSettings()
+                temp_settings.use_cuda = False
+                temp_settings.cpu_inference_backend = backend_name
+                
+                # Патчим get_app_settings
+                import configs.settings
+                original = configs.settings.get_app_settings
+                configs.settings.get_app_settings = lambda: temp_settings
+                
+                try:
+                    # Сбрасываем кеш и проверяем
+                    sign_models.reload_all_models_if_device_changed()
+                    backend_status = sign_models.verify_backend_active()
+                    
+                    # Проверяем результат
+                    errors = []
+                    for model_name, actual_backend in backend_status.items():
+                        if actual_backend != backend_name:
+                            errors.append(f"{model_name}: {actual_backend}")
+                    
+                    results[backend_name] = {
+                        "success": len(errors) == 0,
+                        "errors": errors
+                    }
+                finally:
+                    configs.settings.get_app_settings = original
+            
+            # Выводим результат в JSON
+            all_success = all(r["success"] for r in results.values())
+            output = {
+                "success": all_success,
+                "backends": results
+            }
+            print("\n=== VERIFICATION RESULT ===")
+            print(json.dumps(output, indent=2))
+            
+            sys.exit(0 if all_success else 1)
+            
+        except Exception as e:
+            logger.error(f"Критическая ошибка: {e}", exc_info=True)
+            sys.exit(1)
+    
+    # ════════════════════════════════════════════════════════════════
+    
     # КРИТИЧНО для multiprocessing на Windows
     from multiprocessing import freeze_support, current_process
     freeze_support()

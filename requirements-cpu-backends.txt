@@ -13,9 +13,12 @@
 # - НЕ устанавливайте onnxruntime-gpu, он конфликтует с CPU-версией!
 # - openvino-dev нужен только для экспорта моделей в OpenVINO формат,
 #   для использования готовых OpenVINO-моделей достаточно openvino.
+# - Версии зафиксированы точно (==) для обеспечения совместимости
+#   между экспортом и runtime.
 # ═══════════════════════════════════════════════════════════════════
 
-onnx>=1.22.0
-onnxruntime>=1.29.0  # CPU-only (НЕ onnxruntime-gpu!)
-openvino>=2024.0
-openvino-dev>=2024.0  # Для экспорта моделей (scripts/export_models_onnx.py)
+onnx==1.17.0
+onnxruntime==1.19.2  # CPU-only (НЕ onnxruntime-gpu!)
+coloredlogs>=15.0.1  # Required by onnxruntime
+openvino==2024.4.0
+openvino-dev==2024.4.0  # Для экспорта моделей (scripts/export_models_onnx.py)

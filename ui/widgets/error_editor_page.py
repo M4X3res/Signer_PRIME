@@ -805,15 +805,25 @@ class ErrorEditorPage(QWidget):
         row1 = QHBoxLayout()
         row1.setSpacing(8)
 
+        # Кнопка "К кадру" скрыта, но функциональность сохранена для будущего
         self._btn_jump_frame = QPushButton("⏩  К кадру")
+        self._btn_jump_frame.setObjectName("BtnSecondary")
+        self._btn_jump_frame.setMinimumHeight(36)
+        self._btn_jump_frame.setSizePolicy(
+            QSizePolicy.Policy.MinimumExpanding, QSizePolicy.Policy.Fixed
+        )
+        self._btn_jump_frame.setCursor(Qt.CursorShape.PointingHandCursor)
+        self._btn_jump_frame.setEnabled(False)
+        self._btn_jump_frame.setVisible(False)  # СКРЫТА (не добавляем в layout)
+        self._btn_jump_frame.clicked.connect(self._on_jump_to_frame)
+        
         self._btn_apply      = QPushButton("✓  Применить")
         self._btn_delete     = QPushButton("✕  Удалить")
 
-        self._btn_jump_frame.setObjectName("BtnSecondary")
         self._btn_apply.setObjectName("BtnPrimary")
         self._btn_delete.setObjectName("BtnDanger")
 
-        for btn in (self._btn_jump_frame, self._btn_apply, self._btn_delete):
+        for btn in (self._btn_apply, self._btn_delete):
             btn.setMinimumHeight(36)
             btn.setSizePolicy(
                 QSizePolicy.Policy.MinimumExpanding, QSizePolicy.Policy.Fixed
@@ -821,11 +831,10 @@ class ErrorEditorPage(QWidget):
             btn.setCursor(Qt.CursorShape.PointingHandCursor)
             btn.setEnabled(False)
 
-        self._btn_jump_frame.clicked.connect(self._on_jump_to_frame)
         self._btn_apply.clicked.connect(self._on_apply)
         self._btn_delete.clicked.connect(self._on_delete)
 
-        row1.addWidget(self._btn_jump_frame)
+        # НЕ добавляем _btn_jump_frame в layout (кнопка скрыта)
         row1.addWidget(self._btn_apply)
         row1.addWidget(self._btn_delete)
         

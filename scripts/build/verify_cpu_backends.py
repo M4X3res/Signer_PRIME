@@ -140,21 +140,90 @@ def verify_in_built_exe(exe_path: Path) -> int:
         0 если все бэкенды работают, 1 если есть ошибки
     """
     import subprocess
+    import json
     
     if not exe_path.exists():
         logger.error(f"❌ Собранный .exe не найден: {exe_path}")
         return 1
     
     logger.info(f"Проверка собранного приложения: {exe_path}")
-    logger.info("⚠️  ВНИМАНИЕ: Проверка через .exe пока не реализована")
-    logger.info("Используется dev-режим для проверки исходного кода")
+    logger.info("Запуск в headless режиме с --verify-backends...")
+    logger.info("")
     
-    # TODO: Реализовать запуск .exe с параметром --verify-backends
-    # который будет запускать headless проверку и выводить результат
-    # в stdout, без запуска UI
-    
-    # Пока используем dev-режим
-    return verify_in_dev_mode()
+    try:
+        # Запускаем .exe с флагом --verify-backends
+        result = subprocess.run(
+            [str(exe_path), "--verify-backends"],
+            capture_output=True,
+            text=True,
+            timeout=120,  # 2 минуты на загрузку всех моделей
+            cwd=exe_path.parent  # Рабочая директория = директория .exe
+        )
+        
+        logger.info("=== Вывод программы ===")
+        logger.info(result.stdout)
+        
+        if result.stderr:
+            logger.warning("=== Ошибки/предупреждения ===")
+            logger.warning(result.stderr)
+        
+        # Ищем JSON результат в stdout
+        try:
+            # Ищем строку с JSON (после "=== VERIFICATION RESULT ===")
+            lines = result.stdout.split('\n')
+            json_started = False
+            json_lines = []
+            
+            for line in lines:
+                if "=== VERIFICATION RESULT ===" in line:
+                    json_started = True
+                    continue
+                if json_started and line.strip():
+                    json_lines.append(line)
+            
+            if json_lines:
+                json_text = '\n'.join(json_lines)
+                verification = json.loads(json_text)
+                
+                logger.info("")
+                logger.info("="*80)
+                logger.info("РЕЗУЛЬТАТЫ ВЕРИФИКАЦИИ")
+                logger.info("="*80)
+                
+                for backend_name, backend_result in verification.get("backends", {}).items():
+                    if backend_result["success"]:
+                        logger.info(f"✅ {backend_name.upper()}: все модели загружены")
+                    else:
+                        logger.error(f"❌ {backend_name.upper()}: обнаружены ошибки:")
+                        for error in backend_result["errors"]:
+                            logger.error(f"   {error}")
+                
+                if verification.get("success"):
+                    logger.info("")
+                    logger.info("="*80)
+                    logger.info("✅ ПРОВЕРКА ПРОЙДЕНА")
+                    logger.info("="*80)
+                    return 0
+                else:
+                    logger.error("")
+                    logger.error("="*80)
+                    logger.error("❌ ПРОВЕРКА НЕ ПРОЙДЕНА")
+                    logger.error("="*80)
+                    return 1
+            else:
+                logger.error("❌ Не удалось найти JSON результат в выводе программы")
+                return 1
+                
+        except json.JSONDecodeError as e:
+            logger.error(f"❌ Ошибка парсинга JSON результата: {e}")
+            return 1
+        
+    except subprocess.TimeoutExpired:
+        logger.error("❌ Таймаут при проверке (>120 секунд)")
+        return 1
+    except Exception as e:
+        logger.error(f"❌ Ошибка при запуске .exe: {e}", exc_info=True)
+        return 1
 
 
 def main():

@@ -24,31 +24,33 @@ logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(me
 logger = logging.getLogger(__name__)
 
 
-# Список всех моделей из configs/sign_models.py с указанием задачи
+# Список всех моделей из configs/sign_models.py с указанием задачи и размера входа
+# КРИТИЧНО: imgsz должен точно соответствовать размеру, используемому в runtime
+# (см. core/detector.py для детекторов и классификаторов)
 MODELS = [
-    # Детекция
-    ("CNN_side/best.pt", "detect"),
-    ("lane_guidance_models/arrow_detect.pt", "detect"),
+    # Детекция (path, task, imgsz)
+    ("CNN_side/best.pt", "detect", 608),  # model_side_detect.predict(..., imgsz=608)
+    ("lane_guidance_models/arrow_detect.pt", "detect", 640),  # стандартный размер для детекторов стрелок
     
-    # Классификация
-    ("small_models/rude.pt", "classify"),
-    ("small_models/blue.pt", "classify"),
-    ("small_models/treugolnik.pt", "classify"),
-    ("small_models/krug.pt", "classify"),
-    ("small_models/red.pt", "classify"),
-    ("small_models/servises.pt", "classify"),
-    ("small_models/tabl l.pt", "classify"),
-    ("small_models/tabl.pt", "classify"),
-    ("small_models/tupic.pt", "classify"),
-    ("small_models/5.38.pt", "classify"),
-    ("small_models/5.9.1-5.14.pt", "classify"),
-    ("small_models/one_side.pt", "classify"),
-    ("small_models/danger.pt", "classify"),
-    ("small_models/pimicanie.pt", "classify"),
-    ("small_models/suzenie.pt", "classify"),
+    # Классификация - КРИТИЧНО: 32x32 (см. core/detector.py:291, 889 - cv2.resize(crop, (32, 32)))
+    ("small_models/rude.pt", "classify", 32),
+    ("small_models/blue.pt", "classify", 32),
+    ("small_models/treugolnik.pt", "classify", 32),
+    ("small_models/krug.pt", "classify", 32),
+    ("small_models/red.pt", "classify", 32),
+    ("small_models/servises.pt", "classify", 32),
+    ("small_models/tabl l.pt", "classify", 32),
+    ("small_models/tabl.pt", "classify", 32),
+    ("small_models/tupic.pt", "classify", 32),
+    ("small_models/5.38.pt", "classify", 32),
+    ("small_models/5.9.1-5.14.pt", "classify", 32),
+    ("small_models/one_side.pt", "classify", 32),
+    ("small_models/danger.pt", "classify", 32),
+    ("small_models/pimicanie.pt", "classify", 32),
+    ("small_models/suzenie.pt", "classify", 32),
     
     # Сегментация
-    ("lane_guidance_models/arrow_segment.pt", "segment"),
+    ("lane_guidance_models/arrow_segment.pt", "segment", 640),
 ]
 
 
@@ -117,13 +119,62 @@ def should_export(pt_path: str, export_path: str, force: bool) -> bool:
     return False
 
 
-def export_one(pt_path: str, task: str, fmt: str, force: bool = False) -> tuple[bool, str]:
+def verify_lfs_file(pt_path: str) -> bool:
+    """
+    Проверяет, что .pt файл — это реальные веса, а не LFS-pointer.
+    
+    Git LFS pointer — это текстовый файл размером ~130 байт, начинающийся с:
+    version https://git-lfs.github.com/spec/v1
+    
+    Args:
+        pt_path: Путь к .pt файлу
+    
+    Returns:
+        True если файл валидный, False если это LFS-pointer
+    
+    Raises:
+        RuntimeError: Если обнаружен LFS-pointer (критическая ошибка)
+    """
+    if not os.path.exists(pt_path):
+        return False
+    
+    # Проверяем первые 50 байт файла
+    try:
+        with open(pt_path, 'rb') as f:
+            header = f.read(50)
+        
+        # LFS pointer — это ASCII текст, начинающийся с "version https://git-lfs"
+        if header.startswith(b'version https://git-lfs.github.com/spec/v1'):
+            raise RuntimeError(
+                f"\n{'='*80}\n"
+                f"КРИТИЧЕСКАЯ ОШИБКА: Обнаружен Git LFS pointer вместо реальных весов!\n"
+                f"Файл: {pt_path}\n"
+                f"\n"
+                f"Это текстовая заглушка (~130 байт), а не бинарный файл модели.\n"
+                f"Экспорт ONNX/OpenVINO из такого файла создаст НЕРАБОЧИЕ модели!\n"
+                f"\n"
+                f"РЕШЕНИЕ:\n"
+                f"  1. Выполните: git lfs pull\n"
+                f"  2. Дождитесь завершения загрузки всех .pt файлов\n"
+                f"  3. Повторите экспорт\n"
+                f"{'='*80}\n"
+            )
+        
+        return True
+        
+    except UnicodeDecodeError:
+        # Бинарный файл (не текст) — это нормально для .pt
+        return True
+
+
+def export_one(pt_path: str, task: str, imgsz: int, fmt: str, force: bool = False) -> tuple[bool, str]:
     """
     Экспортирует одну модель.
     
     Args:
         pt_path: Путь к .pt файлу (относительно корня проекта)
         task: Задача модели ("detect", "classify", "segment")
+        imgsz: Размер входного изображения (КРИТИЧНО: должен совпадать с runtime!)
         fmt: Формат экспорта ("onnx", "openvino")
         force: Принудительный экспорт
     
@@ -133,12 +184,16 @@ def export_one(pt_path: str, task: str, fmt: str, force: bool = False) -> tuple[
     try:
         # Получаем абсолютный путь через resource_path
         pt_abs = resource_path(pt_path)
+        
+        # КРИТИЧЕСКАЯ ПРОВЕРКА: это не LFS pointer?
+        verify_lfs_file(pt_abs)
+        
         export_path = get_export_path(pt_abs, fmt)
         
         if not should_export(pt_abs, export_path, force):
             return True, export_path
         
-        logger.info(f"📦 Экспорт {pt_path} ({task}) → {fmt.upper()}")
+        logger.info(f"📦 Экспорт {pt_path} ({task}, imgsz={imgsz}) → {fmt.upper()}")
         
         # Импортируем ultralytics только когда нужно
         from ultralytics import YOLO
@@ -150,13 +205,17 @@ def export_one(pt_path: str, task: str, fmt: str, force: bool = False) -> tuple[
         start_time = time.perf_counter()
         
         if fmt == "onnx":
-            # BLOCK M: Для всех типов моделей используем dynamic=True
-            # Это позволяет использовать разные размеры входа (608, 640, 960 и т.д.)
-            # Классификационные модели требуют dynamic для батч-инференса,
-            # Detection/Segment модели тоже выигрывают от динамического размера
+            # ИСПРАВЛЕНИЕ BUG-ROOT-CAUSE: Используем ФИКСИРОВАННЫЙ imgsz, НЕ dynamic
+            # dynamic=True без явного imgsz приводит к экспорту с дефолтным размером
+            # (224x224 для classify, 640x640 для detect/segment), что не соответствует
+            # runtime (32x32 для classify, 608 для side_detect).
+            # 
+            # Результат: модель получает вход неожиданного размера → мусорные результаты
+            # → ноль детекций на чистой машине (где нет fallback на .pt).
             result = model.export(
                 format="onnx",
-                dynamic=True,  # Всегда True для гибкости
+                imgsz=imgsz,  # КРИТИЧНО: явно указываем размер из MODELS
+                dynamic=False,  # Фиксированный размер для стабильности
                 simplify=True,
                 opset=12
             )
@@ -175,10 +234,11 @@ def export_one(pt_path: str, task: str, fmt: str, force: bool = False) -> tuple[
                     f"{os.path.basename(opt_path)}"
                 )
         elif fmt == "openvino":
-            # BLOCK M: OpenVINO тоже с dynamic=True для гибкости размера входа
+            # ИСПРАВЛЕНИЕ BUG-ROOT-CAUSE: Для OpenVINO тоже явный imgsz
             result = model.export(
                 format="openvino",
-                dynamic=True
+                imgsz=imgsz,  # КРИТИЧНО: явно указываем размер
+                dynamic=False  # Фиксированный размер
             )
             # ultralytics возвращает путь к .xml файлу
             if isinstance(result, str):
@@ -268,7 +328,7 @@ def main():
     # Фильтруем модели по типу
     models_to_export = MODELS
     if args.models != "all":
-        models_to_export = [(path, task) for path, task in MODELS if task == args.models]
+        models_to_export = [(path, task, imgsz) for path, task, imgsz in MODELS if task == args.models]
     
     # Экспортируем для каждого формата
     overall_success = True
@@ -281,8 +341,8 @@ def main():
         success_count = 0
         total_count = len(models_to_export)
         
-        for pt_path, task in models_to_export:
-            success, export_path = export_one(pt_path, task, fmt, args.force)
+        for pt_path, task, imgsz in models_to_export:
+            success, export_path = export_one(pt_path, task, imgsz, fmt, args.force)
             if success:
                 success_count += 1
         
