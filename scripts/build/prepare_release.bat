@@ -12,7 +12,7 @@ REM ================================================================
 REM [0/7] Check license server URL configuration (TASK 2)
 REM ================================================================
 
-echo [0/7] Checking license server configuration...
+echo [0/9] Checking license server configuration...
 echo.
 
 if not exist "build_config.json" (
@@ -68,23 +68,31 @@ echo Version: %VERSION%
 echo.
 
 REM ================================================================
-REM [1/7] Check dependencies
+REM [1/9] Check dependencies
 REM ================================================================
 
-echo [1/7] Checking dependencies...
+echo [1/9] Checking dependencies...
 echo.
 
-python --version >nul 2>&1
-if errorlevel 1 (
-    echo ERROR: Python not found
+REM Use venv Python for consistency
+if not exist ".venv\Scripts\python.exe" (
+    echo ERROR: Python not found in .venv\Scripts\
+    echo Please create and activate virtual environment first
     pause
     exit /b 1
 )
 
-python -c "import PyInstaller" >nul 2>&1
+.venv\Scripts\python.exe --version >nul 2>&1
+if errorlevel 1 (
+    echo ERROR: Python in .venv not working
+    pause
+    exit /b 1
+)
+
+.venv\Scripts\python.exe -c "import PyInstaller" >nul 2>&1
 if errorlevel 1 (
     echo ERROR: PyInstaller not installed
-    echo Run: pip install pyinstaller
+    echo Run: .venv\Scripts\pip.exe install pyinstaller
     pause
     exit /b 1
 )
@@ -100,10 +108,10 @@ echo OK: All dependencies ready
 echo.
 
 REM ================================================================
-REM [2/7] Clean old builds
+REM [2/9] Clean old builds
 REM ================================================================
 
-echo [2/7] Cleaning old builds...
+echo [2/9] Cleaning old builds...
 rmdir /s /q "dist\Signer" 2>nul
 rmdir /s /q "dist\Updater" 2>nul
 rmdir /s /q "build" 2>nul
@@ -187,6 +195,8 @@ echo.
 REM ВРЕМЕННО: пропускаем проверку production ключа для тестового билда
 REM TODO: УБРАТЬ ЭТУ СТРОКУ перед production релизом!
 set SKIP_PROD_KEY_CHECK=1
+echo *** WARNING: SKIP_PROD_KEY_CHECK=1 (for testing only) ***
+echo *** Remove this flag before production release! ***
 echo.
 
 echo    Building Signer.exe...
@@ -196,7 +206,13 @@ REM Если существует build/obfuscated/, spec автоматичес
 REM Не нужно копировать файлы - spec работает напрямую с build/obfuscated/
 
 if "%SKIP_OBFUSCATION%"=="0" (
-    echo    Building from obfuscated source in build\obfuscated\
+    if exist "build\obfuscated\" (
+        echo    Building from obfuscated source in build\obfuscated\
+    ) else (
+        echo WARNING: Obfuscation completed but build\obfuscated\ not found
+        echo    Building from normal source
+        set SKIP_OBFUSCATION=1
+    )
 ) else (
     echo    Building from normal source
 )
