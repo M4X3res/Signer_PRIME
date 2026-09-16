@@ -98,7 +98,6 @@ DisableDirPage=no
 DisableProgramGroupPage=no
 DisableWelcomePage=no
 AllowNoIcons=yes
-WizardResizable=yes
 UninstallDisplayName={#AppName}
 MinVersion=10.0.17763
 CloseApplications=yes
@@ -554,21 +553,21 @@ begin
   HasKLite := DetectKLite;
 
   { Add CUDA if selected and not already installed }
-  if IsComponentSelected('cuda') and not HasCuda then
+  if WizardIsComponentSelected('cuda') and not HasCuda then
   begin
     Log('Adding CUDA to download list (~3.2 MB network installer)');
     DownloadPage.Add('{#CUDA_URL}', 'cuda.exe', '');
   end;
 
   { Add FFmpeg if selected and not already installed }
-  if IsComponentSelected('ffmpeg') and not HasFFmpeg then
+  if WizardIsComponentSelected('ffmpeg') and not HasFFmpeg then
   begin
     Log('Adding FFmpeg to download list (~115 MB)');
     DownloadPage.Add('{#FFMPEG_URL}', 'ffmpeg.zip', '');
   end;
 
   { Add K-Lite if selected and not already installed }
-  if IsComponentSelected('klite') and not HasKLite then
+  if WizardIsComponentSelected('klite') and not HasKLite then
   begin
     Log('Adding K-Lite Codec Pack to download list (~60 MB)');
     DownloadPage.Add('{#KLITE_URL}', 'klite.exe', '');
