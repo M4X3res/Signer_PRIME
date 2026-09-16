@@ -957,15 +957,7 @@ begin
           if ResultCode = 0 then
           begin
             Log('✓ CUDA installed successfully');
-            { Add CUDA to PATH }
-            CudaPath := FindCudaBinPath;
-            if CudaPath <> '' then
-            begin
-              if AddDirToPath(CudaPath) then
-                Log('✓ CUDA added to PATH: ' + CudaPath)
-              else
-                Log('⚠ Failed to add CUDA to PATH');
-            end;
+            { CUDA installer adds itself to PATH automatically, no need to do it manually }
           end
           else
             Log('Warning: CUDA installer returned code ' + IntToStr(ResultCode));
@@ -994,24 +986,40 @@ begin
         ) and (ResultCode = 0) then
         begin
           Log('✓ FFmpeg extracted successfully');
-          { Add FFmpeg to PATH }
-          if AddDirToPath(ExpandConstant('{pf}\ffmpeg\bin')) then
+          
+          { Add FFmpeg to PATH - correct path after extraction }
+          FFmpegPath := ExpandConstant('{pf}\ffmpeg\ffmpeg-master-latest-win64-gpl\bin');
+          
+          { Check if FFmpeg bin directory exists }
+          if DirExists(FFmpegPath) then
           begin
-            Log('✓ FFmpeg added to PATH');
-            MsgBox(
-              'FFmpeg установлен успешно!' + #13#10 +
-              'Путь ' + ExpandConstant('{pf}\ffmpeg\bin') + ' добавлен в PATH.' + #13#10 +
-              'Перезапустите терминал для применения изменений.',
-              mbInformation, MB_OK
-            );
+            if AddDirToPath(FFmpegPath) then
+            begin
+              Log('✓ FFmpeg added to PATH: ' + FFmpegPath);
+              MsgBox(
+                'FFmpeg установлен успешно!' + #13#10 +
+                'Путь ' + FFmpegPath + ' добавлен в PATH.' + #13#10 +
+                'Перезапустите терминал для применения изменений.',
+                mbInformation, MB_OK
+              );
+            end
+            else
+            begin
+              Log('⚠ Failed to add FFmpeg to PATH');
+              MsgBox(
+                'FFmpeg установлен в ' + ExpandConstant('{pf}\ffmpeg') + #13#10 +
+                'ВНИМАНИЕ: Не удалось автоматически добавить в PATH.' + #13#10 +
+                'Добавьте вручную: ' + FFmpegPath,
+                mbInformation, MB_OK
+              );
+            end;
           end
           else
           begin
-            Log('⚠ Failed to add FFmpeg to PATH');
+            Log('⚠ FFmpeg bin directory not found: ' + FFmpegPath);
             MsgBox(
-              'FFmpeg установлен в ' + ExpandConstant('{pf}\ffmpeg') + #13#10 +
-              'ВНИМАНИЕ: Не удалось автоматически добавить в PATH.' + #13#10 +
-              'Добавьте вручную: ' + ExpandConstant('{pf}\ffmpeg\bin'),
+              'FFmpeg распакован, но не найдена bin директория.' + #13#10 +
+              'Проверьте путь: ' + ExpandConstant('{pf}\ffmpeg'),
               mbInformation, MB_OK
             );
           end;
@@ -1019,7 +1027,7 @@ begin
         else
           Log('Warning: Failed to extract FFmpeg, code ' + IntToStr(ResultCode));
         
-        DeleteFile(FFmpegPath);
+        DeleteFile(ExpandConstant('{tmp}\ffmpeg.zip'));
       end;
 
       { Install K-Lite Codec Pack if downloaded }
@@ -1035,17 +1043,28 @@ begin
           if ResultCode = 0 then
           begin
             Log('✓ K-Lite installed successfully');
-            { Add K-Lite to PATH }
-            { K-Lite may install to different locations, try both }
+            
+            { Add K-Lite to PATH - check multiple possible locations }
+            { K-Lite may install to different locations depending on system architecture }
             if DirExists(ExpandConstant('{pf}\K-Lite Codec Pack\MPC-HC64')) then
             begin
-              if AddDirToPath(ExpandConstant('{pf}\K-Lite Codec Pack\MPC-HC64')) then
-                Log('✓ K-Lite added to PATH');
+              KLitePath := ExpandConstant('{pf}\K-Lite Codec Pack\MPC-HC64');
+              if AddDirToPath(KLitePath) then
+                Log('✓ K-Lite added to PATH: ' + KLitePath)
+              else
+                Log('⚠ K-Lite path already in PATH or failed to add: ' + KLitePath);
             end
             else if DirExists(ExpandConstant('{pf32}\K-Lite Codec Pack\MPC-HC64')) then
             begin
-              if AddDirToPath(ExpandConstant('{pf32}\K-Lite Codec Pack\MPC-HC64')) then
-                Log('✓ K-Lite added to PATH');
+              KLitePath := ExpandConstant('{pf32}\K-Lite Codec Pack\MPC-HC64');
+              if AddDirToPath(KLitePath) then
+                Log('✓ K-Lite added to PATH: ' + KLitePath)
+              else
+                Log('⚠ K-Lite path already in PATH or failed to add: ' + KLitePath);
+            end
+            else
+            begin
+              Log('⚠ K-Lite MPC-HC64 directory not found in expected locations');
             end;
           end
           else
@@ -1070,27 +1089,39 @@ end;
 
 procedure CurUninstallStepChanged(CurUninstallStep: TUninstallStep);
 var
-  CudaPath, FFmpegPath, KLitePath: String;
+  FFmpegPath, KLitePath: String;
 begin
   if CurUninstallStep = usPostUninstall then
   begin
     { Remove paths from PATH environment variable }
     Log('Removing paths from PATH...');
     
-    { CUDA }
-    CudaPath := FindCudaBinPath;
-    if CudaPath <> '' then
-      RemoveDirFromPath(CudaPath);
+    { CUDA - skip removal, CUDA installer manages its own PATH }
     
-    { FFmpeg }
-    FFmpegPath := ExpandConstant('{pf}\ffmpeg\bin');
+    { FFmpeg - correct path after extraction }
+    FFmpegPath := ExpandConstant('{pf}\ffmpeg\ffmpeg-master-latest-win64-gpl\bin');
     if DirExists(FFmpegPath) then
-      RemoveDirFromPath(FFmpegPath);
+      RemoveDirFromPath(FFmpegPath)
+    else
+    begin
+      { Fallback to old path if new one doesn't exist }
+      FFmpegPath := ExpandConstant('{pf}\ffmpeg\bin');
+      if DirExists(FFmpegPath) then
+        RemoveDirFromPath(FFmpegPath);
+    end;
     
     { K-Lite - multiple possible paths }
     KLitePath := ExpandConstant('{pf}\K-Lite Codec Pack\MPC-HC64');
     if DirExists(KLitePath) then
       RemoveDirFromPath(KLitePath);
+    
+    KLitePath := ExpandConstant('{pf32}\K-Lite Codec Pack\MPC-HC64');
+    if DirExists(KLitePath) then
+      RemoveDirFromPath(KLitePath);
+    
+    Log('PATH cleanup completed');
+  end;
+end;
     
     KLitePath := ExpandConstant('{pf32}\K-Lite Codec Pack\MPC-HC64');
     if DirExists(KLitePath) then
