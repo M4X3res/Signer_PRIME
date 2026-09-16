@@ -707,6 +707,157 @@ begin
   end;
 end;
 
+{ ══════════════════════════════════════════════════════════════════
+  PATH Environment Management
+  ══════════════════════════════════════════════════════════════════ }
+
+function AddDirToPath(const DirPath: String): Boolean;
+var
+  CurrentPath: String;
+  ResultCode: Integer;
+begin
+  Result := False;
+  
+  { Check if directory exists }
+  if not DirExists(DirPath) then
+  begin
+    Log('AddDirToPath: Directory does not exist: ' + DirPath);
+    Exit;
+  end;
+
+  { Get current system PATH }
+  if not RegQueryStringValue(HKEY_LOCAL_MACHINE,
+    'SYSTEM\CurrentControlSet\Control\Session Manager\Environment',
+    'Path', CurrentPath) then
+  begin
+    Log('AddDirToPath: Failed to read PATH from registry');
+    Exit;
+  end;
+
+  { Check if already in PATH (case-insensitive) }
+  if Pos(';' + Uppercase(DirPath) + ';', ';' + Uppercase(CurrentPath) + ';') > 0 then
+  begin
+    Log('AddDirToPath: Already in PATH: ' + DirPath);
+    Result := True;
+    Exit;
+  end;
+
+  { Add to PATH }
+  if CurrentPath <> '' then
+    CurrentPath := CurrentPath + ';' + DirPath
+  else
+    CurrentPath := DirPath;
+
+  { Write to registry }
+  if RegWriteStringValue(HKEY_LOCAL_MACHINE,
+    'SYSTEM\CurrentControlSet\Control\Session Manager\Environment',
+    'Path', CurrentPath) then
+  begin
+    Log('AddDirToPath: Successfully added: ' + DirPath);
+    Result := True;
+    
+    { Broadcast environment change }
+    if Exec('cmd.exe', '/c setx PATHREFRESH "1" /M', '', SW_HIDE, ewWaitUntilTerminated, ResultCode) then
+      Log('AddDirToPath: Environment refresh triggered');
+  end
+  else
+    Log('AddDirToPath: Failed to write to registry');
+end;
+
+function RemoveDirFromPath(const DirPath: String): Boolean;
+var
+  CurrentPath: String;
+  NewPath: String;
+  PosStart: Integer;
+begin
+  Result := False;
+
+  { Get current system PATH }
+  if not RegQueryStringValue(HKEY_LOCAL_MACHINE,
+    'SYSTEM\CurrentControlSet\Control\Session Manager\Environment',
+    'Path', CurrentPath) then
+  begin
+    Log('RemoveDirFromPath: Failed to read PATH from registry');
+    Exit;
+  end;
+
+  { Remove from PATH (case-insensitive) }
+  NewPath := ';' + CurrentPath + ';';
+  PosStart := Pos(';' + Uppercase(DirPath) + ';', Uppercase(NewPath));
+  
+  if PosStart > 0 then
+  begin
+    Delete(NewPath, PosStart + 1, Length(DirPath) + 1);
+    { Remove leading/trailing semicolons }
+    NewPath := Copy(NewPath, 2, Length(NewPath) - 2);
+    
+    { Write to registry }
+    if RegWriteStringValue(HKEY_LOCAL_MACHINE,
+      'SYSTEM\CurrentControlSet\Control\Session Manager\Environment',
+      'Path', NewPath) then
+    begin
+      Log('RemoveDirFromPath: Successfully removed: ' + DirPath);
+      Result := True;
+    end
+    else
+      Log('RemoveDirFromPath: Failed to write to registry');
+  end
+  else
+  begin
+    Log('RemoveDirFromPath: Not found in PATH: ' + DirPath);
+    Result := True; { Not an error }
+  end;
+end;
+
+function FindCudaBinPath: String;
+var
+  CudaBase: String;
+  FindRec: TFindRec;
+  LatestVersion: String;
+begin
+  Result := '';
+  CudaBase := ExpandConstant('{pf}\NVIDIA GPU Computing Toolkit\CUDA');
+  
+  if not DirExists(CudaBase) then
+  begin
+    CudaBase := ExpandConstant('{pf64}\NVIDIA GPU Computing Toolkit\CUDA');
+    if not DirExists(CudaBase) then
+      Exit;
+  end;
+
+  { Find latest CUDA version (v12.6, v12.5, etc.) }
+  if FindFirst(CudaBase + '\v*', FindRec) then
+  begin
+    try
+      repeat
+        if (FindRec.Attributes and FILE_ATTRIBUTE_DIRECTORY) <> 0 then
+        begin
+          if (FindRec.Name <> '.') and (FindRec.Name <> '..') then
+          begin
+            { Take the first one (should be sorted, but we'll use latest) }
+            if LatestVersion = '' then
+              LatestVersion := FindRec.Name
+            else if CompareStr(FindRec.Name, LatestVersion) > 0 then
+              LatestVersion := FindRec.Name;
+          end;
+        end;
+      until not FindNext(FindRec);
+    finally
+      FindClose(FindRec);
+    end;
+  end;
+
+  if LatestVersion <> '' then
+  begin
+    Result := CudaBase + '\' + LatestVersion + '\bin';
+    Log('FindCudaBinPath: Found ' + Result);
+  end;
+end;
+
+{ ══════════════════════════════════════════════════════════════════
+  Installation Steps
+  ══════════════════════════════════════════════════════════════════ }
+
 procedure CurStepChanged(CurStep: TSetupStep);
 var
   I: Integer;
@@ -911,154 +1062,6 @@ begin
     finally
       ExtractProgressPage.Hide;
     end;
-  end;
-end;
-
-{ ══════════════════════════════════════════════════════════════════
-  PATH Environment Management
-  ══════════════════════════════════════════════════════════════════ }
-
-function AddDirToPath(const DirPath: String): Boolean;
-var
-  CurrentPath: String;
-  ResultCode: Integer;
-begin
-  Result := False;
-  
-  { Check if directory exists }
-  if not DirExists(DirPath) then
-  begin
-    Log('AddDirToPath: Directory does not exist: ' + DirPath);
-    Exit;
-  end;
-
-  { Get current system PATH }
-  if not RegQueryStringValue(HKEY_LOCAL_MACHINE,
-    'SYSTEM\CurrentControlSet\Control\Session Manager\Environment',
-    'Path', CurrentPath) then
-  begin
-    Log('AddDirToPath: Failed to read PATH from registry');
-    Exit;
-  end;
-
-  { Check if already in PATH (case-insensitive) }
-  if Pos(';' + Uppercase(DirPath) + ';', ';' + Uppercase(CurrentPath) + ';') > 0 then
-  begin
-    Log('AddDirToPath: Already in PATH: ' + DirPath);
-    Result := True;
-    Exit;
-  end;
-
-  { Add to PATH }
-  if CurrentPath <> '' then
-    CurrentPath := CurrentPath + ';' + DirPath
-  else
-    CurrentPath := DirPath;
-
-  { Write to registry }
-  if RegWriteStringValue(HKEY_LOCAL_MACHINE,
-    'SYSTEM\CurrentControlSet\Control\Session Manager\Environment',
-    'Path', CurrentPath) then
-  begin
-    Log('AddDirToPath: Successfully added: ' + DirPath);
-    Result := True;
-    
-    { Broadcast environment change }
-    if Exec('cmd.exe', '/c setx PATHREFRESH "1" /M', '', SW_HIDE, ewWaitUntilTerminated, ResultCode) then
-      Log('AddDirToPath: Environment refresh triggered');
-  end
-  else
-    Log('AddDirToPath: Failed to write to registry');
-end;
-
-function RemoveDirFromPath(const DirPath: String): Boolean;
-var
-  CurrentPath: String;
-  NewPath: String;
-  PosStart: Integer;
-  PosEnd: Integer;
-begin
-  Result := False;
-
-  { Get current system PATH }
-  if not RegQueryStringValue(HKEY_LOCAL_MACHINE,
-    'SYSTEM\CurrentControlSet\Control\Session Manager\Environment',
-    'Path', CurrentPath) then
-  begin
-    Log('RemoveDirFromPath: Failed to read PATH from registry');
-    Exit;
-  end;
-
-  { Remove from PATH (case-insensitive) }
-  NewPath := ';' + CurrentPath + ';';
-  PosStart := Pos(';' + Uppercase(DirPath) + ';', Uppercase(NewPath));
-  
-  if PosStart > 0 then
-  begin
-    Delete(NewPath, PosStart + 1, Length(DirPath) + 1);
-    { Remove leading/trailing semicolons }
-    NewPath := Copy(NewPath, 2, Length(NewPath) - 2);
-    
-    { Write to registry }
-    if RegWriteStringValue(HKEY_LOCAL_MACHINE,
-      'SYSTEM\CurrentControlSet\Control\Session Manager\Environment',
-      'Path', NewPath) then
-    begin
-      Log('RemoveDirFromPath: Successfully removed: ' + DirPath);
-      Result := True;
-    end
-    else
-      Log('RemoveDirFromPath: Failed to write to registry');
-  end
-  else
-  begin
-    Log('RemoveDirFromPath: Not found in PATH: ' + DirPath);
-    Result := True; { Not an error }
-  end;
-end;
-
-function FindCudaBinPath: String;
-var
-  CudaBase: String;
-  FindRec: TFindRec;
-  LatestVersion: String;
-begin
-  Result := '';
-  CudaBase := ExpandConstant('{pf}\NVIDIA GPU Computing Toolkit\CUDA');
-  
-  if not DirExists(CudaBase) then
-  begin
-    CudaBase := ExpandConstant('{pf64}\NVIDIA GPU Computing Toolkit\CUDA');
-    if not DirExists(CudaBase) then
-      Exit;
-  end;
-
-  { Find latest CUDA version (v12.6, v12.5, etc.) }
-  if FindFirst(CudaBase + '\v*', FindRec) then
-  begin
-    try
-      repeat
-        if (FindRec.Attributes and FILE_ATTRIBUTE_DIRECTORY) <> 0 then
-        begin
-          if (FindRec.Name <> '.') and (FindRec.Name <> '..') then
-          begin
-            { Take the first one (should be sorted, but we'll use latest) }
-            if LatestVersion = '' then
-              LatestVersion := FindRec.Name
-            else if CompareStr(FindRec.Name, LatestVersion) > 0 then
-              LatestVersion := FindRec.Name;
-          end;
-        end;
-      until not FindNext(FindRec);
-    finally
-      FindClose(FindRec);
-    end;
-  end;
-
-  if LatestVersion <> '' then
-  begin
-    Result := CudaBase + '\' + LatestVersion + '\bin';
-    Log('FindCudaBinPath: Found ' + Result);
   end;
 end;
 
