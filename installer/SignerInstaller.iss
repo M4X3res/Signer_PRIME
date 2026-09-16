@@ -1122,14 +1122,6 @@ begin
     Log('PATH cleanup completed');
   end;
 end;
-    
-    KLitePath := ExpandConstant('{pf32}\K-Lite Codec Pack\MPC-HC64');
-    if DirExists(KLitePath) then
-      RemoveDirFromPath(KLitePath);
-    
-    Log('PATH cleanup completed');
-  end;
-end;
 
 function InitializeUninstall: Boolean;
 begin
