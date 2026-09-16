@@ -206,6 +206,12 @@ class Detector:
 
     # Размер кэша (количество уникальных изображений)
     CACHE_SIZE   = 1000
+    
+    # FIX CPU-BACKENDS: Нативное разрешение для классификационных моделей
+    # Все модели в small_models/* обучены на 32×32 (см. scripts/export_models_onnx.py).
+    # КРИТИЧНО для ONNX/OpenVINO: без явного imgsz Ultralytics откатывается на дефолт 640×640,
+    # что не соответствует экспортированному графу (32×32) → падение с shape mismatch.
+    CLASSIFY_IMGSZ = 32
 
     COLORS = [
         (0, 255, 0), (0, 0, 255), (255, 0, 0),
@@ -372,7 +378,7 @@ class Detector:
         Определяет категорию знака через rube_modal.
         Возвращает None если уверенность ниже CONF_RUBE.
         """
-        result = rube_modal.predict(crop32, conf=self.CONF_RUBE)[0]
+        result = rube_modal.predict(crop32, conf=self.CONF_RUBE, imgsz=self.CLASSIFY_IMGSZ)[0]
         if not result:
             return None
 
@@ -435,7 +441,7 @@ class Detector:
         
         # Кэш промах — запускаем модель
         model  = model_dict[yolo_class]
-        output = model(crop32)[0]
+        output = model(crop32, imgsz=self.CLASSIFY_IMGSZ)[0]
 
         conf = float(output.probs.top1conf.cpu().numpy())
         result_type = output.names[np.argmax(output.probs.data.tolist())]
@@ -451,7 +457,7 @@ class Detector:
                 result_type, sub_conf = sub_cached
                 conf = sub_conf
             else:
-                sub_out = sub_models[result_type](crop32)[0]
+                sub_out = sub_models[result_type](crop32, imgsz=self.CLASSIFY_IMGSZ)[0]
                 sub_conf = float(sub_out.probs.top1conf.cpu().numpy())
                 result_type = sub_out.names[np.argmax(sub_out.probs.data.tolist())]
                 conf = sub_conf
@@ -642,7 +648,7 @@ class Detector:
             return []
         
         # YOLO ultralytics поддерживает батчинг через список изображений
-        results = rube_modal.predict(crops32, conf=self.CONF_RUBE, verbose=False)
+        results = rube_modal.predict(crops32, conf=self.CONF_RUBE, imgsz=self.CLASSIFY_IMGSZ, verbose=False)
         
         yolo_classes = []
         for result in results:
@@ -766,7 +772,7 @@ class Detector:
         
         # Батчинг через ultralytics
         model = model_dict[yolo_class]
-        batch_outputs = model(crops32, verbose=False)
+        batch_outputs = model(crops32, imgsz=self.CLASSIFY_IMGSZ, verbose=False)
         
         results = []
         for i, output in enumerate(batch_outputs):
@@ -783,7 +789,7 @@ class Detector:
                 if sub_cached is not None:
                     result_type, conf = sub_cached
                 else:
-                    sub_out = sub_models[result_type](crop, verbose=False)[0]
+                    sub_out = sub_models[result_type](crop, imgsz=self.CLASSIFY_IMGSZ, verbose=False)[0]
                     sub_conf = float(sub_out.probs.top1conf.cpu().numpy())
                     result_type = sub_out.names[np.argmax(sub_out.probs.data.tolist())]
                     conf = sub_conf

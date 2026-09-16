@@ -1,0 +1,24 @@
+13:09:34 [INFO] processing.detector_thread: [SmartSkip] Обработано: 86, Пропущено: 76 (46.9%), Текущий интервал: 1/2, FPS: 1.9, Cache: 0.0% (0/0) size=0, OCR Cache: 0.0% (0/0) size=0
+13:09:35 [INFO] processing.detector_thread: [SmartSkip] Обработано: 89, Пропущено: 79 (47.0%), Текущий интервал: 1/2, FPS: 2.3, Cache: 0.0% (0/0) size=0, OCR Cache: 0.0% (0/0) size=0
+13:09:36 [INFO] processing.detector_thread: [SmartSkip] Обработано: 92, Пропущено: 82 (47.1%), Текущий интервал: 1/2, FPS: 2.2, Cache: 0.0% (0/0) size=0, OCR Cache: 0.0% (0/0) size=0
+13:09:37 [ERROR] processing.detector_thread: [DetectorThread] Ошибка обработки кадра abs_frame=1725: name 'logger' is not defined
+Traceback (most recent call last):
+  File "C:\Users\DUBATOUKA\PycharmProjects\Signer PRIME\processing\processing_controller.py", line 458, in save_checkpoint
+    logger.info(f"[Checkpoint] Сохранено: {len(sign_handler.result_signs)} знаков, "
+    ^^^^^^
+NameError: name 'logger' is not defined
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "C:\Users\DUBATOUKA\PycharmProjects\Signer PRIME\processing\detector_thread.py", line 253, in _process_loop
+    turn, last_position_update = self._process_single_frame(
+                                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\DUBATOUKA\PycharmProjects\Signer PRIME\processing\detector_thread.py", line 406, in _process_single_frame
+    self._controller.save_checkpoint()
+  File "C:\Users\DUBATOUKA\PycharmProjects\Signer PRIME\processing\processing_controller.py", line 462, in save_checkpoint
+    logger.error(f"[Checkpoint] Ошибка сохранения: {e}")
+    ^^^^^^
+NameError: name 'logger' is not defined
+13:09:38 [INFO] processing.detector_thread: [SmartSkip] Обработано: 94, Пропущено: 85 (47.5%), Текущий интервал: 1/2, FPS: 1.3, Cache: 0.0% (0/0) size=0, OCR Cache: 0.0% (0/0) size=0
+13:09:39 [INFO] processing.detector_thread: [SmartSkip] Обработано: 97, Пропущено: 88 (47.6%), Текущий интервал: 1/2, FPS: 2.3, Cache: 0.0% (0/0) size=0, OCR Cache: 0.0% (0/0) size=0

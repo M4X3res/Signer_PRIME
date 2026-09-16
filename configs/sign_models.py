@@ -102,41 +102,74 @@ def reload_all_models_if_device_changed() -> bool:
 
 def verify_backend_active() -> dict[str, str]:
     """
-    BLOCK FIX-4.1: принудительно грузит ВСЕ модели (если ещё не загружены) и
-    возвращает {имя_модели: реальный_backend}. Вызывать один раз при старте
-    обработки, чтобы явно предупредить пользователя, если запрошенный backend
-    (ONNX/OpenVINO) фактически не используется хотя бы для одной модели —
-    вместо тихого отката, о котором сейчас можно узнать только из roadscan.log.
-    """
-    # Импортируем все модели, которые будут определены ниже
-    # (избегаем circular import, поэтому используем locals() после их определения)
-    result = {}
+    BLOCK FIX-4.1 + CPU-BACKENDS-FIX (Задача 3): принудительно грузит ВСЕ модели
+    (если ещё не загружены), выполняет РЕАЛЬНЫЙ dummy-инференс с корректным imgsz,
+    и возвращает {имя_модели: реальный_backend}.
     
-    # Получаем все глобальные переменные, которые являются _LazyModel
-    # Это будет работать, только если вызвать ПОСЛЕ определения всех моделей
-    # Для безопасности, соберём список моделей вручную:
+    Вызывать один раз при старте обработки, чтобы:
+    1. Явно предупредить пользователя, если запрошенный backend (ONNX/OpenVINO)
+       фактически не используется хотя бы для одной модели — вместо тихого отката.
+    2. Поймать ошибки несовместимости shape СРАЗУ, до начала обработки видео, а не
+       на тысячах кадров подряд (что приводит к "успешно завершённой" обработке с 0 знаков).
+    3. Прогреть все модели (JIT-компиляция/загрузка) вне "горячего пути" первого кадра видео.
+    """
+    import numpy as np
+    from configs.settings import get_app_settings
+    
+    result = {}
+    settings = get_app_settings()
+    
+    # Определяем правильные размеры входов (согласованы с scripts/export_models_onnx.py и core/detector.py)
+    CLASSIFY_IMGSZ = 32  # Все классификаторы в small_models/*
+    DETECT_SIDE_IMGSZ = 608  # model_side_detect
+    DETECT_LANE_IMGSZ = 640  # arrow_detect, arrow_segment
+    
+    # Собираем все модели вручную (чтобы избежать circular import)
     try:
         all_models = {
-            "model_side_detect": model_side_detect,
-            "rube_modal": rube_modal,
-            "model_lane_detect": model_lane_detect,
-            "model_lane_segment": model_lane_segment,
+            "model_side_detect": (model_side_detect, "detect", DETECT_SIDE_IMGSZ),
+            "rube_modal": (rube_modal, "classify", CLASSIFY_IMGSZ),
+            "model_lane_detect": (model_lane_detect, "detect", DETECT_LANE_IMGSZ),
+            "model_lane_segment": (model_lane_segment, "segment", DETECT_LANE_IMGSZ),
         }
-        # Добавляем модели из словарей
+        # Добавляем модели из словарей (все — классификаторы 32×32)
         for k, v in model_dict.items():
-            all_models[f"model_dict[{k}]"] = v
+            all_models[f"model_dict[{k}]"] = (v, "classify", CLASSIFY_IMGSZ)
         for k, v in sub_models.items():
-            all_models[f"sub_models[{k}]"] = v
+            all_models[f"sub_models[{k}]"] = (v, "classify", CLASSIFY_IMGSZ)
         
-        for name, m in all_models.items():
+        for name, (m, task, imgsz) in all_models.items():
             try:
-                m._load()  # Принудительно загрузить модель
-                result[name] = m._backend or "unknown"
+                # 1. Загружаем модель
+                m._load()
+                backend = m._backend or "unknown"
+                
+                # 2. Dummy-инференс с правильным размером
+                # Создаём dummy-изображение BGR (Height, Width, Channels)
+                if task == "classify":
+                    # Классификаторы: 32×32×3
+                    dummy_img = np.zeros((imgsz, imgsz, 3), dtype=np.uint8)
+                elif task in ("detect", "segment"):
+                    # Детекторы/сегментация: imgsz×imgsz×3
+                    dummy_img = np.zeros((imgsz, imgsz, 3), dtype=np.uint8)
+                else:
+                    raise ValueError(f"Неизвестный task: {task}")
+                
+                # Прогоняем инференс (с тем же imgsz, что будет использоваться в runtime)
+                _ = m.predict(dummy_img, imgsz=imgsz, verbose=False)
+                
+                result[name] = backend
+                logger.debug(f"[verify_backend_active] ✅ {name}: {backend} (dummy inference passed)")
+                
             except Exception as e:
                 result[name] = f"ERROR: {e}"
-                logger.warning(f"[verify_backend_active] Не удалось загрузить {name}: {e}")
+                logger.error(
+                    f"[verify_backend_active] ❌ {name}: ОШИБКА при dummy inference! "
+                    f"Backend={m._backend or 'unknown'}, Error={e}",
+                    exc_info=True  # Логируем полный traceback
+                )
     except Exception as e:
-        logger.error(f"[verify_backend_active] Критическая ошибка при проверке backend: {e}")
+        logger.error(f"[verify_backend_active] Критическая ошибка при проверке backend: {e}", exc_info=True)
         result["_error"] = str(e)
     
     return result

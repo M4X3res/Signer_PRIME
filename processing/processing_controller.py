@@ -24,6 +24,8 @@ from configs import config
 from processing.video_reader  import VideoReaderThread
 from processing.detector_thread import DetectorThread
 
+logger = logging.getLogger(__name__)
+
 
 class ProcessingController(QObject):
     """
@@ -555,7 +557,42 @@ class ProcessingController(QObject):
         Args:
             requested_backend: Ожидаемый backend
             backend_status: Результат проверки {model_name: backend_or_error}
+        
+        CPU-BACKENDS-FIX (Задача 3): Если обнаружены ошибки инференса (не просто
+        несовпадение backend, а реальные ERROR из dummy inference), останавливаем
+        обработку НЕМЕДЛЕННО, не дожидаясь прохождения всего видео с ошибками
+        на каждом кадре.
         """
+        # Проверяем наличие критических ошибок (ошибок инференса)
+        errors = {k: v for k, v in backend_status.items() if str(v).startswith("ERROR")}
+        
+        if errors:
+            # КРИТИЧЕСКАЯ ОШИБКА: хотя бы одна модель не может быть проинференсена
+            error_details = "\n".join(f"  - {k}: {v}" for k, v in list(errors.items())[:5])
+            if len(errors) > 5:
+                error_details += f"\n  ... и ещё {len(errors) - 5} моделей"
+            
+            msg = (
+                f"❌ КРИТИЧЕСКАЯ ОШИБКА: {len(errors)} модель(ей) не может быть загружена/проинференсена "
+                f"с backend '{requested_backend}'!\n\n"
+                f"Это приведёт к 0 найденных знаков на всём видео.\n\n"
+                f"Детали:\n{error_details}\n\n"
+                f"РЕШЕНИЕ:\n"
+                f"1. Пересоберите модели: python scripts/export_models_onnx.py --format {requested_backend} --force\n"
+                f"2. Удалите кэш: удалите *.opt.onnx и .kiro/model_cache/openvino/\n"
+                f"3. Проверьте roadscan.log для полного traceback\n\n"
+                f"Обработка НЕ БУДЕТ запущена."
+            )
+            logging.getLogger(__name__).error(msg)
+            self.error.emit(msg)
+            
+            # Останавливаем обработку если она уже запущена
+            if hasattr(self, '_video_reader') and self._video_reader:
+                self.stop()
+            
+            return
+        
+        # Некритическое предупреждение: backend не соответствует настройкам (fallback на torch)
         mismatched = {k: v for k, v in backend_status.items()
                       if not str(v).startswith("ERROR") and v != requested_backend}
         
