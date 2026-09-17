@@ -66,7 +66,16 @@ class StatusBar(QWidget):
             f"color: {t['text_tertiary']}; font-size: 11px; background: transparent;"
         )
 
-    def set_status(self, text: str, color: str = ""):
+    def set_status(self, text: str, color: str = "", duration_ms: int = 0):
+        """
+        Устанавливает текст статуса.
+        
+        Args:
+            text: Текст статуса
+            color: Цвет текста (опционально, по умолчанию text_tertiary)
+            duration_ms: Длительность показа в миллисекундах. Если >0, автоматически
+                        вернётся к "Готов к работе" через указанное время.
+        """
         t = theme_manager.tokens
         c = color or t["text_tertiary"]
         self._status.setText(text)
@@ -76,6 +85,11 @@ class StatusBar(QWidget):
         self._dot.setStyleSheet(
             f"color: {c}; font-size: 8px; background: transparent;"
         )
+        
+        # БАГ-3: Поддержка автосброса статуса через duration_ms
+        if duration_ms > 0:
+            from PyQt6.QtCore import QTimer
+            QTimer.singleShot(duration_ms, lambda: self.set_status("Готов к работе"))
 
 
 class MainWindow(QMainWindow):

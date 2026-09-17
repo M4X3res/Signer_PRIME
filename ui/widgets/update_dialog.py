@@ -123,6 +123,9 @@ class UpdateDialog(QDialog):
         self.download_worker = None
         self.temp_dir = Path(os.environ.get("LOCALAPPDATA", ".")) / "Signer" / "UpdateTemp"
         
+        # БАГ-5: Флаг для докачки (resume)
+        self._is_retry = False
+        
         # Накопители для расчёта оставшегося времени и прогресса
         self._speed_samples = []
         self._file_progress = {}  # {filename: bytes_downloaded}
@@ -288,6 +291,9 @@ class UpdateDialog(QDialog):
         self.later_btn.setText("Позже")  # Возвращаем текст "Позже"
         self.later_btn.setEnabled(True)
         
+        # БАГ-5: Устанавливаем флаг ретрая для сохранения .part файлов
+        self._is_retry = True
+        
         # Восстанавливаем соединение для кнопки "Позже"
         try:
             self.later_btn.clicked.disconnect()
@@ -299,14 +305,16 @@ class UpdateDialog(QDialog):
         """Начинает загрузку обновления."""
         logger.info("[UpdateDialog] Начало загрузки обновления...")
         
-        # Очищаем временную папку
+        # БАГ-5: Условная очистка временной папки (НЕ при ретрае)
         import shutil
-        if self.temp_dir.exists():
+        if not self._is_retry and self.temp_dir.exists():
             try:
                 shutil.rmtree(self.temp_dir)
+                logger.info("[UpdateDialog] Временная папка очищена перед новой загрузкой")
             except Exception as e:
                 logger.warning(f"Не удалось очистить {self.temp_dir}: {e}")
         
+        # Создаём директорию в любом случае
         self.temp_dir.mkdir(parents=True, exist_ok=True)
         
         self._show_progress_state()

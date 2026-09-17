@@ -419,29 +419,43 @@ def main():
         logger.info("Приложение готово к работе")
         
         # ════════════════════════════════════════════════════════════════
-        # Проверка обновлений в фоне (только в frozen build)
+        # БАГ-1: Проверка локального баннера "обновлено" (не зависит от auto_check_updates)
         # ════════════════════════════════════════════════════════════════
-        # ВРЕМЕННО: всегда проверяем обновления для тестирования
-        if True:  # getattr(sys, "frozen", False) or os.environ.get("SIGNER_FORCE_UPDATE_CHECK") == "1":
+        # Вынесено ИЗ условия автопроверки — это чисто локальная проверка QSettings,
+        # не требующая сетевого запроса и не должна зависеть от настройки автообновлений.
+        from PyQt6.QtCore import QSettings
+        settings = QSettings("Signer", "RoadScanner")
+        last_known_version = settings.value("last_known_version", "")
+        
+        if last_known_version and last_known_version != APP_VERSION:
+            # Версия изменилась - показываем уведомление
+            logger.info(f"Версия изменилась: {last_known_version} -> {APP_VERSION}")
+            # Показываем в статус-баре главного окна (БАГ-3: исправлен вызов set_status)
+            if hasattr(window, 'status_bar'):
+                window.status_bar.set_status(f"Signer обновлён до версии {APP_VERSION}", duration_ms=10000)
+            
+            # Обновляем сохранённую версию
+            settings.setValue("last_known_version", APP_VERSION)
+        
+        # ════════════════════════════════════════════════════════════════
+        # БАГ-1: Фоновая сетевая проверка обновлений (зависит от настроек)
+        # ════════════════════════════════════════════════════════════════
+        # Проверяем три условия:
+        # 1. Frozen build ИЛИ форс-флаг в окружении
+        # 2. Пользователь включил автопроверку в настройках
+        from configs.settings import get_app_settings
+        app_settings = get_app_settings()
+        
+        should_check_for_updates = (
+            (getattr(sys, "frozen", False) or os.environ.get("SIGNER_FORCE_UPDATE_CHECK") == "1")
+            and app_settings.auto_check_updates
+        )
+        
+        if should_check_for_updates:
             from ui.widgets.update_worker import UpdateCheckWorker
             from ui.widgets.update_dialog import UpdateDialog
-            from PyQt6.QtCore import QSettings
             
             logger.info("Запуск фоновой проверки обновлений...")
-            
-            # Проверяем, изменилась ли версия после обновления
-            settings = QSettings("Signer", "RoadScanner")
-            last_known_version = settings.value("last_known_version", "")
-            
-            if last_known_version and last_known_version != APP_VERSION:
-                # Версия изменилась - показываем уведомление
-                logger.info(f"Версия изменилась: {last_known_version} -> {APP_VERSION}")
-                # Показываем в статус-баре главного окна
-                if hasattr(window, 'status_bar'):
-                    window.status_bar.set_status(f"Signer обновлён до версии {APP_VERSION}", 10000)
-                
-                # Обновляем сохранённую версию
-                settings.setValue("last_known_version", APP_VERSION)
             
             # Функция для обработки результата проверки обновлений
             def _on_update_check_finished(update_info):
@@ -456,8 +470,8 @@ def main():
                                 from updater import updater
                                 from pathlib import Path
                                 
-                                # Сохраняем текущую версию перед обновлением
-                                settings.setValue("last_known_version", APP_VERSION)
+                                # БАГ-4: Используем единую функцию mark_update_pending
+                                updater.mark_update_pending(APP_VERSION)
                                 
                                 # Определяем директорию установки
                                 if getattr(sys, "frozen", False):
@@ -494,8 +508,8 @@ def main():
             def _on_update_check_error(error_msg):
                 logger.warning(f"Ошибка проверки обновлений: {error_msg}")
             
-            # Запускаем воркер проверки
-            update_worker = UpdateCheckWorker()
+            # БАГ-2: Передаём канал обновлений в воркер
+            update_worker = UpdateCheckWorker(channel=app_settings.update_channel)
             update_worker.finished_check.connect(_on_update_check_finished)
             update_worker.error.connect(_on_update_check_error)
             update_worker.start()

@@ -22,7 +22,8 @@ logger = logging.getLogger(__name__)
 
 # Константы GitHub
 GITHUB_REPO = "M4X3res/Signer_PRIME"
-GITHUB_API_URL = f"https://api.github.com/repos/{GITHUB_REPO}/releases/latest"
+GITHUB_API_RELEASES_URL = f"https://api.github.com/repos/{GITHUB_REPO}/releases"
+GITHUB_API_LATEST_URL = f"{GITHUB_API_RELEASES_URL}/latest"
 ARCHIVE_PREFIX = "Signer.7z."
 CHECKSUM_FILE = "checksum.sha256"
 
@@ -58,9 +59,12 @@ def _parse_version(version_str: str) -> tuple[int, ...]:
         return (0, 0, 0)
 
 
-def check_for_update() -> Optional[UpdateInfo]:
+def check_for_update(channel: str = "stable") -> Optional[UpdateInfo]:
     """
     Проверяет наличие обновления через GitHub API.
+    
+    Args:
+        channel: Канал обновлений - "stable" (только релизы) или "beta" (включая pre-release)
     
     Returns:
         UpdateInfo если найдено более новое обновление, иначе None.
@@ -72,9 +76,17 @@ def check_for_update() -> Optional[UpdateInfo]:
     
     for attempt in range(1, max_retries + 1):
         try:
-            logger.info(f"Проверка обновлений для версии {APP_VERSION} (попытка {attempt}/{max_retries})...")
+            logger.info(f"Проверка обновлений для версии {APP_VERSION} (попытка {attempt}/{max_retries}, канал: {channel})...")
             
-            response = requests.get(GITHUB_API_URL, timeout=REQUEST_TIMEOUT)
+            # БАГ-2: Выбираем URL в зависимости от канала
+            if channel == "beta":
+                # Бета: запрашиваем список всех релизов (включая pre-release)
+                api_url = GITHUB_API_RELEASES_URL
+            else:
+                # Stable: только последний стабильный релиз
+                api_url = GITHUB_API_LATEST_URL
+            
+            response = requests.get(api_url, timeout=REQUEST_TIMEOUT)
             
             # Проверка rate-limit
             if response.status_code == 403:
@@ -86,7 +98,17 @@ def check_for_update() -> Optional[UpdateInfo]:
                 return None
             
             response.raise_for_status()
-            data = response.json()
+            payload = response.json()
+            
+            # БАГ-2: Для beta-канала берём первый элемент списка
+            if channel == "beta":
+                if not isinstance(payload, list) or len(payload) == 0:
+                    logger.info("Список релизов пуст")
+                    return None
+                data = payload[0]  # GitHub сортирует по created_at DESC
+            else:
+                # Для stable API возвращает единственный объект
+                data = payload
             
             # Парсинг версии
             latest_version = data.get("tag_name", "").lstrip("v")
@@ -538,3 +560,22 @@ def cleanup_stale_update_temp() -> None:
         
     except Exception as e:
         logger.warning(f"Не удалось очистить временную папку: {e}")
+
+
+def mark_update_pending(current_version: str) -> None:
+    """
+    Единая точка сохранения "версии перед обновлением" в QSettings.
+    
+    БАГ-4: Обязана вызываться ИЗ ЛЮБОГО места, инициирующего запуск Updater —
+    иначе баннер "Signer обновлён до версии X" после перезапуска не покажется.
+    Раньше эта запись дублировалась в main.py и settings_page.py, и во
+    втором месте её забыли добавить.
+    
+    Args:
+        current_version: Текущая версия приложения (APP_VERSION)
+    """
+    from PyQt6.QtCore import QSettings
+    qs = QSettings("Signer", "RoadScanner")
+    qs.setValue("last_known_version", current_version)
+    qs.sync()
+    logger.info(f"Сохранена текущая версия перед обновлением: {current_version}")

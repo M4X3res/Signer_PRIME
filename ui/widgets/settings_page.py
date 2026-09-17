@@ -2140,7 +2140,8 @@ class SettingsPage(QWidget):
         # Запускаем воркер проверки
         from ui.widgets.update_worker import UpdateCheckWorker
         
-        self._update_check_worker = UpdateCheckWorker()
+        # БАГ-2: Передаём канал обновлений
+        self._update_check_worker = UpdateCheckWorker(channel=self._settings.update_channel)
         
         def on_check_finished(update_info):
             if update_info:
@@ -2161,6 +2162,9 @@ class SettingsPage(QWidget):
                         from pathlib import Path
                         from updater import updater
                         from app.version import APP_VERSION
+                        
+                        # БАГ-4: Используем единую функцию mark_update_pending
+                        updater.mark_update_pending(APP_VERSION)
                         
                         # Определяем директорию установки
                         if getattr(sys, "frozen", False):

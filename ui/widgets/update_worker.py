@@ -23,11 +23,20 @@ class UpdateCheckWorker(QThread):
     finished_check = pyqtSignal(object)  # Несёт UpdateInfo | None
     error = pyqtSignal(str)
     
+    def __init__(self, channel: str = "stable"):
+        """
+        Args:
+            channel: Канал обновлений - "stable" или "beta"
+        """
+        super().__init__()
+        self.channel = channel
+    
     def run(self):
         """Выполняет проверку обновлений."""
         try:
-            logger.info("[UpdateCheckWorker] Проверка обновлений...")
-            update_info = updater.check_for_update()
+            logger.info(f"[UpdateCheckWorker] Проверка обновлений (канал: {self.channel})...")
+            # БАГ-2: Передаём канал в check_for_update
+            update_info = updater.check_for_update(self.channel)
             self.finished_check.emit(update_info)
         except Exception as e:
             logger.error(f"[UpdateCheckWorker] Ошибка: {e}", exc_info=True)
