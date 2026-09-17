@@ -185,6 +185,15 @@ class DetectorThread(QThread):
             logger.exception(f"[DetectorThread] Необработанная ошибка в _process_loop: {e}")
             self.error.emit(str(e))
         finally:
+            # CUDA Memory Management: Финальная очистка GPU памяти
+            try:
+                import torch
+                if torch.cuda.is_available():
+                    torch.cuda.empty_cache()
+                    logger.info("[CUDA] Финальная очистка кэша выполнена")
+            except Exception:
+                pass
+            
             # БАГ E: Финализируем активные знаки в конце видео
             if self._sign_handler:
                 logger.info("[DetectorThread] Финализация оставшихся активных знаков...")
@@ -231,6 +240,10 @@ class DetectorThread(QThread):
         
         self._frame_errors = 0  # BLOCK STAB-1: счётчик кадров, пропущенных из-за ошибок
         last_position_update = 0  # Для throttling обновлений позиции
+        
+        # CUDA Memory Management: Счётчик для периодической очистки GPU кэша
+        frames_since_cuda_clear = 0
+        cuda_clear_interval = 500  # Очищаем каждые 500 кадров
 
         while not self._stop:
             try:
@@ -253,6 +266,24 @@ class DetectorThread(QThread):
                 turn, last_position_update = self._process_single_frame(
                     raw, turn, last_position_update
                 )
+                
+                # CUDA Memory Management: Периодическая очистка GPU кэша
+                # Предотвращает накопление неиспользуемых тензоров в VRAM,
+                # что может привести к Out of Memory (OOM) или Access Violation (0xC0000005)
+                frames_since_cuda_clear += 1
+                if frames_since_cuda_clear >= cuda_clear_interval:
+                    try:
+                        import torch
+                        if torch.cuda.is_available():
+                            torch.cuda.empty_cache()
+                            # Опционально: сборка мусора Python для освобождения CPU RAM
+                            import gc
+                            gc.collect()
+                            logger.debug(f"[CUDA] Кэш очищен на кадре {raw.abs_frame_number}")
+                    except Exception as cuda_err:
+                        logger.debug(f"[CUDA] Не удалось очистить кэш: {cuda_err}")
+                    frames_since_cuda_clear = 0
+                
             except Exception as e:
                 self._frame_errors += 1
                 logger.exception(

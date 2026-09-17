@@ -47,7 +47,7 @@
 ; ──────────────────────────────────────────────────────────────────
 #define RELEASE_TAG "v2.0.0"
 #define RELEASE_BASE_URL "https://github.com/M4X3res/Signer_PRIME/releases/download/" + RELEASE_TAG
-#define SIGNER_PART_COUNT 41
+#define SIGNER_PART_COUNT 46
 
 ; ──────────────────────────────────────────────────────────────────
 ; Optional components — URLs for additional downloads
