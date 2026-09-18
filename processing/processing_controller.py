@@ -108,11 +108,13 @@ class ProcessingController(QObject):
                 exc_info=True,
             )
         
-        # BLOCK CPU-6: Проверка реального backend перед началом обработки (асинхронно)
-        # До BLOCK CPU-6 это делалось синхронно, загружая все модели в GUI-потоке → зависание UI.
-        requested_backend = "torch" if settings.use_cuda else settings.cpu_inference_backend
-        if requested_backend != "torch":
-            self._start_backend_verify(requested_backend)
+        # BLOCK REMOVE-NOTIF-1: автоматическая runtime-проверка backend'а и
+        # предупреждение об откате на PyTorch убраны. Сборка (signer.spec)
+        # теперь обязательно требует наличия ONNX Runtime и OpenVINO — как
+        # зависимостей, так и экспортированных моделей (иначе сборка падает
+        # с RuntimeError) — поэтому несовпадение backend'а больше не является
+        # ожидаемым сценарием в production-сборке, и всплывающее предупреждение
+        # только сбивало с толку пользователей при штатной работе.
         
         self._create_queues()
         self._start_reader()
@@ -524,83 +526,4 @@ class ProcessingController(QObject):
         import os
         return os.path.exists(self.CHECKPOINT_PATH)
     
-    # ── BLOCK CPU-6: Backend verify (асинхронно) ──────────────────
-    
-    def _start_backend_verify(self, requested_backend: str) -> None:
-        """
-        Запускает асинхронную проверку backend'ов моделей.
-        
-        Args:
-            requested_backend: Ожидаемый backend ('onnx' или 'openvino')
-        
-        Note:
-            Работает параллельно с запуском VideoReader/DetectorThread.
-            Не блокирует UI и не блокирует начало обработки.
-        """
-        from processing.backend_verify_thread import BackendVerifyThread
-        
-        self._backend_verify_thread = BackendVerifyThread(self)
-        self._backend_verify_thread.finished_check.connect(
-            lambda status: self._on_backend_verify_finished(requested_backend, status)
-        )
-        self._backend_verify_thread.error.connect(
-            lambda msg: logging.getLogger(__name__).warning(
-                f"[ProcessingController] backend verify error: {msg}"
-            )
-        )
-        self._backend_verify_thread.start()
-    
-    def _on_backend_verify_finished(self, requested_backend: str, backend_status: dict) -> None:
-        """
-        Обработчик завершения проверки backend'ов.
-        
-        Args:
-            requested_backend: Ожидаемый backend
-            backend_status: Результат проверки {model_name: backend_or_error}
-        
-        CPU-BACKENDS-FIX (Задача 3): Если обнаружены ошибки инференса (не просто
-        несовпадение backend, а реальные ERROR из dummy inference), останавливаем
-        обработку НЕМЕДЛЕННО, не дожидаясь прохождения всего видео с ошибками
-        на каждом кадре.
-        """
-        # Проверяем наличие критических ошибок (ошибок инференса)
-        errors = {k: v for k, v in backend_status.items() if str(v).startswith("ERROR")}
-        
-        if errors:
-            # КРИТИЧЕСКАЯ ОШИБКА: хотя бы одна модель не может быть проинференсена
-            error_details = "\n".join(f"  - {k}: {v}" for k, v in list(errors.items())[:5])
-            if len(errors) > 5:
-                error_details += f"\n  ... и ещё {len(errors) - 5} моделей"
-            
-            msg = (
-                f"❌ КРИТИЧЕСКАЯ ОШИБКА: {len(errors)} модель(ей) не может быть загружена/проинференсена "
-                f"с backend '{requested_backend}'!\n\n"
-                f"Это приведёт к 0 найденных знаков на всём видео.\n\n"
-                f"Детали:\n{error_details}\n\n"
-                f"РЕШЕНИЕ:\n"
-                f"1. Пересоберите модели: python scripts/export_models_onnx.py --format {requested_backend} --force\n"
-                f"2. Удалите кэш: удалите *.opt.onnx и .kiro/model_cache/openvino/\n"
-                f"3. Проверьте roadscan.log для полного traceback\n\n"
-                f"Обработка НЕ БУДЕТ запущена."
-            )
-            logging.getLogger(__name__).error(msg)
-            self.error.emit(msg)
-            
-            # Останавливаем обработку если она уже запущена
-            if hasattr(self, '_video_reader') and self._video_reader:
-                self.stop()
-            
-            return
-        
-        # Некритическое предупреждение: backend не соответствует настройкам (fallback на torch)
-        mismatched = {k: v for k, v in backend_status.items()
-                      if not str(v).startswith("ERROR") and v != requested_backend}
-        
-        if mismatched:
-            msg = (
-                f"Backend '{requested_backend}' запрошен в настройках, но реально "
-                f"не используется для {len(mismatched)} моделей: {list(mismatched.keys())}. "
-                f"Проверьте экспорт моделей (scripts/export_models_onnx.py --format {requested_backend})."
-            )
-            logging.getLogger(__name__).warning(msg)
-            self.error.emit(f"⚠️ ПРЕДУПРЕЖДЕНИЕ: {msg}")
+    # ── BLOCK CPU-6: Backend verify (асинхронно) — УДАЛЁН (BLOCK REMOVE-NOTIF-1) ──────────────────

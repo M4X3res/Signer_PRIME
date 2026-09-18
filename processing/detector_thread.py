@@ -89,6 +89,12 @@ class DetectorThread(QThread):
         self._ocr_calls_total = 0      # Всего OCR-вызовов
         self._ocr_calls_skipped = 0    # Пропущено благодаря троттлингу
 
+        # BLOCK GPU-MEM-1: периодическое освобождение CUDA-памяти для
+        # длинных видео (часы обработки без empty_cache() фрагментируют
+        # аллокатор и постепенно замедляют инференс на GPU)
+        self._gpu_cleanup_interval = 300  # кадров
+        self._cuda_in_use = False  # устанавливается в run() после проверки CUDA
+
     # ── Control ───────────────────────────────────────────────────
 
     def stop(self) -> None:
@@ -123,6 +129,8 @@ class DetectorThread(QThread):
             # Загружаем настройки
             from configs.settings import get_app_settings
             settings = get_app_settings()
+            
+            self._cuda_in_use = cuda_available and settings.use_cuda
             
             # Task E: Pipeline режим больше не выбирается из UI, всегда False
             self._use_pipeline = False
@@ -553,7 +561,34 @@ class DetectorThread(QThread):
         self._last_emit_time = now
         return True
 
+    def _maybe_release_gpu_memory(self) -> None:
+        """
+        BLOCK GPU-MEM-1: раз в self._gpu_cleanup_interval обработанных кадров
+        принудительно освобождает неиспользуемую CUDA-память и запускает сборщик
+        мусора. Устраняет постепенное замедление инференса на GPU при обработке
+        многочасовых видео (фрагментация CUDA-аллокатора из-за постоянно
+        варьирующихся batch-размеров и тензоров в Ultralytics Results, которые
+        не освобождаются немедленно).
+        """
+        if not self._cuda_in_use:
+            return
+        if self._frames_processed == 0 or self._frames_processed % self._gpu_cleanup_interval != 0:
+            return
+        try:
+            import gc
+            import torch
+            gc.collect()
+            torch.cuda.empty_cache()
+            logger.debug(
+                f"[DetectorThread] GPU memory released at frame {self._frames_processed} "
+                f"(allocated={torch.cuda.memory_allocated()/1024**2:.1f}MB, "
+                f"reserved={torch.cuda.memory_reserved()/1024**2:.1f}MB)"
+            )
+        except Exception as e:
+            logger.debug(f"[DetectorThread] GPU cleanup skipped: {e}")
+
     def _update_stats(self, n_detections: int) -> None:
+        self._maybe_release_gpu_memory()
         self._frames_processed += 1
         self._signs_found      += n_detections
         self._fps_frames       += 1

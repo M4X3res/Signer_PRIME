@@ -901,12 +901,24 @@ async function loadTileLayer() {
       
     } else {
       // Растровые тайлы (PNG/JPG) - стандартный путь
+      // BLOCK MAP-OVERZOOM-1: maxNativeZoom ограничивает зум, на котором мы
+      // реально запрашиваем тайлы у сервера (cfg.max_zoom — фактический предел
+      // тайлового провайдера). maxZoom на слое и карте выставлен выше
+      // (RASTER_OVERZOOM_MAX) — Leaflet's встроенное поведение "over-zoom":
+      // после cfg.max_zoom он не перестаёт зумить, а продолжает отображать
+      // последний доступный тайл, растягивая (upscale) его программно на
+      // клиенте, без дополнительных запросов к серверу.
+      const RASTER_OVERZOOM_MAX = Math.max(cfg.max_zoom, 22);
       L.tileLayer(cfg.tile_url, {
         attribution: cfg.attribution,
-        maxZoom: cfg.max_zoom,
+        maxZoom: RASTER_OVERZOOM_MAX,
+        maxNativeZoom: cfg.max_zoom,
       }).addTo(map);
-      
-      console.log('[loadTileLayer] ✅ Raster tiles loaded:', cfg.tile_url);
+
+      console.log(
+        `[loadTileLayer] ✅ Raster tiles loaded: ${cfg.tile_url} ` +
+        `(native maxZoom=${cfg.max_zoom}, overzoom up to ${RASTER_OVERZOOM_MAX})`
+      );
     }
   } catch (err) {
     console.error('[loadTileLayer] ❌ FATAL ERROR - Fallback to OSM:', {
@@ -925,7 +937,8 @@ async function loadTileLayer() {
     // Безопасный fallback на OSM, если сервер недоступен или MapLibre не загружен
     L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
       attribution: "© OpenStreetMap",
-      maxZoom: 19,
+      maxZoom: Math.max(19, 22),
+      maxNativeZoom: 19,
     }).addTo(map);
     
     console.log('[loadTileLayer] ✅ Fallback OSM tiles loaded');
