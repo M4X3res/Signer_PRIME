@@ -474,9 +474,13 @@
     z-index: 9999 !important;
   }
 
-  /* Курсор для выбранного знака указывает на возможность вращения */
+  /* Выбранный знак: курсор grab для зажатия + scroll вращения */
   .sign-marker.selected {
-    cursor: ns-resize; /* Вертикальный ресайз напоминает о колесе мыши */
+    cursor: grab;
+  }
+
+  .sign-marker.selected:active {
+    cursor: grabbing;
   }
 
   .sign-marker img { 
@@ -487,77 +491,124 @@
     z-index: 1;
   }
 
-  /* BLOCK MAP-AZ-1 (УЛУЧШЕНО): Стрелка-индикатор направления знака (азимут) */
+  /* REDESIGN: Компактный шеврон-индикатор направления (неактивное состояние) */
   .sign-marker-arrow {
     position: absolute;
-    top: -18px; /* Вынесена дальше от центра для видимости */
+    top: -15px;
     left: 50%;
-    transform: translateX(-50%);
-    width: 0;
-    height: 0;
-    border-left: 6px solid transparent;
-    border-right: 6px solid transparent;
-    border-bottom: 12px solid var(--accent);
+    width: 8px;
+    height: 8px;
+    margin-left: -4px;
+    border-top: 2px solid var(--accent);
+    border-right: 2px solid var(--accent);
+    transform: translateX(-50%) rotate(-45deg);
+    transform-origin: center center;
     pointer-events: none;
-    z-index: 10000; /* Выше любого маркера */
-    filter: drop-shadow(0 1px 3px rgba(0,0,0,0.4)); /* Тень для выделения */
-    transition: filter 0.2s ease, border-bottom-color 0.2s ease;
+    z-index: 10000;
+    opacity: 0.7;
+    transition: all 0.15s ease-out;
   }
 
-  /* Стрелка для выбранного знака — ярче и больше */
+  /* Шеврон для выбранного знака — чуть ярче */
   .sign-marker.selected .sign-marker-arrow {
-    border-left-width: 7px;
-    border-right-width: 7px;
-    border-bottom-width: 14px;
-    border-bottom-color: var(--accent-h);
-    filter: drop-shadow(0 2px 6px rgba(61, 142, 240, 0.6));
+    opacity: 0.9;
+    border-width: 2.5px;
   }
 
-  /* Анимация при активном вращении азимута */
-  .sign-marker.rotating .sign-marker-arrow {
-    border-bottom-color: var(--success);
-    filter: drop-shadow(0 2px 8px rgba(58, 158, 106, 0.8));
-    animation: pulse-arrow 0.6s ease-in-out infinite;
+  /* REDESIGN: Кольцо-компас с ручкой для выбранного знака */
+  .sign-marker-compass {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 60px;
+    height: 60px;
+    margin-top: -30px;
+    margin-left: -30px;
+    border: 2px dashed var(--accent);
+    border-radius: 50%;
+    opacity: 0;
+    pointer-events: none;
+    z-index: 9998;
+    transition: opacity 0.2s ease;
   }
 
-  /* Круговая обводка при вращении для дополнительной визуальной обратной связи */
-  .sign-marker.rotating::before {
+  .sign-marker.selected .sign-marker-compass {
+    opacity: 0.5;
+  }
+
+  /* Луч-сектор от центра к ручке */
+  .sign-marker-compass::before {
     content: '';
     position: absolute;
     top: 50%;
     left: 50%;
-    width: 48px;
-    height: 48px;
-    margin-top: -24px;
-    margin-left: -24px;
-    border: 3px solid var(--success);
+    width: 30px;
+    height: 2px;
+    background: linear-gradient(to right, var(--accent) 0%, transparent 100%);
+    transform-origin: left center;
+    transform: translateY(-50%);
+    opacity: 0.4;
+  }
+
+  /* Ручка-точка на краю компаса */
+  .sign-marker-compass-handle {
+    position: absolute;
+    top: 0;
+    left: 50%;
+    width: 12px;
+    height: 12px;
+    margin-left: -6px;
+    margin-top: -6px;
+    background: var(--accent);
+    border: 2px solid var(--bg);
     border-radius: 50%;
-    opacity: 0.6;
-    animation: rotate-ring 1.5s linear infinite;
-    z-index: 0;
+    cursor: grab;
+    pointer-events: auto;
+    z-index: 9999;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+    transition: transform 0.15s ease-out, background 0.15s;
   }
 
-  @keyframes pulse-arrow {
-    0%, 100% {
-      transform: translateX(-50%) scale(1);
-    }
-    50% {
-      transform: translateX(-50%) scale(1.15);
-    }
+  .sign-marker-compass-handle:hover {
+    background: var(--accent-h);
+    transform: scale(1.2);
   }
 
-  @keyframes rotate-ring {
-    0% {
-      transform: rotate(0deg) scale(1);
-      opacity: 0.6;
-    }
-    50% {
-      opacity: 0.3;
-    }
-    100% {
-      transform: rotate(360deg) scale(1.1);
-      opacity: 0.6;
-    }
+  .sign-marker-compass-handle:active {
+    cursor: grabbing;
+    background: var(--success);
+    transform: scale(1.3);
+  }
+
+  /* Плавающий бейдж с градусами при драге */
+  .azimuth-badge {
+    position: fixed;
+    padding: 4px 10px;
+    background: var(--bg);
+    border: 1px solid var(--accent);
+    border-radius: 4px;
+    color: var(--accent);
+    font-size: 13px;
+    font-weight: 600;
+    font-family: 'Consolas', monospace;
+    pointer-events: none;
+    z-index: 100000;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+    display: none;
+  }
+
+  .azimuth-badge.active {
+    display: block;
+  }
+
+  /* Убираем старые анимации rotating */
+  .sign-marker.rotating .sign-marker-arrow {
+    border-color: var(--success);
+  }
+
+  .sign-marker.rotating .sign-marker-compass {
+    border-color: var(--success);
+    opacity: 0.7;
   }
 
   /* ── Position marker ─────────────────────────────── */
@@ -809,10 +860,9 @@
             <button class="tb-btn" onclick="setPlaybackSpeed(10)" title="10x" style="flex: 1 1 0; min-height: 30px;">10x</button>
           </div>
           
-          <!-- Группа 3: Окно -->
+          <!-- Группа 3: Полноэкранный режим -->
           <div style="display: flex; gap: 4px;">
-            <button class="tb-btn" onclick="toggleFullscreen()" title="Полный экран" style="flex: 1; min-height: 30px;">⛶ Полноэкр.</button>
-            <button class="tb-btn" onclick="openVideoWindow()" title="В отдельном окне" style="flex: 1; min-height: 30px;">⧉ В окне</button>
+            <button class="tb-btn" onclick="toggleFullscreen()" title="Полный экран" style="flex: 1; min-height: 30px;">⛶ Полноэкранный режим</button>
           </div>
         </div>
         <div id="video-status" style="display: none; padding: 20px; text-align: center; color: var(--text3); font-size: 12px; white-space: pre-line;">
@@ -857,10 +907,12 @@
             <span class="field-lbl">Азимут</span>
             <span class="field-val" id="df-azimuth">—</span>
           </div>
-          <div class="field-row" style="margin-top: -4px; padding: 6px 12px; background: rgba(61, 142, 240, 0.08); border-radius: 4px; border-left: 3px solid var(--accent);">
-            <span class="field-val" style="font-size: 11px; color: var(--text2); line-height: 1.4;">
-              <strong style="color: var(--accent);">💡 Совет:</strong> Наведите курсор на маркер знака и крутите <strong>колесо мыши</strong> для изменения азимута.<br>
-              Зажмите <kbd style="padding: 1px 4px; background: var(--bg3); border: 1px solid var(--border); border-radius: 3px; font-size: 10px;">Shift</kbd> для точной подстройки (шаг 1°).
+          <div class="field-row" style="margin-top: -4px; padding: 8px 12px; background: rgba(61, 142, 240, 0.08); border-radius: 4px; border-left: 3px solid var(--accent);">
+            <span class="field-val" style="font-size: 11px; color: var(--text2); line-height: 1.5;">
+              <strong style="color: var(--accent);">💡 Управление азимутом:</strong><br>
+              • <strong>Зажмите маркер + колесо мыши</strong> (±5°, <kbd style="padding: 1px 4px; background: var(--bg3); border: 1px solid var(--border); border-radius: 3px; font-size: 10px;">Shift</kbd> = ±1°)<br>
+              • <strong>Перетащите</strong> ручку на кольце-компасе вокруг знака<br>
+              • <strong>← →</strong> клавиши со стрелками (±5°, <kbd style="padding: 1px 4px; background: var(--bg3); border: 1px solid var(--border); border-radius: 3px; font-size: 10px;">Shift</kbd> = ±1°)
             </span>
           </div>
           <div class="field-row">
@@ -1257,12 +1309,15 @@ function renderMarkers() {
       ? `${API}/img/${sign.type}-${sign.description}`
       : `${API}/img/${sign.type}`;
 
-    // BLOCK MAP-AZ-1: Добавление стрелки-индикатора азимута в HTML маркера
+    // REDESIGN: Добавление компаса и шеврона в HTML маркера
     const azimuth = sign.azimuth || 0;
     const icon = L.divIcon({
       className: "",
-      html: `<div class="sign-marker" id="sm-${sign.id}">
-               <div class="sign-marker-arrow" style="transform: translateX(-50%) rotate(${azimuth}deg);"></div>
+      html: `<div class="sign-marker" id="sm-${sign.id}" data-azimuth="${azimuth}">
+               <div class="sign-marker-arrow" style="transform: rotate(${azimuth}deg);"></div>
+               <div class="sign-marker-compass">
+                 <div class="sign-marker-compass-handle" data-sign-id="${sign.id}" style="transform: rotate(${azimuth}deg) translateY(-30px);"></div>
+               </div>
                <img src="${imgSrc}" alt="${sign.type}"
                     onerror="this.style.display='none'">
              </div>`,
@@ -1293,13 +1348,14 @@ function renderMarkers() {
   if (markerCluster && markersToAdd.length > 0) {
     markerCluster.addLayers(markersToAdd);
     
-    // BLOCK MAP-AZ-2: Добавление обработчиков колеса мыши для редактирования азимута
+    // REDESIGN: Добавление обработчиков для компаса после рендеринга
     // Нужно подождать пока маркеры добавятся в DOM
     setTimeout(() => {
       signsData.forEach(sign => {
         const markerEl = document.getElementById(`sm-${sign.id}`);
-        if (markerEl) {
-          attachAzimuthWheelHandler(sign.id, markerEl);
+        const leafletMarker = markers[sign.id];
+        if (markerEl && leafletMarker) {
+          attachAzimuthControls(sign.id, markerEl, leafletMarker);
         }
       });
     }, 100);
@@ -1322,100 +1378,294 @@ function renderMarkers() {
   }
 }
 
-// BLOCK MAP-AZ-2 (УЛУЧШЕНО): Обработчик колеса мыши для изменения азимута
+// REDESIGN: Комплексное управление азимутом знака
 let azimuthDebounceTimer = null;
-let azimuthRotationTimer = null; // Для снятия класса 'rotating'
 const azimuthDebounceDelay = 300; // мс
+let currentDragSignId = null;
+let azimuthBadge = null;
 
-function attachAzimuthWheelHandler(signId, markerEl) {
+function attachAzimuthControls(signId, markerEl, leafletMarker) {
+  const handle = markerEl.querySelector('.sign-marker-compass-handle');
+  if (!handle) return;
+  
+  let isRotationMode = false; // Режим вращения активируется при первом scroll с зажатой кнопкой
+  
+  // Отпускание кнопки мыши завершает режим вращения
+  const releaseMarker = () => {
+    if (isRotationMode) {
+      isRotationMode = false;
+      markerEl.classList.remove('rotating');
+      
+      // Включаем обратно draggable
+      if (leafletMarker && !leafletMarker.dragging.enabled()) {
+        leafletMarker.dragging.enable();
+      }
+      
+      console.log(`[azimuth] Режим вращения завершён для ${signId}`);
+    }
+  };
+  
+  document.addEventListener('mouseup', releaseMarker);
+  
+  // Scroll активирует режим вращения ТОЛЬКО если зажата левая кнопка мыши
   markerEl.addEventListener('wheel', (e) => {
-    // Работает только если знак выбран
-    if (selectedId !== signId) {
-      return; // Не перехватываем событие, карта зумится как обычно
+    // Проверяем: зажата ли левая кнопка мыши?
+    const isMouseDown = (e.buttons === 1);
+    
+    if (!isMouseDown || selectedId !== signId) {
+      // Кнопка не зажата или знак не выбран — карта зумится как обычно
+      return;
     }
     
-    // Знак выбран — перехватываем колесо мыши
+    // Кнопка зажата! Активируем режим вращения при первом scroll
+    if (!isRotationMode) {
+      isRotationMode = true;
+      markerEl.classList.add('rotating');
+      
+      // Отключаем dragging Leaflet-маркера
+      if (leafletMarker && leafletMarker.dragging.enabled()) {
+        leafletMarker.dragging.disable();
+      }
+      
+      console.log(`[azimuth] Активирован режим вращения для ${signId}`);
+    }
+    
+    // Блокируем зум карты
     e.preventDefault();
     e.stopPropagation();
-    
-    // Добавляем класс 'rotating' для визуальной индикации
-    markerEl.classList.add('rotating');
     
     // Определяем шаг изменения азимута
     const step = e.shiftKey ? 1 : 5;
     const delta = e.deltaY > 0 ? step : -step;
     
-    // Находим знак в локальном кэше
     const idx = signsData.findIndex(s => s.id === signId);
     if (idx === -1) return;
     
-    // Обновляем азимут
     let newAzimuth = (signsData[idx].azimuth || 0) + delta;
-    // Нормализация в диапазон [0, 360)
     newAzimuth = ((newAzimuth % 360) + 360) % 360;
     
-    signsData[idx].azimuth = newAzimuth;
+    updateAzimuthVisuals(signId, markerEl, newAzimuth);
     
-    // Обновляем визуально стрелку маркера
-    const arrow = markerEl.querySelector('.sign-marker-arrow');
-    if (arrow) {
-      arrow.style.transform = `translateX(-50%) rotate(${newAzimuth}deg)`;
+    // Показываем текущий угол в бейдже
+    if (!azimuthBadge) {
+      azimuthBadge = document.createElement('div');
+      azimuthBadge.className = 'azimuth-badge';
+      document.body.appendChild(azimuthBadge);
     }
+    azimuthBadge.textContent = Math.round(newAzimuth) + '°';
+    azimuthBadge.style.left = (e.clientX + 15) + 'px';
+    azimuthBadge.style.top = (e.clientY - 10) + 'px';
+    azimuthBadge.classList.add('active');
     
-    // Обновляем поле в панели деталей если оно открыто
-    const azimuthField = document.getElementById('df-azimuth');
-    if (azimuthField && selectedId === signId) {
-      azimuthField.textContent = Math.round(newAzimuth) + '°';
-    }
-    
-    // Убираем класс 'rotating' через короткий таймаут (визуальная обратная связь)
-    clearTimeout(azimuthRotationTimer);
-    azimuthRotationTimer = setTimeout(() => {
-      markerEl.classList.remove('rotating');
-    }, 600); // Совпадает с длительностью анимации pulse-arrow
-    
-    // Debounced отправка на сервер
+    // Debounced сохранение
     clearTimeout(azimuthDebounceTimer);
-    azimuthDebounceTimer = setTimeout(async () => {
-      try {
-        const r = await fetch(`${API}/sign/${signId}`, {
-          method: "PATCH",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ azimuth: newAzimuth }),
-        });
-        
-        if (!r.ok) throw new Error(`HTTP ${r.status}`);
-        const result = await r.json();
-        if (result.error) throw new Error(result.error);
-        
-        toast(`Азимут: ${Math.round(newAzimuth)}°`, "ok");
-        console.log(`[azimuthWheel] Азимут знака ${signId} обновлён: ${newAzimuth}°`);
-        
-      } catch (err) {
-        console.error("[azimuthWheel] Ошибка сохранения азимута:", err);
-        toast("Ошибка сохранения азимута", "err");
-        
-        // Откат азимута при ошибке (перезагрузить с сервера)
-        try {
-          const r2 = await fetch(`${API}/sign/${signId}`);
-          if (r2.ok) {
-            const feat = await r2.json();
-            const originalAzimuth = feat.properties?.azimuth || 0;
-            signsData[idx].azimuth = originalAzimuth;
-            if (arrow) {
-              arrow.style.transform = `translateX(-50%) rotate(${originalAzimuth}deg)`;
-            }
-            if (azimuthField && selectedId === signId) {
-              azimuthField.textContent = Math.round(originalAzimuth) + '°';
-            }
-          }
-        } catch (rollbackErr) {
-          console.error("[azimuthWheel] Ошибка отката азимута:", rollbackErr);
-        }
+    azimuthDebounceTimer = setTimeout(() => {
+      if (azimuthBadge) {
+        azimuthBadge.classList.remove('active');
       }
+      saveAzimuthToServer(signId, newAzimuth);
     }, azimuthDebounceDelay);
   });
+  
+  // Drag-and-drop ручки компаса (альтернативный способ)
+  let isDragging = false;
+  
+  handle.addEventListener('mousedown', (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    
+    isDragging = true;
+    currentDragSignId = signId;
+    markerEl.classList.add('rotating');
+    
+    // Отключаем draggable Leaflet-маркера при драге ручки
+    if (leafletMarker) {
+      leafletMarker.dragging.disable();
+    }
+    
+    // Создаём бейдж для отображения градусов
+    if (!azimuthBadge) {
+      azimuthBadge = document.createElement('div');
+      azimuthBadge.className = 'azimuth-badge';
+      document.body.appendChild(azimuthBadge);
+    }
+    
+    const onMouseMove = (moveEvent) => {
+      if (!isDragging) return;
+      
+      // Получаем центр маркера в экранных координатах
+      const rect = markerEl.getBoundingClientRect();
+      const centerX = rect.left + rect.width / 2;
+      const centerY = rect.top + rect.height / 2;
+      
+      // Вычисляем угол от центра до курсора
+      const dx = moveEvent.clientX - centerX;
+      const dy = moveEvent.clientY - centerY;
+      let angle = Math.atan2(dy, dx) * (180 / Math.PI) + 90; // +90 чтобы 0° был сверху
+      
+      // Нормализация в [0, 360)
+      angle = ((angle % 360) + 360) % 360;
+      
+      // Снэп к 5° если не зажат Shift
+      if (!moveEvent.shiftKey) {
+        angle = Math.round(angle / 5) * 5;
+      }
+      
+      // Обновляем визуально
+      updateAzimuthVisuals(signId, markerEl, angle);
+      
+      // Обновляем бейдж
+      azimuthBadge.textContent = Math.round(angle) + '°';
+      azimuthBadge.style.left = (moveEvent.clientX + 15) + 'px';
+      azimuthBadge.style.top = (moveEvent.clientY - 10) + 'px';
+      azimuthBadge.classList.add('active');
+    };
+    
+    const onMouseUp = () => {
+      if (!isDragging) return;
+      
+      isDragging = false;
+      currentDragSignId = null;
+      markerEl.classList.remove('rotating');
+      
+      // Включаем обратно draggable
+      if (leafletMarker) {
+        leafletMarker.dragging.enable();
+      }
+      
+      if (azimuthBadge) {
+        azimuthBadge.classList.remove('active');
+      }
+      
+      // Отправляем на сервер финальное значение
+      const idx = signsData.findIndex(s => s.id === signId);
+      if (idx !== -1) {
+        saveAzimuthToServer(signId, signsData[idx].azimuth);
+      }
+      
+      document.removeEventListener('mousemove', onMouseMove);
+      document.removeEventListener('mouseup', onMouseUp);
+    };
+    
+    document.addEventListener('mousemove', onMouseMove);
+    document.addEventListener('mouseup', onMouseUp);
+  });
 }
+
+// Обновление визуальных элементов азимута
+function updateAzimuthVisuals(signId, markerEl, azimuth) {
+  const idx = signsData.findIndex(s => s.id === signId);
+  if (idx !== -1) {
+    signsData[idx].azimuth = azimuth;
+  }
+  
+  // Обновляем data-атрибут
+  markerEl.setAttribute('data-azimuth', azimuth);
+  
+  // Обновляем шеврон
+  const arrow = markerEl.querySelector('.sign-marker-arrow');
+  if (arrow) {
+    arrow.style.transform = `rotate(${azimuth}deg)`;
+  }
+  
+  // Обновляем ручку компаса (луч + сама ручка)
+  const compassBefore = markerEl.querySelector('.sign-marker-compass');
+  if (compassBefore) {
+    const beforeStyle = window.getComputedStyle(compassBefore, '::before');
+    // Обновляем через CSS-переменную (установим через style)
+    compassBefore.style.setProperty('--azimuth-angle', azimuth + 'deg');
+  }
+  
+  const handle = markerEl.querySelector('.sign-marker-compass-handle');
+  if (handle) {
+    handle.style.transform = `rotate(${azimuth}deg) translateY(-30px)`;
+  }
+  
+  // Обновляем поле в панели деталей
+  const azimuthField = document.getElementById('df-azimuth');
+  if (azimuthField && selectedId === signId) {
+    azimuthField.textContent = Math.round(azimuth) + '°';
+  }
+}
+
+// Сохранение азимута на сервер
+async function saveAzimuthToServer(signId, azimuth) {
+  try {
+    const r = await fetch(`${API}/sign/${signId}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ azimuth: azimuth }),
+    });
+    
+    if (!r.ok) throw new Error(`HTTP ${r.status}`);
+    const result = await r.json();
+    if (result.error) throw new Error(result.error);
+    
+    toast(`Азимут: ${Math.round(azimuth)}°`, "ok");
+    console.log(`[saveAzimuth] Азимут знака ${signId} обновлён: ${azimuth}°`);
+    
+  } catch (err) {
+    console.error("[saveAzimuth] Ошибка:", err);
+    toast("Ошибка сохранения азимута", "err");
+    
+    // Откат азимута при ошибке
+    try {
+      const r2 = await fetch(`${API}/sign/${signId}`);
+      if (r2.ok) {
+        const feat = await r2.json();
+        const originalAzimuth = feat.properties?.azimuth || 0;
+        const idx = signsData.findIndex(s => s.id === signId);
+        if (idx !== -1) {
+          const markerEl = document.getElementById(`sm-${signId}`);
+          if (markerEl) {
+            updateAzimuthVisuals(signId, markerEl, originalAzimuth);
+          }
+        }
+      }
+    } catch (rollbackErr) {
+      console.error("[saveAzimuth] Ошибка отката:", rollbackErr);
+    }
+  }
+}
+
+// Клавиатурное управление азимутом для выбранного знака
+document.addEventListener('keydown', (e) => {
+  if (!selectedId) return;
+  
+  // Только стрелки влево/вправо
+  if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return;
+  
+  // Проверяем что фокус не в input/textarea
+  if (document.activeElement.tagName === 'INPUT' || 
+      document.activeElement.tagName === 'TEXTAREA' ||
+      document.activeElement.tagName === 'SELECT') {
+    return;
+  }
+  
+  e.preventDefault();
+  
+  const markerEl = document.getElementById(`sm-${selectedId}`);
+  if (!markerEl) return;
+  
+  const idx = signsData.findIndex(s => s.id === selectedId);
+  if (idx === -1) return;
+  
+  const step = e.shiftKey ? 1 : 5;
+  const delta = e.key === 'ArrowRight' ? step : -step;
+  
+  let newAzimuth = (signsData[idx].azimuth || 0) + delta;
+  newAzimuth = ((newAzimuth % 360) + 360) % 360;
+  
+  markerEl.classList.add('rotating');
+  updateAzimuthVisuals(selectedId, markerEl, newAzimuth);
+  
+  // Debounced сохранение
+  clearTimeout(azimuthDebounceTimer);
+  azimuthDebounceTimer = setTimeout(() => {
+    markerEl.classList.remove('rotating');
+    saveAzimuthToServer(selectedId, newAzimuth);
+  }, azimuthDebounceDelay);
+});
 
 // ЗАДАЧА 2 (P1): Обработчик перетаскивания маркера
 async function onMarkerDragEnd(id, latlng) {
