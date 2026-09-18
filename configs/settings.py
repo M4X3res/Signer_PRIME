@@ -74,6 +74,16 @@ class AppSettings:
     cpu_onnx_inter_threads: int = 1
     cpu_openvino_threads: int = 0       # 0 = авто, та же логика
     
+    # ── ЗАДАЧА 1: CPU-бэкенд прогрев и оптимизация ────────────────
+    cpu_backend_warmup_enabled: bool = True  # Прогрев моделей при загрузке (устраняет задержку на первом кадре)
+    
+    # ── ЗАДАЧА 2: Скрытые ретраи подключения к серверу лицензий ───
+    license_connect_retry_attempts: int = 3        # Число попыток при сетевых ошибках
+    license_connect_retry_backoff_sec: float = 1.5  # Базовая задержка между попытками (фиксированная, не экспоненциальная)
+    
+    # ── ЗАДАЧА 3: Автоприменение рекомендуемых настроек ───────────
+    first_run_recommended_settings_applied: bool = False  # Флаг первого запуска
+    
     # ── Пороги для lane detection (BLOCK P.1) ─────────────────────
     lane_conf_detect: float = 0.65   # Порог уверенности для model_lane_detect
     lane_conf_segment: float = 0.65  # Порог уверенности для model_lane_segment
@@ -239,6 +249,19 @@ class AppSettings:
             # Создаём объект настроек
             loaded_settings = cls(**data)
             
+            # ── ЗАДАЧА 3: Автоприменение рекомендуемых настроек при первом запуске ──
+            if not loaded_settings.first_run_recommended_settings_applied:
+                from configs.hardware_recommend import apply_recommended_settings
+                try:
+                    rec = apply_recommended_settings(loaded_settings)
+                    loaded_settings.first_run_recommended_settings_applied = True
+                    loaded_settings.save()
+                    logger.info(f"[AppSettings] Первый запуск: применены рекомендуемые настройки — {rec['reason']}")
+                except Exception as e:
+                    logger.warning(f"[AppSettings] Не удалось применить рекомендуемые настройки при первом запуске: {e}")
+                    loaded_settings.first_run_recommended_settings_applied = True  # не пытаемся на каждом запуске при ошибке
+                    loaded_settings.save()
+            
             # Если была миграция (settings_schema_version изменилась), сохраняем
             if loaded_version < CURRENT_SCHEMA_VERSION:
                 logger.info(f"[AppSettings] Сохранение мигрированных настроек (v{loaded_version}→v{CURRENT_SCHEMA_VERSION})")
@@ -262,9 +285,16 @@ class AppSettings:
         settings.sync()
     
     def reset_to_defaults(self) -> None:
-        """Сбросить все настройки к значениям по умолчанию."""
+        """
+        Сбросить все настройки к значениям по умолчанию.
+        ЗАДАЧА 3: не сбрасывает first_run_recommended_settings_applied, чтобы рекомендации
+        не применились заново при следующем запуске.
+        """
         defaults = AppSettings()
+        preserve = {"first_run_recommended_settings_applied"}  # ЗАДАЧА 3: сохраняем флаг
         for field_name in self.__dataclass_fields__:
+            if field_name in preserve:
+                continue
             setattr(self, field_name, getattr(defaults, field_name))
     
     def to_dict(self) -> dict:

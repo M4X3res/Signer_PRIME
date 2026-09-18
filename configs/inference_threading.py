@@ -51,6 +51,7 @@ def apply_cpu_thread_limits(
     openvino_threads: int = 0,
     disable_cuda_providers: bool = True,
     openvino_performance_hint: str = "LATENCY",
+    parallel_execution: bool = False,
 ) -> None:
     """
     Применяет ограничения потоков для ONNX Runtime и OpenVINO.
@@ -61,6 +62,7 @@ def apply_cpu_thread_limits(
         openvino_threads: Число потоков для OpenVINO INFERENCE_NUM_THREADS (0 = не трогать)
         disable_cuda_providers: Явно запретить CUDA-провайдер в ONNX Runtime
         openvino_performance_hint: "LATENCY" (дефолт) или "THROUGHPUT" для OpenVINO
+        parallel_execution: Использовать ORT_PARALLEL вместо ORT_SEQUENTIAL для ONNX Runtime
     
     Note:
         intra_threads / openvino_threads == 0 означает "не трогать" (оставить
@@ -70,11 +72,11 @@ def apply_cpu_thread_limits(
         а не полагаться на 0 в проде — 0 оставлен только как "явный no-op"
         для тестов/отладки.
     """
-    _patch_onnxruntime(intra_threads, inter_threads, disable_cuda_providers)
+    _patch_onnxruntime(intra_threads, inter_threads, disable_cuda_providers, parallel_execution)
     _patch_openvino(openvino_threads, openvino_performance_hint)
 
 
-def _patch_onnxruntime(intra_threads: int, inter_threads: int, disable_cuda_providers: bool) -> None:
+def _patch_onnxruntime(intra_threads: int, inter_threads: int, disable_cuda_providers: bool, parallel_execution: bool) -> None:
     """
     Патчит ONNX Runtime InferenceSession для установки потоков, отключения CUDA
     и применения оптимальных SessionOptions.
@@ -90,6 +92,10 @@ def _patch_onnxruntime(intra_threads: int, inter_threads: int, disable_cuda_prov
         ORT может сохранить граф после graph optimization в .opt.onnx рядом с
         исходным файлом. При повторном запуске этот файл загружается быстрее.
         Путь вычисляется из первого позиционного аргумента (пути к .onnx файлу).
+    
+    ЗАДАЧА 1.3 — parallel_execution:
+        При обработке батчей кропов знаков (обычный случай — 1-5 знаков на кадре)
+        ORT_PARALLEL даёт выигрыш по сравнению с ORT_SEQUENTIAL.
     """
     global _patched_onnx
     if _patched_onnx:
@@ -112,9 +118,13 @@ def _patch_onnxruntime(intra_threads: int, inter_threads: int, disable_cuda_prov
         # op fusion, layout optimization и т.д.)
         sess_options.graph_optimization_level = ort.GraphOptimizationLevel.ORT_ENABLE_ALL
 
-        # execution_mode: ORT_SEQUENTIAL снижает overhead планировщика при CPU-инференсе
-        # одиночных изображений (наш основной сценарий — sign per sign)
-        sess_options.execution_mode = ort.ExecutionMode.ORT_SEQUENTIAL
+        # ── ЗАДАЧА 1.3: execution_mode (ORT_SEQUENTIAL vs ORT_PARALLEL) ──
+        # ORT_SEQUENTIAL оптимален для одиночных изображений (снижает overhead планировщика)
+        # ORT_PARALLEL лучше для батчей кропов знаков (1-5 знаков на кадре)
+        if parallel_execution:
+            sess_options.execution_mode = ort.ExecutionMode.ORT_PARALLEL
+        else:
+            sess_options.execution_mode = ort.ExecutionMode.ORT_SEQUENTIAL
 
         # mem_pattern: включить переиспользование memory buffers между вызовами
         sess_options.enable_mem_pattern = True
@@ -164,12 +174,14 @@ def _patch_onnxruntime(intra_threads: int, inter_threads: int, disable_cuda_prov
 
     ort.InferenceSession.__init__ = _patched_init
     _patched_onnx = True
+    exec_mode_str = "ORT_PARALLEL" if parallel_execution else "ORT_SEQUENTIAL"
     logger.info(
         f"[inference_threading] ONNX Runtime запатчен: "
         f"intra_op_num_threads={intra_threads or 'default'}, "
         f"inter_op_num_threads={inter_threads or 'default'}, "
         f"disable_cuda_providers={disable_cuda_providers}, "
-        f"graph_opt=ORT_ENABLE_ALL, exec_mode=ORT_SEQUENTIAL, "
+        f"exec_mode={exec_mode_str}, "
+        f"graph_opt=ORT_ENABLE_ALL, "
         f"mem_pattern=True, cpu_mem_arena=True, "
         f"optimized_model_filepath=<model>.opt.onnx"
     )

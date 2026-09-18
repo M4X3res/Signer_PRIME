@@ -134,13 +134,16 @@ def setup_environment():
             intra = settings.cpu_onnx_intra_threads or max(1, cpu_count - 1)
             ov_threads = settings.cpu_openvino_threads or intra
             
+            # ЗАДАЧА 1.3: передаём parallel_execution=True для CPU-бэкендов
+            # (обработка на CPU почти всегда работает с батчами кропов знаков)
             apply_cpu_thread_limits(
                 intra_threads=intra,
                 inter_threads=settings.cpu_onnx_inter_threads,
                 openvino_threads=ov_threads,
                 disable_cuda_providers=True,
+                parallel_execution=True,  # ЗАДАЧА 1.3
             )
-            logger.info(f"[main] CPU inference threads: intra={intra}, openvino={ov_threads} (Task F: восстановлена многопоточность)")
+            logger.info(f"[main] CPU inference threads: intra={intra}, openvino={ov_threads}, parallel_execution=True (Task F+1.3)")
     except Exception as e:
         logger.warning(f"[main] Не удалось применить CPU thread limits: {e}")
     
@@ -281,14 +284,19 @@ def main():
             # Сетевая ошибка → блокируем запуск с возможностью повтора
             logger.error(f"Не удалось подключиться к серверу лицензий: {error_msg}")
             
+            # ЗАДАЧА 2: обновляем текст диалога, чтобы показать, что было несколько попыток
+            from configs.settings import get_app_settings
+            settings = get_app_settings()
+            
             while True:
                 reply = QMessageBox.critical(
                     None,
                     "Ошибка подключения",
-                    "Не удалось подключиться к серверу лицензий.\n"
-                    "Проверьте интернет-соединение.\n\n"
+                    f"Не удалось подключиться к серверу лицензий.\n"
+                    f"Проверьте интернет-соединение.\n\n"
+                    f"Приложение уже выполнило {settings.license_connect_retry_attempts} попытки подключения.\n"
                     f"Ошибка: {error_msg or 'Неизвестная ошибка'}\n\n"
-                    "Попробовать снова?",
+                    f"Попробовать снова?",
                     QMessageBox.StandardButton.Retry | QMessageBox.StandardButton.Cancel
                 )
                 

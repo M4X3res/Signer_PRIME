@@ -44,6 +44,69 @@ class LicenseClient:
         self.settings = get_app_settings()
         self.base_url = self.settings.license_server_url.rstrip('/')
     
+    def _post_with_retry(self, url: str, payload: dict) -> 'requests.Response':
+        """
+        Выполняет POST с несколькими попытками при сетевых ошибках (Timeout, ConnectionError).
+        НЕ повторяет попытки при получении ответа сервера с кодом ошибки (4xx/5xx с валидным JSON) —
+        это не сетевая проблема, а бизнес-ошибка (например INVALID_LICENSE), retry её не исправит.
+        
+        ЗАДАЧА 2: Добавлены скрытые ретраи для устранения проблемы "иногда подключается не с первого раза".
+        
+        Args:
+            url: URL для POST-запроса
+            payload: JSON payload
+            
+        Returns:
+            requests.Response при успехе
+            
+        Raises:
+            requests.exceptions.Timeout: Если все попытки исчерпаны (Timeout)
+            requests.exceptions.ConnectionError: Если все попытки исчерпаны (ConnectionError)
+            Exception: Другие ошибки (JSON parsing и т.п.)
+        """
+        import time
+        
+        attempts = self.settings.license_connect_retry_attempts
+        backoff = self.settings.license_connect_retry_backoff_sec
+        
+        last_exception = None
+        
+        for attempt in range(attempts):
+            try:
+                response = requests.post(
+                    url,
+                    json=payload,
+                    timeout=REQUEST_TIMEOUT,
+                    headers={"Content-Type": "application/json"}
+                )
+                return response  # Успех — возвращаем ответ
+                
+            except (requests.exceptions.Timeout, requests.exceptions.ConnectionError) as e:
+                last_exception = e
+                
+                if attempt < attempts - 1:  # Не последняя попытка
+                    # Используем ФИКСИРОВАННЫЙ backoff (не экспоненциальный),
+                    # чтобы не превысить разумный общий бюджет ~25 секунд
+                    # (3 попытки × 8с таймаут + 2 задержки × 1.5с = ~27с)
+                    logger.warning(
+                        f"[LicenseClient] Попытка {attempt + 1}/{attempts} не удалась: {e}, "
+                        f"повтор через {backoff:.1f}с"
+                    )
+                    time.sleep(backoff)
+                else:
+                    # Последняя попытка исчерпана
+                    logger.warning(
+                        f"[LicenseClient] Все {attempts} попытки подключения исчерпаны: {e}"
+                    )
+            
+            except Exception as e:
+                # Другие ошибки (например JSONDecodeError) — пробрасываем сразу без повторов
+                logger.error(f"[LicenseClient] Неожиданная ошибка (не ретраим): {e}")
+                raise
+        
+        # Если дошли сюда — все попытки исчерпаны, пробрасываем последнее исключение
+        raise last_exception
+    
     def activate(
         self,
         license_key: str,
@@ -74,12 +137,8 @@ class LicenseClient:
             
             logger.info(f"[LicenseClient] Activating license: {license_key[:10]}...")
             
-            response = requests.post(
-                url,
-                json=payload,
-                timeout=REQUEST_TIMEOUT,
-                headers={"Content-Type": "application/json"}
-            )
+            # ЗАДАЧА 2: используем _post_with_retry вместо прямого requests.post
+            response = self._post_with_retry(url, payload)
             
             data = response.json()
             
@@ -101,7 +160,7 @@ class LicenseClient:
                 )
         
         except requests.exceptions.Timeout:
-            logger.warning("[LicenseClient] Activation request timeout")
+            logger.warning("[LicenseClient] Activation request timeout (after retries)")
             return LicenseResponse(
                 success=False,
                 error_code="TIMEOUT",
@@ -109,7 +168,7 @@ class LicenseClient:
             )
         
         except requests.exceptions.ConnectionError:
-            logger.warning("[LicenseClient] Activation connection error")
+            logger.warning("[LicenseClient] Activation connection error (after retries)")
             return LicenseResponse(
                 success=False,
                 error_code="CONNECTION_ERROR",
@@ -148,12 +207,8 @@ class LicenseClient:
             
             logger.info("[LicenseClient] Refreshing license token...")
             
-            response = requests.post(
-                url,
-                json=payload,
-                timeout=REQUEST_TIMEOUT,
-                headers={"Content-Type": "application/json"}
-            )
+            # ЗАДАЧА 2: используем _post_with_retry
+            response = self._post_with_retry(url, payload)
             
             data = response.json()
             
@@ -175,7 +230,7 @@ class LicenseClient:
                 )
         
         except requests.exceptions.Timeout:
-            logger.warning("[LicenseClient] Refresh request timeout")
+            logger.warning("[LicenseClient] Refresh request timeout (after retries)")
             return LicenseResponse(
                 success=False,
                 error_code="TIMEOUT",
@@ -183,7 +238,7 @@ class LicenseClient:
             )
         
         except requests.exceptions.ConnectionError:
-            logger.warning("[LicenseClient] Refresh connection error")
+            logger.warning("[LicenseClient] Refresh connection error (after retries)")
             return LicenseResponse(
                 success=False,
                 error_code="CONNECTION_ERROR",
@@ -220,12 +275,8 @@ class LicenseClient:
             
             logger.info("[LicenseClient] Deactivating device...")
             
-            response = requests.post(
-                url,
-                json=payload,
-                timeout=REQUEST_TIMEOUT,
-                headers={"Content-Type": "application/json"}
-            )
+            # ЗАДАЧА 2: используем _post_with_retry
+            response = self._post_with_retry(url, payload)
             
             data = response.json()
             

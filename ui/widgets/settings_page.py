@@ -1613,37 +1613,40 @@ class SettingsPage(QWidget):
         и сбалансированные пороги качества/производительности к текущему UI
         (без немедленного сохранения — пользователь может передумать и не
         нажать "Сохранить", как и с любыми другими изменениями в форме).
+        
+        ЗАДАЧА 3: рефакторинг — использует общую функцию apply_recommended_settings
+        из hardware_recommend.py, синхронизирует виджеты UI с обновлёнными значениями.
         """
-        from configs.hardware_recommend import detect_recommended_backend
+        from configs.hardware_recommend import apply_recommended_settings
 
         try:
-            rec = detect_recommended_backend()
+            # Применяем рекомендации к настройкам (не сохраняем, только меняем объект)
+            rec = apply_recommended_settings(self._settings)
 
-            # ── Backend / CUDA ──────────────────────────────────────
+            # ── Синхронизируем виджеты UI с обновлёнными настройками ──
+            # Backend / CUDA
             if hasattr(self, '_cuda_toggle'):
-                self._cuda_toggle.set_checked(rec["use_cuda"])
+                self._cuda_toggle.set_checked(self._settings.use_cuda)
             if hasattr(self, '_cpu_backend_combo'):
                 backend_map_rev = {"torch": 0, "onnx": 1, "openvino": 2}
                 self._cpu_backend_combo.setCurrentIndex(
-                    backend_map_rev.get(rec["cpu_inference_backend"], 0)
+                    backend_map_rev.get(self._settings.cpu_inference_backend, 0)
                 )
                 # update_backend_enabled() уже подключён к toggled_state CUDA-тумблера,
                 # но сработает только если состояние тумблера реально ИЗМЕНИЛОСЬ —
                 # принудительно синхронизируем enabled-состояние комбобокса:
-                self._cpu_backend_combo.setEnabled(not rec["use_cuda"])
+                self._cpu_backend_combo.setEnabled(not self._settings.use_cuda)
 
-            # ── Рекомендованные пороги качества/производительности ──
-            # (значения см. в PROMPT_FIX_UI_OVERLAP_MAP_EDIT_SETTINGS.md, раздел 5.1)
+            # Пороги качества/производительности
             if hasattr(self, '_conf_side_spin'):
-                self._conf_side_spin.setValue(0.55)
+                self._conf_side_spin.setValue(self._settings.conf_side)
             if hasattr(self, '_iou_spin'):
-                self._iou_spin.setValue(0.15)
+                self._iou_spin.setValue(self._settings.iou_threshold)
             if hasattr(self, '_dedup_track_spin'):
-                self._dedup_track_spin.setValue(10)
+                self._dedup_track_spin.setValue(self._settings.dedup_radius_track_m)
             if hasattr(self, '_dedup_azimuth_spin'):
-                self._dedup_azimuth_spin.setValue(40)
-            # preview_fps_limit применяем напрямую
-            self._settings.preview_fps_limit = 10.0
+                self._dedup_azimuth_spin.setValue(self._settings.dedup_azimuth_deg)
+            # preview_fps_limit уже применён в apply_recommended_settings
 
             # ── Статус для пользователя ──────────────────────────────
             status_lines = [rec["reason"]]
