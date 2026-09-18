@@ -322,20 +322,22 @@ def api_map_config():
         elif settings.map_tile_type == "vector":
             logger.info("[api_map_config] Vector tiles direct (proxy disabled in settings)")
         
+        # BLOCK SETTINGS-1: Ограничение max_zoom до 17 (для пользователей со старыми сохранёнными значениями)
         return jsonify({
             "tile_url": tile_url,
             "attribution": settings.map_tile_attribution,
-            "max_zoom": settings.map_tile_max_zoom,
+            "max_zoom": min(settings.map_tile_max_zoom, 17),
             "tile_type": settings.map_tile_type,  # "raster" | "vector"
             "use_proxy": use_proxy,  # Информация для клиента
         })
     except Exception as e:
         logger.error(f"ERROR in /api/map_config: {e}")
         # Безопасный fallback на OSM, чтобы карта не осталась совсем без подложки
+        # BLOCK SETTINGS-1: fallback также использует max_zoom=17
         return jsonify({
             "tile_url": "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
             "attribution": "© OpenStreetMap",
-            "max_zoom": 19,
+            "max_zoom": 17,
             "tile_type": "raster",  # fallback на растровые тайлы
             "use_proxy": False,
         })
@@ -793,7 +795,7 @@ def api_sign_update(sign_id: str):
         "description": "5",
         "lat": 53.905,        # Опционально (BLOCK S.2)
         "lon": 27.560,        # Опционально (BLOCK S.2)
-        "azimuth": 90.0       # Опционально (BLOCK S.2)
+        "azimuth": 90.0       # Опционально (BLOCK S.2, BLOCK MAP-AZ-3)
     }
     """
     body = request.get_json(silent=True) or {}
@@ -818,7 +820,7 @@ def api_sign_update(sign_id: str):
                 feat["properties"].pop("SEM250", None)
                 feat["properties"].pop("MVALUE", None)
             
-            # BLOCK S.2: Обновление координат (draggable markers)
+            # BLOCK S.2 + BLOCK MAP-AZ-3: Обновление координат и/или азимута
             if "lat" in body and "lon" in body:
                 new_lat = float(body["lat"])
                 new_lon = float(body["lon"])
@@ -842,6 +844,22 @@ def api_sign_update(sign_id: str):
                             coords[1][0] = new_lon2
                             coords[1][1] = new_lat2
                             feat["properties"]["azimuth"] = azimuth
+            
+            # BLOCK MAP-AZ-3: Обновление только азимута (без изменения координат)
+            elif "azimuth" in body:
+                new_azimuth = float(body["azimuth"]) % 360
+                feat["properties"]["azimuth"] = new_azimuth
+                
+                # Пересчитываем вторую точку линии на основе нового азимута
+                if feat["geometry"]["type"] == "LineString":
+                    coords = feat["geometry"]["coordinates"]
+                    if len(coords) >= 2:
+                        base_lon, base_lat = coords[0][0], coords[0][1]
+                        from core.coordinate_calculation import CoordinateCalculation
+                        calc = CoordinateCalculation()
+                        new_lat2, new_lon2 = calc.point_at_distance(base_lat, base_lon, new_azimuth, 5.0)
+                        coords[1][0] = new_lon2
+                        coords[1][1] = new_lat2
             
             updated = True
             break

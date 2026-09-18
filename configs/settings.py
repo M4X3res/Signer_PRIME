@@ -108,7 +108,9 @@ class AppSettings:
     # ── Карта (подложка) ──────────────────────────────────────────
     map_tile_url: str = "https://api.maps.by/api/wmts/noLabel/QGIS/{z}/{y}/{x}?apiKey=$2a$10$xZuvOAkmzOG0ShxJ0b.HieJz8AaPdMMhghCxFqemJOMkyfWBOo/h2*$2a$10$xZuvOAkmzOG0ShxJ0b.HieMeAAWpdW4pjfIOBjpUp3afqkCugXGFu"
     map_tile_attribution: str = "© maps.by"
-    map_tile_max_zoom: int = 19
+    # BLOCK SETTINGS-1: map_tile_max_zoom зафиксирован на 17 (согласован с disableClusteringAtZoom в templates/map.html)
+    # Не редактируется из UI. Для пользователей с сохранёнными старыми значениями (19) применяется min(value, 17) в api_map_config.
+    map_tile_max_zoom: int = 17
     map_tile_type: Literal["raster", "vector"] = "raster"  # Тип подложки: растровые (PNG/JPG) или векторные (.pbf)
     map_tile_use_proxy: bool = True  # Использовать серверный прокси для векторных тайлов (обходит CORS)
     

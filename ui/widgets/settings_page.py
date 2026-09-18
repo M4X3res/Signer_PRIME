@@ -309,7 +309,11 @@ class SettingsPage(QWidget):
         self._map_tile_url_edit = QLineEdit()
         self._map_tile_url_edit.setFixedWidth(400)
         self._map_tile_url_edit.setText(self._settings.map_tile_url)
+        # BLOCK SETTINGS-3: Показываем начало URL, а не конец
+        self._map_tile_url_edit.setCursorPosition(0)
         self._map_tile_url_edit.setPlaceholderText("https://api.maps.by/api/wmts/noLabel/QGIS/{z}/{y}/{x}?apiKey=...")
+        # BLOCK SETTINGS-3: При потере фокуса возвращаем видимую область к началу строки
+        self._map_tile_url_edit.editingFinished.connect(lambda: self._map_tile_url_edit.setCursorPosition(0))
         map_group.add_row(
             "URL тайлов",
             "Шаблон подложки карты: {s}=сервер, {z}=zoom, {x}/{y}=координаты тайла",
@@ -326,15 +330,7 @@ class SettingsPage(QWidget):
             self._map_attribution_edit,
         )
 
-        self._map_max_zoom_spin = QSpinBox()
-        self._map_max_zoom_spin.setRange(1, 22)
-        self._map_max_zoom_spin.setValue(self._settings.map_tile_max_zoom)
-        self._map_max_zoom_spin.setFixedWidth(80)
-        map_group.add_row(
-            "Макс. зум",
-            "Максимальный уровень приближения карты (для OSM обычно 19)",
-            self._map_max_zoom_spin,
-        )
+        # BLOCK SETTINGS-1: Поле "Макс. зум" удалено (зафиксировано на 17 в датаклассе)
 
         # Прокси для векторных тайлов (CORS bypass)
         self._map_use_proxy_toggle = ToggleButton(self._settings.map_tile_use_proxy)
@@ -601,19 +597,7 @@ class SettingsPage(QWidget):
             self._auto_check_updates_toggle,
         )
         
-        self._update_channel_combo = QComboBox()
-        self._update_channel_combo.setFixedWidth(140)
-        self._update_channel_combo.addItems(["Стабильный", "Бета"])
-        self._update_channel_combo.setCurrentIndex(0 if self._settings.update_channel == "stable" else 1)
-        self._update_channel_combo.setToolTip(
-            "Стабильный: только финальные релизы\n"
-            "Бета: ранний доступ к новым функциям (может быть нестабильно)"
-        )
-        update_group.add_row(
-            "Канал обновлений",
-            "Выбор типа релизов для установки",
-            self._update_channel_combo,
-        )
+        # BLOCK SETTINGS-2: Поле "Канал обновлений" удалено из UI (поле update_channel остаётся в датаклассе для совместимости)
         
         # Кнопка проверки + статус
         check_updates_layout = QVBoxLayout()
@@ -1050,8 +1034,7 @@ class SettingsPage(QWidget):
                 self._settings.map_tile_url = self._map_tile_url_edit.text().strip()
             if hasattr(self, '_map_attribution_edit'):
                 self._settings.map_tile_attribution = self._map_attribution_edit.text().strip()
-            if hasattr(self, '_map_max_zoom_spin'):
-                self._settings.map_tile_max_zoom = self._map_max_zoom_spin.value()
+            # BLOCK SETTINGS-1: _map_max_zoom_spin удалён, значение фиксировано в датаклассе на 17
             if hasattr(self, '_map_use_proxy_toggle'):
                 self._settings.map_tile_use_proxy = self._map_use_proxy_toggle.is_checked()
             
@@ -1098,9 +1081,7 @@ class SettingsPage(QWidget):
             # Updates (новые настройки)
             if hasattr(self, '_auto_check_updates_toggle'):
                 self._settings.auto_check_updates = self._auto_check_updates_toggle.is_checked()
-            if hasattr(self, '_update_channel_combo'):
-                channel_idx = self._update_channel_combo.currentIndex()
-                self._settings.update_channel = "stable" if channel_idx == 0 else "beta"
+            # BLOCK SETTINGS-2: _update_channel_combo удалён (поле update_channel остаётся в датаклассе со значением "stable")
             
         except Exception as e:
             print(f"[SettingsPage] ОШИБКА в _collect_settings: {e}")
@@ -1429,10 +1410,11 @@ class SettingsPage(QWidget):
                 self._map_tile_type_combo.setCurrentIndex(0 if defaults.map_tile_type == "raster" else 1)
             if hasattr(self, '_map_tile_url_edit'):
                 self._map_tile_url_edit.setText(defaults.map_tile_url)
+                # BLOCK SETTINGS-3: Показываем начало URL после сброса
+                self._map_tile_url_edit.setCursorPosition(0)
             if hasattr(self, '_map_attribution_edit'):
                 self._map_attribution_edit.setText(defaults.map_tile_attribution)
-            if hasattr(self, '_map_max_zoom_spin'):
-                self._map_max_zoom_spin.setValue(defaults.map_tile_max_zoom)
+            # BLOCK SETTINGS-1: _map_max_zoom_spin удалён
             if hasattr(self, '_map_use_proxy_toggle'):
                 self._map_use_proxy_toggle.set_checked(defaults.map_tile_use_proxy)
             
@@ -1919,10 +1901,11 @@ class SettingsPage(QWidget):
                 self._map_tile_type_combo.setCurrentIndex(0 if map_tile_type == "raster" else 1)
             if hasattr(self, '_map_tile_url_edit'):
                 self._map_tile_url_edit.setText(settings_dict.get("map_tile_url", "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"))
+                # BLOCK SETTINGS-3: Показываем начало URL после импорта
+                self._map_tile_url_edit.setCursorPosition(0)
             if hasattr(self, '_map_attribution_edit'):
                 self._map_attribution_edit.setText(settings_dict.get("map_tile_attribution", "© OpenStreetMap"))
-            if hasattr(self, '_map_max_zoom_spin'):
-                self._map_max_zoom_spin.setValue(settings_dict.get("map_tile_max_zoom", 19))
+            # BLOCK SETTINGS-1: _map_max_zoom_spin удалён
             if hasattr(self, '_map_use_proxy_toggle'):
                 self._map_use_proxy_toggle.set_checked(settings_dict.get("map_tile_use_proxy", True))
             

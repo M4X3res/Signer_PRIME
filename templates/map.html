@@ -446,6 +446,7 @@
     display: flex;
     align-items: center;
     justify-content: center;
+    position: relative;
   }
 
   .sign-marker {
@@ -459,7 +460,8 @@
     justify-content: center;
     cursor: grab;
     transition: border-color .15s, transform .15s, opacity .15s;
-    overflow: hidden;
+    overflow: visible; /* Изменено с hidden, чтобы стрелка не обрезалась */
+    position: relative;
   }
 
   .sign-marker:active {
@@ -472,7 +474,91 @@
     z-index: 9999 !important;
   }
 
-  .sign-marker img { width: 24px; height: 24px; object-fit: contain; }
+  /* Курсор для выбранного знака указывает на возможность вращения */
+  .sign-marker.selected {
+    cursor: ns-resize; /* Вертикальный ресайз напоминает о колесе мыши */
+  }
+
+  .sign-marker img { 
+    width: 24px; 
+    height: 24px; 
+    object-fit: contain;
+    position: relative;
+    z-index: 1;
+  }
+
+  /* BLOCK MAP-AZ-1 (УЛУЧШЕНО): Стрелка-индикатор направления знака (азимут) */
+  .sign-marker-arrow {
+    position: absolute;
+    top: -18px; /* Вынесена дальше от центра для видимости */
+    left: 50%;
+    transform: translateX(-50%);
+    width: 0;
+    height: 0;
+    border-left: 6px solid transparent;
+    border-right: 6px solid transparent;
+    border-bottom: 12px solid var(--accent);
+    pointer-events: none;
+    z-index: 10000; /* Выше любого маркера */
+    filter: drop-shadow(0 1px 3px rgba(0,0,0,0.4)); /* Тень для выделения */
+    transition: filter 0.2s ease, border-bottom-color 0.2s ease;
+  }
+
+  /* Стрелка для выбранного знака — ярче и больше */
+  .sign-marker.selected .sign-marker-arrow {
+    border-left-width: 7px;
+    border-right-width: 7px;
+    border-bottom-width: 14px;
+    border-bottom-color: var(--accent-h);
+    filter: drop-shadow(0 2px 6px rgba(61, 142, 240, 0.6));
+  }
+
+  /* Анимация при активном вращении азимута */
+  .sign-marker.rotating .sign-marker-arrow {
+    border-bottom-color: var(--success);
+    filter: drop-shadow(0 2px 8px rgba(58, 158, 106, 0.8));
+    animation: pulse-arrow 0.6s ease-in-out infinite;
+  }
+
+  /* Круговая обводка при вращении для дополнительной визуальной обратной связи */
+  .sign-marker.rotating::before {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 48px;
+    height: 48px;
+    margin-top: -24px;
+    margin-left: -24px;
+    border: 3px solid var(--success);
+    border-radius: 50%;
+    opacity: 0.6;
+    animation: rotate-ring 1.5s linear infinite;
+    z-index: 0;
+  }
+
+  @keyframes pulse-arrow {
+    0%, 100% {
+      transform: translateX(-50%) scale(1);
+    }
+    50% {
+      transform: translateX(-50%) scale(1.15);
+    }
+  }
+
+  @keyframes rotate-ring {
+    0% {
+      transform: rotate(0deg) scale(1);
+      opacity: 0.6;
+    }
+    50% {
+      opacity: 0.3;
+    }
+    100% {
+      transform: rotate(360deg) scale(1.1);
+      opacity: 0.6;
+    }
+  }
 
   /* ── Position marker ─────────────────────────────── */
   .pos-marker {
@@ -601,6 +687,56 @@
     border-color: rgba(47,93,138,0.3);
     box-shadow: 0 0 0 4px rgba(47,93,138,0.15);
   }
+
+  /* BLOCK VIDEO-FS-1: Стили для fullscreen режима video-container */
+  #video-container:fullscreen {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    background: #000;
+  }
+
+  #video-container:fullscreen #map-video {
+    max-width: 100%;
+    max-height: calc(100% - 90px); /* оставляем место под controls снизу */
+    width: auto;
+    height: auto;
+  }
+
+  #video-container:fullscreen #video-controls {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    background: rgba(20, 20, 20, 0.85);
+    z-index: 10;
+  }
+
+  /* Webkit-префикс для Chromium внутри QWebEngineView */
+  #video-container:-webkit-full-screen {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    background: #000;
+  }
+
+  #video-container:-webkit-full-screen #map-video {
+    max-width: 100%;
+    max-height: calc(100% - 90px);
+    width: auto;
+    height: auto;
+  }
+
+  #video-container:-webkit-full-screen #video-controls {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    background: rgba(20, 20, 20, 0.85);
+    z-index: 10;
+  }
 </style>
 </head>
 <body>
@@ -720,6 +856,12 @@
           <div class="field-row">
             <span class="field-lbl">Азимут</span>
             <span class="field-val" id="df-azimuth">—</span>
+          </div>
+          <div class="field-row" style="margin-top: -4px; padding: 6px 12px; background: rgba(61, 142, 240, 0.08); border-radius: 4px; border-left: 3px solid var(--accent);">
+            <span class="field-val" style="font-size: 11px; color: var(--text2); line-height: 1.4;">
+              <strong style="color: var(--accent);">💡 Совет:</strong> Наведите курсор на маркер знака и крутите <strong>колесо мыши</strong> для изменения азимута.<br>
+              Зажмите <kbd style="padding: 1px 4px; background: var(--bg3); border: 1px solid var(--border); border-radius: 3px; font-size: 10px;">Shift</kbd> для точной подстройки (шаг 1°).
+            </span>
           </div>
           <div class="field-row">
             <span class="field-lbl">Сторона</span>
@@ -1115,9 +1257,12 @@ function renderMarkers() {
       ? `${API}/img/${sign.type}-${sign.description}`
       : `${API}/img/${sign.type}`;
 
+    // BLOCK MAP-AZ-1: Добавление стрелки-индикатора азимута в HTML маркера
+    const azimuth = sign.azimuth || 0;
     const icon = L.divIcon({
       className: "",
       html: `<div class="sign-marker" id="sm-${sign.id}">
+               <div class="sign-marker-arrow" style="transform: translateX(-50%) rotate(${azimuth}deg);"></div>
                <img src="${imgSrc}" alt="${sign.type}"
                     onerror="this.style.display='none'">
              </div>`,
@@ -1147,6 +1292,17 @@ function renderMarkers() {
   // Batch добавление маркеров в cluster group (F.1)
   if (markerCluster && markersToAdd.length > 0) {
     markerCluster.addLayers(markersToAdd);
+    
+    // BLOCK MAP-AZ-2: Добавление обработчиков колеса мыши для редактирования азимута
+    // Нужно подождать пока маркеры добавятся в DOM
+    setTimeout(() => {
+      signsData.forEach(sign => {
+        const markerEl = document.getElementById(`sm-${sign.id}`);
+        if (markerEl) {
+          attachAzimuthWheelHandler(sign.id, markerEl);
+        }
+      });
+    }, 100);
   }
   
   console.log(`[renderMarkers] Отрендерено маркеров: ${filteredCount} (отфильтровано ${signsData.length - filteredCount})`);
@@ -1164,6 +1320,101 @@ function renderMarkers() {
       console.log(`[renderMarkers] Трек виден, не центрируем на знаки`);
     }
   }
+}
+
+// BLOCK MAP-AZ-2 (УЛУЧШЕНО): Обработчик колеса мыши для изменения азимута
+let azimuthDebounceTimer = null;
+let azimuthRotationTimer = null; // Для снятия класса 'rotating'
+const azimuthDebounceDelay = 300; // мс
+
+function attachAzimuthWheelHandler(signId, markerEl) {
+  markerEl.addEventListener('wheel', (e) => {
+    // Работает только если знак выбран
+    if (selectedId !== signId) {
+      return; // Не перехватываем событие, карта зумится как обычно
+    }
+    
+    // Знак выбран — перехватываем колесо мыши
+    e.preventDefault();
+    e.stopPropagation();
+    
+    // Добавляем класс 'rotating' для визуальной индикации
+    markerEl.classList.add('rotating');
+    
+    // Определяем шаг изменения азимута
+    const step = e.shiftKey ? 1 : 5;
+    const delta = e.deltaY > 0 ? step : -step;
+    
+    // Находим знак в локальном кэше
+    const idx = signsData.findIndex(s => s.id === signId);
+    if (idx === -1) return;
+    
+    // Обновляем азимут
+    let newAzimuth = (signsData[idx].azimuth || 0) + delta;
+    // Нормализация в диапазон [0, 360)
+    newAzimuth = ((newAzimuth % 360) + 360) % 360;
+    
+    signsData[idx].azimuth = newAzimuth;
+    
+    // Обновляем визуально стрелку маркера
+    const arrow = markerEl.querySelector('.sign-marker-arrow');
+    if (arrow) {
+      arrow.style.transform = `translateX(-50%) rotate(${newAzimuth}deg)`;
+    }
+    
+    // Обновляем поле в панели деталей если оно открыто
+    const azimuthField = document.getElementById('df-azimuth');
+    if (azimuthField && selectedId === signId) {
+      azimuthField.textContent = Math.round(newAzimuth) + '°';
+    }
+    
+    // Убираем класс 'rotating' через короткий таймаут (визуальная обратная связь)
+    clearTimeout(azimuthRotationTimer);
+    azimuthRotationTimer = setTimeout(() => {
+      markerEl.classList.remove('rotating');
+    }, 600); // Совпадает с длительностью анимации pulse-arrow
+    
+    // Debounced отправка на сервер
+    clearTimeout(azimuthDebounceTimer);
+    azimuthDebounceTimer = setTimeout(async () => {
+      try {
+        const r = await fetch(`${API}/sign/${signId}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ azimuth: newAzimuth }),
+        });
+        
+        if (!r.ok) throw new Error(`HTTP ${r.status}`);
+        const result = await r.json();
+        if (result.error) throw new Error(result.error);
+        
+        toast(`Азимут: ${Math.round(newAzimuth)}°`, "ok");
+        console.log(`[azimuthWheel] Азимут знака ${signId} обновлён: ${newAzimuth}°`);
+        
+      } catch (err) {
+        console.error("[azimuthWheel] Ошибка сохранения азимута:", err);
+        toast("Ошибка сохранения азимута", "err");
+        
+        // Откат азимута при ошибке (перезагрузить с сервера)
+        try {
+          const r2 = await fetch(`${API}/sign/${signId}`);
+          if (r2.ok) {
+            const feat = await r2.json();
+            const originalAzimuth = feat.properties?.azimuth || 0;
+            signsData[idx].azimuth = originalAzimuth;
+            if (arrow) {
+              arrow.style.transform = `translateX(-50%) rotate(${originalAzimuth}deg)`;
+            }
+            if (azimuthField && selectedId === signId) {
+              azimuthField.textContent = Math.round(originalAzimuth) + '°';
+            }
+          }
+        } catch (rollbackErr) {
+          console.error("[azimuthWheel] Ошибка отката азимута:", rollbackErr);
+        }
+      }
+    }, azimuthDebounceDelay);
+  });
 }
 
 // ЗАДАЧА 2 (P1): Обработчик перетаскивания маркера
@@ -2663,13 +2914,14 @@ function setPlaybackSpeed(speed) {
 }
 
 // Полноэкранный режим
+// BLOCK VIDEO-FS-1: Полноэкранный режим с доступом к элементам управления
 function toggleFullscreen() {
-  const video = document.getElementById("map-video");
-  if (!video) return;
+  const container = document.getElementById("video-container");
+  if (!container) return;
   
   if (!document.fullscreenElement) {
-    video.requestFullscreen().then(() => {
-      console.log("[toggleFullscreen] Полноэкранный режим включен");
+    container.requestFullscreen().then(() => {
+      console.log("[toggleFullscreen] Полноэкранный режим включен (container)");
     }).catch(err => {
       console.error("[toggleFullscreen] Ошибка:", err);
       toast("Ошибка полноэкранного режима", "err");
@@ -2679,6 +2931,15 @@ function toggleFullscreen() {
     console.log("[toggleFullscreen] Полноэкранный режим выключен");
   }
 }
+
+// BLOCK VIDEO-FS-1: Слушатель смены состояния fullscreen для отладки
+document.addEventListener("fullscreenchange", () => {
+  if (document.fullscreenElement) {
+    console.log("[fullscreenchange] Вошли в fullscreen:", document.fullscreenElement.id);
+  } else {
+    console.log("[fullscreenchange] Вышли из fullscreen");
+  }
+});
 
 // Открыть видео в отдельном окно
 let videoWindow = null;
