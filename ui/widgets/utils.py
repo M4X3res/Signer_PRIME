@@ -43,11 +43,23 @@ def connect_combobox_theme_updates(combo: QComboBox) -> None:
         combo: QComboBox для подключения
     """
     def update_theme(_theme_name: str):
+        from pathlib import Path
+        t = theme_manager.tokens
+        arrow = (Path(__file__).resolve().parents[2] / 'assets/ui/chevron-down.svg').as_posix()
+        combo.setStyleSheet(f"""
+            QComboBox {{ background: {t['bg_tertiary']}; color: {t['text_primary']};
+                border: 1px solid {t['border_default']}; border-radius: 9px;
+                padding: 6px 32px 6px 12px; min-height: 22px; font-size: 13px; }}
+            QComboBox:hover {{ border-color: {t['border_strong']}; }}
+            QComboBox:focus {{ border-color: {t['accent']}; }}
+            QComboBox::drop-down {{ border: none; width: 28px; padding: 0; background: transparent; }}
+            QComboBox::down-arrow {{ image: url("{arrow}"); border: none; margin: 0; width: 16px; height: 16px; }}
+        """)
         style_combobox_popup(combo)
     
     theme_manager.theme_changed.connect(update_theme)
     # Применяем сразу
-    style_combobox_popup(combo)
+    update_theme(theme_manager.current.value)
 
 
 class EmptyStatePlaceholder(QWidget):

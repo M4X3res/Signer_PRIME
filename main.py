@@ -134,13 +134,16 @@ def setup_environment():
             intra = settings.cpu_onnx_intra_threads or max(1, cpu_count - 1)
             ov_threads = settings.cpu_openvino_threads or intra
             
+            # ЗАДАЧА 1.3: передаём parallel_execution=True для CPU-бэкендов
+            # (обработка на CPU почти всегда работает с батчами кропов знаков)
             apply_cpu_thread_limits(
                 intra_threads=intra,
                 inter_threads=settings.cpu_onnx_inter_threads,
                 openvino_threads=ov_threads,
                 disable_cuda_providers=True,
+                parallel_execution=True,  # ЗАДАЧА 1.3
             )
-            logger.info(f"[main] CPU inference threads: intra={intra}, openvino={ov_threads} (Task F: восстановлена многопоточность)")
+            logger.info(f"[main] CPU inference threads: intra={intra}, openvino={ov_threads}, parallel_execution=True (Task F+1.3)")
     except Exception as e:
         logger.warning(f"[main] Не удалось применить CPU thread limits: {e}")
     
@@ -281,14 +284,19 @@ def main():
             # Сетевая ошибка → блокируем запуск с возможностью повтора
             logger.error(f"Не удалось подключиться к серверу лицензий: {error_msg}")
             
+            # ЗАДАЧА 2: обновляем текст диалога, чтобы показать, что было несколько попыток
+            from configs.settings import get_app_settings
+            settings = get_app_settings()
+            
             while True:
                 reply = QMessageBox.critical(
                     None,
                     "Ошибка подключения",
-                    "Не удалось подключиться к серверу лицензий.\n"
-                    "Проверьте интернет-соединение.\n\n"
+                    f"Не удалось подключиться к серверу лицензий.\n"
+                    f"Проверьте интернет-соединение.\n\n"
+                    f"Приложение уже выполнило {settings.license_connect_retry_attempts} попытки подключения.\n"
                     f"Ошибка: {error_msg or 'Неизвестная ошибка'}\n\n"
-                    "Попробовать снова?",
+                    f"Попробовать снова?",
                     QMessageBox.StandardButton.Retry | QMessageBox.StandardButton.Cancel
                 )
                 
@@ -333,6 +341,12 @@ def main():
             )
             return
         
+        # A retry or activation dialog must never bypass online authorization.
+        if not license_manager.has_online_access():
+            QMessageBox.critical(None, "Лицензия", "Доступ не подтверждён сервером. Запуск отменён.")
+            return
+        from licensing.access import set_manager
+        set_manager(license_manager)
         logger.info("Создание главного окна...")
         window = MainWindow()
         
@@ -342,70 +356,9 @@ def main():
         window.show()
         
         # ════════════════════════════════════════════════════════════════
-        # Задача 2: Запуск runtime мониторинга лицензии
+        # Реакция на проверки лицензии после ключевых действий
         # ════════════════════════════════════════════════════════════════
-        # Флаг для предотвращения двойного вызова _show_license_expired_and_quit
-        _quit_dialog_shown = False
-        
-        def _on_license_status_changed(status: LicenseStatus):
-            """Обработчик изменения статуса лицензии во время работы приложения."""
-            nonlocal _quit_dialog_shown
-            
-            if status in (LicenseStatus.EXPIRED, LicenseStatus.REVOKED):
-                logger.warning(f"Лицензия стала недействительна во время работы: {status.value}")
-                
-                # Проверяем, идёт ли обработка видео - если да, даём завершить
-                try:
-                    if hasattr(window, '_controller') and hasattr(window._controller, 'is_running'):
-                        if window._controller.is_running:
-                            logger.info("Обнаружена активная обработка, даём завершить перед закрытием...")
-                            # Мягко останавливаем обработку
-                            if hasattr(window, '_on_finish_requested'):
-                                window._on_finish_requested()
-                            
-                            # БАГ 6: Используем UniqueConnection чтобы избежать дублирования подключений
-                            try:
-                                window.results_saved.connect(
-                                    _show_license_expired_and_quit,
-                                    Qt.ConnectionType.UniqueConnection
-                                )
-                            except TypeError:
-                                # Уже подключено - игнорируем
-                                pass
-                            
-                            # Подстраховка: жёсткий потолок ожидания 5 минут
-                            # (если сохранение зависнет, не держим приложение навечно)
-                            from PyQt6.QtCore import QTimer
-                            QTimer.singleShot(5 * 60 * 1000, _show_license_expired_and_quit)
-                            return
-                except Exception as e:
-                    logger.error(f"Ошибка при проверке статуса обработки: {e}")
-                
-                # Если обработки нет или ошибка - сразу показываем диалог
-                _show_license_expired_and_quit()
-        
-        def _show_license_expired_and_quit():
-            """Показывает критический диалог и закрывает приложение."""
-            nonlocal _quit_dialog_shown
-            
-            # Идемпотентность: не показываем диалог дважды
-            if _quit_dialog_shown:
-                return
-            _quit_dialog_shown = True
-            
-            from PyQt6.QtWidgets import QMessageBox
-            QMessageBox.critical(
-                window,
-                "Лицензия недействительна",
-                "Ваша подписка истекла или была отозвана.\n"
-                "Приложение будет закрыто. Пожалуйста, активируйте лицензию заново.",
-            )
-            app.quit()
-        
-        # ВАЖНО: сохранить ссылку на таймер, иначе Python GC соберёт его
-        window._license_monitor_timer = license_manager.start_runtime_monitor(
-            _on_license_status_changed
-        )
+        license_manager.access_changed.connect(window.on_license_access_changed)
         logger.info("Runtime мониторинг лицензии запущен")
         
         # Очистка старых временных файлов обновления
@@ -419,29 +372,43 @@ def main():
         logger.info("Приложение готово к работе")
         
         # ════════════════════════════════════════════════════════════════
-        # Проверка обновлений в фоне (только в frozen build)
+        # БАГ-1: Проверка локального баннера "обновлено" (не зависит от auto_check_updates)
         # ════════════════════════════════════════════════════════════════
-        # ВРЕМЕННО: всегда проверяем обновления для тестирования
-        if True:  # getattr(sys, "frozen", False) or os.environ.get("SIGNER_FORCE_UPDATE_CHECK") == "1":
+        # Вынесено ИЗ условия автопроверки — это чисто локальная проверка QSettings,
+        # не требующая сетевого запроса и не должна зависеть от настройки автообновлений.
+        from PyQt6.QtCore import QSettings
+        settings = QSettings("Signer", "RoadScanner")
+        last_known_version = settings.value("last_known_version", "")
+        
+        if last_known_version and last_known_version != APP_VERSION:
+            # Версия изменилась - показываем уведомление
+            logger.info(f"Версия изменилась: {last_known_version} -> {APP_VERSION}")
+            # Показываем в статус-баре главного окна (БАГ-3: исправлен вызов set_status)
+            if hasattr(window, 'status_bar'):
+                window.status_bar.set_status(f"Signer обновлён до версии {APP_VERSION}", duration_ms=10000)
+            
+            # Обновляем сохранённую версию
+            settings.setValue("last_known_version", APP_VERSION)
+        
+        # ════════════════════════════════════════════════════════════════
+        # БАГ-1: Фоновая сетевая проверка обновлений (зависит от настроек)
+        # ════════════════════════════════════════════════════════════════
+        # Проверяем три условия:
+        # 1. Frozen build ИЛИ форс-флаг в окружении
+        # 2. Пользователь включил автопроверку в настройках
+        from configs.settings import get_app_settings
+        app_settings = get_app_settings()
+        
+        should_check_for_updates = (
+            (getattr(sys, "frozen", False) or os.environ.get("SIGNER_FORCE_UPDATE_CHECK") == "1")
+            and app_settings.auto_check_updates
+        )
+        
+        if should_check_for_updates:
             from ui.widgets.update_worker import UpdateCheckWorker
             from ui.widgets.update_dialog import UpdateDialog
-            from PyQt6.QtCore import QSettings
             
             logger.info("Запуск фоновой проверки обновлений...")
-            
-            # Проверяем, изменилась ли версия после обновления
-            settings = QSettings("Signer", "RoadScanner")
-            last_known_version = settings.value("last_known_version", "")
-            
-            if last_known_version and last_known_version != APP_VERSION:
-                # Версия изменилась - показываем уведомление
-                logger.info(f"Версия изменилась: {last_known_version} -> {APP_VERSION}")
-                # Показываем в статус-баре главного окна
-                if hasattr(window, 'status_bar'):
-                    window.status_bar.set_status(f"Signer обновлён до версии {APP_VERSION}", 10000)
-                
-                # Обновляем сохранённую версию
-                settings.setValue("last_known_version", APP_VERSION)
             
             # Функция для обработки результата проверки обновлений
             def _on_update_check_finished(update_info):
@@ -456,8 +423,8 @@ def main():
                                 from updater import updater
                                 from pathlib import Path
                                 
-                                # Сохраняем текущую версию перед обновлением
-                                settings.setValue("last_known_version", APP_VERSION)
+                                # БАГ-4: Используем единую функцию mark_update_pending
+                                updater.mark_update_pending(APP_VERSION)
                                 
                                 # Определяем директорию установки
                                 if getattr(sys, "frozen", False):
@@ -494,8 +461,8 @@ def main():
             def _on_update_check_error(error_msg):
                 logger.warning(f"Ошибка проверки обновлений: {error_msg}")
             
-            # Запускаем воркер проверки
-            update_worker = UpdateCheckWorker()
+            # БАГ-2: Передаём канал обновлений в воркер
+            update_worker = UpdateCheckWorker(channel=app_settings.update_channel)
             update_worker.finished_check.connect(_on_update_check_finished)
             update_worker.error.connect(_on_update_check_error)
             update_worker.start()
@@ -512,6 +479,78 @@ def main():
 
 
 if __name__ == "__main__":
+    # ════════════════════════════════════════════════════════════════
+    # HEADLESS РЕЖИМ: --verify-backends (для scripts/build/verify_cpu_backends.py)
+    # ════════════════════════════════════════════════════════════════
+    if "--verify-backends" in sys.argv:
+        import json
+        
+        # Минимальная настройка окружения без GUI
+        os.environ["KMP_DUPLICATE_LIB_OK"] = "TRUE"
+        os.environ["OMP_NUM_THREADS"] = "1"
+        
+        # Базовое логирование
+        logging.basicConfig(
+            level=logging.INFO,
+            format='%(asctime)s [%(levelname)s] %(message)s',
+            handlers=[logging.StreamHandler(sys.stdout)]
+        )
+        logger = logging.getLogger(__name__)
+        
+        try:
+            from configs import sign_models
+            from configs.settings import AppSettings
+            
+            # Проверяем оба backend'а
+            results = {}
+            for backend_name in ["onnx", "openvino"]:
+                logger.info(f"Проверка backend: {backend_name}")
+                
+                # Временные настройки для этого backend
+                temp_settings = AppSettings()
+                temp_settings.use_cuda = False
+                temp_settings.cpu_inference_backend = backend_name
+                
+                # Патчим get_app_settings
+                import configs.settings
+                original = configs.settings.get_app_settings
+                configs.settings.get_app_settings = lambda: temp_settings
+                
+                try:
+                    # Сбрасываем кеш и проверяем
+                    sign_models.reload_all_models_if_device_changed()
+                    backend_status = sign_models.verify_backend_active()
+                    
+                    # Проверяем результат
+                    errors = []
+                    for model_name, actual_backend in backend_status.items():
+                        if actual_backend != backend_name:
+                            errors.append(f"{model_name}: {actual_backend}")
+                    
+                    results[backend_name] = {
+                        "success": len(errors) == 0,
+                        "errors": errors
+                    }
+                finally:
+                    configs.settings.get_app_settings = original
+            
+            # Выводим результат в JSON
+            all_success = all(r["success"] for r in results.values())
+            output = {
+                "success": all_success,
+                "backends": results
+            }
+            print("\n=== VERIFICATION RESULT ===")
+            print(json.dumps(output, indent=2))
+            
+            sys.exit(0 if all_success else 1)
+            
+        except Exception as e:
+            logger.error(f"Критическая ошибка: {e}", exc_info=True)
+            sys.exit(1)
+    
+    # ════════════════════════════════════════════════════════════════
+    
     # КРИТИЧНО для multiprocessing на Windows
     from multiprocessing import freeze_support, current_process
     freeze_support()

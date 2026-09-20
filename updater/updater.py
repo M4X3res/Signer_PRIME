@@ -22,7 +22,8 @@ logger = logging.getLogger(__name__)
 
 # Константы GitHub
 GITHUB_REPO = "M4X3res/Signer_PRIME"
-GITHUB_API_URL = f"https://api.github.com/repos/{GITHUB_REPO}/releases/latest"
+GITHUB_API_RELEASES_URL = f"https://api.github.com/repos/{GITHUB_REPO}/releases"
+GITHUB_API_LATEST_URL = f"{GITHUB_API_RELEASES_URL}/latest"
 ARCHIVE_PREFIX = "Signer.7z."
 CHECKSUM_FILE = "checksum.sha256"
 
@@ -58,9 +59,12 @@ def _parse_version(version_str: str) -> tuple[int, ...]:
         return (0, 0, 0)
 
 
-def check_for_update() -> Optional[UpdateInfo]:
+def check_for_update(channel: str = "stable") -> Optional[UpdateInfo]:
     """
     Проверяет наличие обновления через GitHub API.
+    
+    Args:
+        channel: Канал обновлений - "stable" (только релизы) или "beta" (включая pre-release)
     
     Returns:
         UpdateInfo если найдено более новое обновление, иначе None.
@@ -72,9 +76,17 @@ def check_for_update() -> Optional[UpdateInfo]:
     
     for attempt in range(1, max_retries + 1):
         try:
-            logger.info(f"Проверка обновлений для версии {APP_VERSION} (попытка {attempt}/{max_retries})...")
+            logger.info(f"Проверка обновлений для версии {APP_VERSION} (попытка {attempt}/{max_retries}, канал: {channel})...")
             
-            response = requests.get(GITHUB_API_URL, timeout=REQUEST_TIMEOUT)
+            # БАГ-2: Выбираем URL в зависимости от канала
+            if channel == "beta":
+                # Бета: запрашиваем список всех релизов (включая pre-release)
+                api_url = GITHUB_API_RELEASES_URL
+            else:
+                # Stable: только последний стабильный релиз
+                api_url = GITHUB_API_LATEST_URL
+            
+            response = requests.get(api_url, timeout=REQUEST_TIMEOUT)
             
             # Проверка rate-limit
             if response.status_code == 403:
@@ -86,7 +98,17 @@ def check_for_update() -> Optional[UpdateInfo]:
                 return None
             
             response.raise_for_status()
-            data = response.json()
+            payload = response.json()
+            
+            # БАГ-2: Для beta-канала берём первый элемент списка
+            if channel == "beta":
+                if not isinstance(payload, list) or len(payload) == 0:
+                    logger.info("Список релизов пуст")
+                    return None
+                data = payload[0]  # GitHub сортирует по created_at DESC
+            else:
+                # Для stable API возвращает единственный объект
+                data = payload
             
             # Парсинг версии
             latest_version = data.get("tag_name", "").lstrip("v")
@@ -118,7 +140,7 @@ def check_for_update() -> Optional[UpdateInfo]:
                 
                 if name == "manifest.json":
                     manifest_url = url
-                elif name == "delta_manifest.json":
+                elif name == f"delta-from-{APP_VERSION}.json":
                     delta_manifest_url = url
                 elif name == delta_zip_name:
                     delta_zip_url = url
@@ -132,7 +154,7 @@ def check_for_update() -> Optional[UpdateInfo]:
                     version=latest_version,
                     release_notes=release_notes,
                     assets=[(delta_zip_name, delta_zip_url, delta_zip_size),
-                           ("delta_manifest.json", delta_manifest_url, 0)],
+                           (f"delta-from-{APP_VERSION}.json", delta_manifest_url, 0)],
                     total_size_bytes=delta_zip_size,
                     is_delta=True,
                     delta_manifest_url=delta_manifest_url,
@@ -145,7 +167,7 @@ def check_for_update() -> Optional[UpdateInfo]:
             
             for asset in assets_data:
                 name = asset.get("name", "")
-                if name.startswith(ARCHIVE_PREFIX) or name == CHECKSUM_FILE:
+                if name.startswith(ARCHIVE_PREFIX) or name in (CHECKSUM_FILE, "manifest.json"):
                     url = asset.get("browser_download_url", "")
                     size = asset.get("size", 0)
                     if url:
@@ -209,7 +231,8 @@ def download_assets(
                 logger.info(f"Загрузка отменена перед скачиванием {name}")
                 return False
             
-            file_path = dest_dir / name
+            from updater.transaction import safe_path
+            file_path = safe_path(dest_dir, name)
             part_file_path = dest_dir / f"{name}.part"
             
             # Проверяем наличие частично скачанного файла
@@ -252,6 +275,8 @@ def download_assets(
                 
                 response.raise_for_status()
                 
+                if mode == "wb":
+                    existing_size = 0
                 downloaded = existing_size
                 chunk_size = 1024 * 1024  # 1 MB
                 last_update_time = time.time()
@@ -284,9 +309,11 @@ def download_assets(
                 if progress_cb:
                     progress_cb(name, downloaded, total_size, 0)
                 
+                if total_size and part_file_path.stat().st_size != total_size:
+                    raise ValueError(f"Incomplete download: {name}")
                 # Переименовываем .part в финальное имя
                 if part_file_path.exists():
-                    part_file_path.rename(file_path)
+                    os.replace(part_file_path, file_path)
                 
                 logger.info(f"Скачивание {name} завершено")
                 
@@ -380,7 +407,7 @@ def verify_checksum(dest_dir: Path, checksum_filename: str = CHECKSUM_FILE) -> b
         
         # Парсим чексуммы
         checksums = {}
-        with open(checksum_file, "r", encoding="utf-8") as f:
+        with open(checksum_file, "r", encoding="utf-8-sig") as f:
             for line in f:
                 line = line.strip()
                 if not line or line.startswith("#"):
@@ -402,11 +429,12 @@ def verify_checksum(dest_dir: Path, checksum_filename: str = CHECKSUM_FILE) -> b
         all_valid = True
         
         for filename, expected_hash in checksums.items():
-            file_path = dest_dir / filename
+            from updater.transaction import safe_path
+            file_path = safe_path(dest_dir, filename)
             
             if not file_path.exists():
                 logger.warning(f"Файл не найден для проверки: {filename}")
-                continue
+                return False
             
             # Вычисляем SHA-256
             sha256 = hashlib.sha256()
@@ -482,6 +510,13 @@ def launch_updater_and_exit(
         else:
             seven_zip_exe = Path(__file__).parent.parent / "installer" / SEVEN_ZIP_EXE
         
+        # Run a copy so Windows permits replacement of installed Updater.exe.
+        import shutil
+        runner_dir = temp_dir / '_runner'
+        runner_dir.mkdir(parents=True, exist_ok=True)
+        runner = runner_dir / 'Updater.exe'
+        shutil.copy2(updater_exe, runner)
+        updater_exe = runner
         # Формируем аргументы
         args = [
             str(updater_exe),
@@ -515,13 +550,20 @@ def launch_updater_and_exit(
         raise
 
 
+def get_update_temp_dir() -> Path:
+    """Keep downloads on the installation volume, with no system-temp fallback."""
+    import sys
+    install = Path(sys.executable).resolve().parent if getattr(sys, 'frozen', False) else Path(__file__).resolve().parents[1]
+    return install / '.signer-update-cache'
+
+
 def cleanup_stale_update_temp() -> None:
     """
     Очищает старую временную папку обновлений, если она осталась от неудачного обновления.
     Вызывается при старте приложения.
     """
     try:
-        temp_dir = Path(os.environ.get("LOCALAPPDATA", ".")) / "Signer" / "UpdateTemp"
+        temp_dir = get_update_temp_dir()
         
         if not temp_dir.exists():
             return
@@ -538,3 +580,22 @@ def cleanup_stale_update_temp() -> None:
         
     except Exception as e:
         logger.warning(f"Не удалось очистить временную папку: {e}")
+
+
+def mark_update_pending(current_version: str) -> None:
+    """
+    Единая точка сохранения "версии перед обновлением" в QSettings.
+    
+    БАГ-4: Обязана вызываться ИЗ ЛЮБОГО места, инициирующего запуск Updater —
+    иначе баннер "Signer обновлён до версии X" после перезапуска не покажется.
+    Раньше эта запись дублировалась в main.py и settings_page.py, и во
+    втором месте её забыли добавить.
+    
+    Args:
+        current_version: Текущая версия приложения (APP_VERSION)
+    """
+    from PyQt6.QtCore import QSettings
+    qs = QSettings("Signer", "RoadScanner")
+    qs.setValue("last_known_version", current_version)
+    qs.sync()
+    logger.info(f"Сохранена текущая версия перед обновлением: {current_version}")

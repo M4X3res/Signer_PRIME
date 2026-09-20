@@ -2,7 +2,7 @@
 ThemeManager - управление темами RoadScanner
 Поддерживает современный и классический дизайн
 """
-from PyQt6.QtGui import QPalette, QColor
+from PyQt6.QtGui import QPalette, QColor, QFont, QFontDatabase
 from PyQt6.QtWidgets import QApplication
 from PyQt6.QtCore import QObject, pyqtSignal, QSettings
 from enum import Enum
@@ -70,6 +70,9 @@ class ThemeManager(QObject):
         """Применяет текущую тему к приложению"""
         t = self.tokens
         qss = build_modern_qss(t)
+        families = QFontDatabase.families()
+        family = "Segoe UI Variable" if "Segoe UI Variable" in families else "Segoe UI"
+        app.setFont(QFont(family, 10))
         app.setStyleSheet(qss)
         self.theme_changed.emit(self._current.value)
         self._save_theme()

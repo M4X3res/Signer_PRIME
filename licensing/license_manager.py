@@ -1,16 +1,18 @@
 """
 licensing/license_manager.py
-Основной менеджер лицензий: проверка, активация, refresh, grace period.
+Онлайн-проверка лицензии при запуске, ключевых действиях и каждые пять минут.
 """
 import json
 import logging
 import os
 import time
+import tempfile
+import threading
 from enum import Enum
 from pathlib import Path
 from typing import Optional, Tuple, Callable, Dict, Any
 
-from PyQt6.QtCore import QThread, pyqtSignal
+from PyQt6.QtCore import QObject, QThread, pyqtSignal, pyqtSlot
 
 from .device_fingerprint import get_device_fingerprint, get_device_label
 from .license_client import LicenseClient, LicenseResponse
@@ -38,7 +40,7 @@ class LicenseStatus(Enum):
     NETWORK_ERROR = "network_error"     # Ошибка сети (для информирования UI)
 
 
-class LicenseManager:
+class LicenseManager(QObject):
     """
     Менеджер лицензий.
     
@@ -49,13 +51,17 @@ class LicenseManager:
     - refresh_async(callback) -> None (в QThread, для runtime мониторинга)
     - deactivate_this_device() -> (success, error_message)
     - get_plan_info() -> dict | None
-    - start_runtime_monitor(on_status_changed) -> QTimer
     """
     
-    # Интервал runtime проверки лицензии (часы)
-    RUNTIME_CHECK_INTERVAL_HOURS = 6
+    access_changed = pyqtSignal(object)
     
     def __init__(self):
+        super().__init__()
+        self._verification_lock = threading.RLock()
+        self._online_until = 0.0
+        self._access_status = LicenseStatus.NOT_ACTIVATED
+        self._verify_callbacks = []
+        self._verify_running = False
         self.client = LicenseClient()
         self.token_path = self._get_token_path()
         self.fingerprint = get_device_fingerprint()
@@ -109,6 +115,15 @@ class LicenseManager:
             self._delete_token()  # Удаляем невалидный токен
             return LicenseStatus.NOT_ACTIVATED
         
+        return self._payload_status(payload)
+
+    def _payload_status(self, payload) -> LicenseStatus:
+        if not isinstance(payload, dict):
+            return LicenseStatus.NOT_ACTIVATED
+        if any(type(payload.get(key)) is not int for key in ('issued_at', 'current_period_end')):
+            return LicenseStatus.NOT_ACTIVATED
+        if not payload.get('license_key') or not payload.get('device_id'):
+            return LicenseStatus.NOT_ACTIVATED
         # 3. Извлекаем данные
         status = payload.get("status")
         current_period_end = payload.get("current_period_end", 0)
@@ -130,12 +145,31 @@ class LicenseManager:
             return LicenseStatus.REVOKED
         
         # 6. Проверяем окончание подписки
-        if current_period_end < now:
+        if current_period_end <= now:
             logger.warning(f"[LicenseManager] License expired: {current_period_end} < {now}")
             return LicenseStatus.EXPIRED
         
         # Всё ОК локально
         return LicenseStatus.VALID
+
+    def has_online_access(self) -> bool:
+        return (self._access_status == LicenseStatus.VALID and
+                time.monotonic() < self._online_until)
+
+    def _record_access(self, status):
+        self._access_status = status
+        if status != LicenseStatus.VALID:
+            self._online_until = 0.0
+        self.access_changed.emit(status)
+
+    def _accept_server_token(self, token):
+        if not isinstance(token, str) or not token:
+            raise ValueError('Сервер не прислал токен лицензии')
+        valid, payload, error = verify_token(token)
+        if not valid or self._payload_status(payload) != LicenseStatus.VALID:
+            raise ValueError('Сервер прислал недействительный токен лицензии')
+        self._save_token(token)
+        self._online_until = time.monotonic() + max(0, payload['current_period_end'] - time.time())
     
     def activate(self, license_key: str) -> Tuple[bool, str]:
         """
@@ -170,8 +204,13 @@ class LicenseManager:
             error_msg = self._format_error_message(response)
             return False, error_msg
         
-        # Сохраняем токен
-        self._save_token(response.token)
+        try:
+            with self._verification_lock:
+                self._accept_server_token(response.token)
+                self._record_access(LicenseStatus.VALID)
+        except (ValueError, OSError) as error:
+            self._record_access(LicenseStatus.NETWORK_ERROR)
+            return False, str(error)
         logger.info("[LicenseManager] License activated successfully")
         
         return True, ""
@@ -190,19 +229,34 @@ class LicenseManager:
         Args:
             on_result: callback(status: LicenseStatus, error_msg: Optional[str])
         """
+        self._verify_callbacks.append(on_result)
+        if self._verify_running:
+            return
+        self._verify_running = True
         worker = VerifyAccessWorker(self)
         
         # Сохраняем ссылку на воркер
         self._verify_workers.add(worker)
         
-        def _cleanup_and_callback(status: LicenseStatus, error_msg: Optional[str]):
-            """Wrapper который удаляет воркер после завершения."""
-            on_result(status, error_msg)
-            self._verify_workers.discard(worker)
-            worker.deleteLater()
-        
-        worker.finished.connect(_cleanup_and_callback)
+        worker.result.connect(self._deliver_verification)
+        worker.finished.connect(self._release_verify_worker)
         worker.start()
+
+    @pyqtSlot(object, object)
+    def _deliver_verification(self, status, error):
+        self._verify_running = False
+        callbacks, self._verify_callbacks = self._verify_callbacks, []
+        for callback in callbacks:
+            try:
+                callback(status, error)
+            except Exception:
+                logger.exception('License verification callback failed')
+
+    @pyqtSlot()
+    def _release_verify_worker(self):
+        worker = self.sender()
+        self._verify_workers.discard(worker)
+        worker.deleteLater()
     
     def refresh_async(self, on_done: Callable[[bool], None]) -> None:
         """
@@ -213,23 +267,13 @@ class LicenseManager:
         Args:
             on_done: callback(success: bool)
         """
-        worker = RefreshWorker(self)
-        
-        # БАГ 1: Сохраняем ссылку на воркер чтобы PyQt не собрал его GC
-        self._refresh_workers.add(worker)
-        
-        def _cleanup_and_callback(success: bool):
-            """Wrapper который удаляет воркер после завершения."""
-            # Сначала вызываем пользовательский callback
-            on_done(success)
-            # Потом удаляем ссылку и планируем deleteLater
-            self._refresh_workers.discard(worker)
-            worker.deleteLater()
-        
-        worker.finished.connect(_cleanup_and_callback)
-        worker.start()
-    
+        self.verify_access_async(lambda status, error: on_done(status == LicenseStatus.VALID))
+
     def deactivate_this_device(self) -> Tuple[bool, str]:
+        with self._verification_lock:
+            return self._deactivate_locked()
+
+    def _deactivate_locked(self) -> Tuple[bool, str]:
         """
         Деактивировать это устройство (освободить слот).
         
@@ -255,6 +299,7 @@ class LicenseManager:
         
         # Удаляем локальный токен
         self._delete_token()
+        self._record_access(LicenseStatus.NOT_ACTIVATED)
         logger.info("[LicenseManager] Device deactivated successfully")
         
         return True, ""
@@ -281,7 +326,7 @@ class LicenseManager:
             return None
         
         valid, payload, error = verify_token(token_str)
-        if not valid:
+        if not valid or not isinstance(payload, dict):
             return None
         
         return {
@@ -290,46 +335,6 @@ class LicenseManager:
             "license_key": payload.get("license_key"),
             "issued_at": payload.get("issued_at")
         }
-    
-    def start_runtime_monitor(self, on_status_changed: Callable[[LicenseStatus], None]):
-        """
-        Запускает QTimer, который каждые RUNTIME_CHECK_INTERVAL_HOURS часов
-        асинхронно обновляет токен (refresh_async) и уведомляет
-        on_status_changed новым статусом.
-        
-        Таймер должен быть создан ПОСЛЕ QApplication и жить пока живо главное окно.
-        Вызывающий код отвечает за то, чтобы держать ссылку на QTimer
-        (иначе Python GC его соберёт).
-        
-        Args:
-            on_status_changed: callback(LicenseStatus) - вызывается при изменении статуса
-        
-        Returns:
-            QTimer объект (сохраните ссылку на него!)
-        """
-        from PyQt6.QtCore import QTimer
-        
-        timer = QTimer()
-        interval_ms = self.RUNTIME_CHECK_INTERVAL_HOURS * 60 * 60 * 1000
-        timer.setInterval(interval_ms)
-        
-        def _tick():
-            """Callback для таймера - проверяет лицензию асинхронно."""
-            def _on_refresh_done(success: bool):
-                # После refresh проверяем новый статус
-                new_status = self.check_local_status()
-                logger.info(f"[LicenseManager] Runtime check: status={new_status.value}, refresh_success={success}")
-                on_status_changed(new_status)
-            
-            # Запускаем асинхронный refresh
-            self.refresh_async(_on_refresh_done)
-        
-        timer.timeout.connect(_tick)
-        timer.start()
-        
-        logger.info(f"[LicenseManager] Runtime monitor started (interval: {self.RUNTIME_CHECK_INTERVAL_HOURS}h)")
-        
-        return timer
     
     # ════════════════════════════════════════════════════════════════
     # Внутренние методы
@@ -356,21 +361,22 @@ class LicenseManager:
         try:
             with open(self.token_path, 'r', encoding='utf-8') as f:
                 data = json.load(f)
-            return data
+            return data if isinstance(data, dict) else None
         except Exception as e:
             logger.error(f"[LicenseManager] Error loading token: {e}")
             return None
     
     def _save_token(self, token_str: str) -> None:
         """Сохранить токен в файл."""
+        fd, name = tempfile.mkstemp(prefix='license-', suffix='.tmp', dir=self.token_path.parent)
         try:
-            data = {"token": token_str}
-            with open(self.token_path, 'w', encoding='utf-8') as f:
-                json.dump(data, f, indent=2)
-            
-            logger.info(f"[LicenseManager] Token saved to {self.token_path}")
-        except Exception as e:
-            logger.error(f"[LicenseManager] Error saving token: {e}")
+            with os.fdopen(fd, 'w', encoding='utf-8') as stream:
+                json.dump({'token': token_str}, stream)
+                stream.flush()
+                os.fsync(stream.fileno())
+            os.replace(name, self.token_path)
+        finally:
+            Path(name).unlink(missing_ok=True)
     
     def _delete_token(self) -> None:
         """Удалить файл токена."""
@@ -403,6 +409,16 @@ class LicenseManager:
         return error_texts.get(error_code, f"{error_code}: {error_msg}")
     
     def _verify_access_internal(self) -> Tuple[LicenseStatus, Optional[str]]:
+        with self._verification_lock:
+            try:
+                status, error = self._verify_access_locked()
+            except Exception as exc:
+                logger.exception('License verification failed')
+                status, error = LicenseStatus.NETWORK_ERROR, str(exc)
+            self._record_access(status)
+            return status, error
+
+    def _verify_access_locked(self) -> Tuple[LicenseStatus, Optional[str]]:
         """
         Внутренний метод проверки доступа (синхронный).
         Используется VerifyAccessWorker в QThread.
@@ -442,7 +458,7 @@ class LicenseManager:
         # 4. Обработка ответа сервера
         if response.success:
             # Сервер подтвердил активный статус → сохраняем обновлённый токен
-            self._save_token(response.token)
+            self._accept_server_token(response.token)
             logger.info("[LicenseManager] Server verified license as VALID")
             return LicenseStatus.VALID, None
         
@@ -478,38 +494,8 @@ class LicenseManager:
         Returns:
             True если успешно обновлено.
         """
-        token_data = self._load_token()
-        if not token_data:
-            logger.warning("[LicenseManager] No token to refresh")
-            return False
-        
-        token_str = token_data.get("token")
-        if not token_str:
-            logger.warning("[LicenseManager] No token to refresh")
-            return False
-        
-        logger.info("[LicenseManager] Refreshing license token...")
-        
-        response = self.client.refresh(
-            current_token=token_str,
-            fingerprint_hash=self.fingerprint
-        )
-        
-        if not response.success:
-            error_msg = self._format_error_message(response)
-            logger.warning(f"[LicenseManager] Refresh failed: {error_msg}")
-            
-            # Если сервер вернул revoked/expired/canceled — удаляем токен
-            if response.error_code in ("LICENSE_EXPIRED", "LICENSE_REVOKED", "INVALID_LICENSE"):
-                self._delete_token()
-            
-            return False
-        
-        # Сохраняем новый токен
-        self._save_token(response.token)
-        logger.info("[LicenseManager] License token refreshed successfully")
-        
-        return True
+        status, _ = self._verify_access_internal()
+        return status == LicenseStatus.VALID
 
 
 # ════════════════════════════════════════════════════════════════
@@ -538,7 +524,7 @@ class RefreshWorker(QThread):
 class VerifyAccessWorker(QThread):
     """Воркер для проверки доступа при старте (ЗАДАЧА 2)."""
     
-    finished = pyqtSignal(object, object)  # status: LicenseStatus, error_msg: Optional[str]
+    result = pyqtSignal(object, object)
     
     def __init__(self, manager: LicenseManager):
         super().__init__()
@@ -548,7 +534,7 @@ class VerifyAccessWorker(QThread):
         """Выполняется в отдельном потоке."""
         try:
             status, error_msg = self.manager._verify_access_internal()
-            self.finished.emit(status, error_msg)
+            self.result.emit(status, error_msg)
         except Exception as e:
             logger.error(f"[VerifyAccessWorker] Error: {e}", exc_info=True)
-            self.finished.emit(LicenseStatus.NETWORK_ERROR, str(e))
+            self.result.emit(LicenseStatus.NETWORK_ERROR, str(e))

@@ -13,6 +13,7 @@ from PyQt6.QtWidgets import (
 )
 from PyQt6.QtCore import Qt, QUrl, QTimer, pyqtSignal
 from ui.themes.theme_manager import theme_manager
+from ui.widgets.control_styles import compact_button_style, line_icon
 
 MAP_PORT = 3000
 
@@ -36,7 +37,7 @@ class MapPage(QWidget):
         # ── Topbar ─────────────────────────────────────────────
         self._topbar = QWidget()
         self._topbar.setMinimumHeight(44)  # Минимальная высота
-        self._topbar.setMaximumHeight(52)  # Максимальная высота
+        self._topbar.setFixedHeight(56)
         tb_layout = QHBoxLayout(self._topbar)
         tb_layout.setContentsMargins(16, 0, 16, 0)
         tb_layout.setSpacing(10)
@@ -49,10 +50,11 @@ class MapPage(QWidget):
         tb_layout.addWidget(self._tb_title)
         tb_layout.addStretch()
 
-        self._reload_btn = QPushButton("↺  Перезагрузить")
+        self._reload_btn = QPushButton("Перезагрузить")
         self._reload_btn.setObjectName("BtnSecondary")
         # ЗАДАЧА 4: Убираем setMinimumHeight - используем QSS (36px)
-        self._reload_btn.setMinimumWidth(195)  # Увеличено для корректного отображения текста
+        self._reload_btn.setMinimumWidth(152)
+        self._reload_btn.setFixedHeight(36)
         self._reload_btn.setSizePolicy(
             QSizePolicy.Policy.Minimum, QSizePolicy.Policy.Fixed
         )
@@ -60,10 +62,11 @@ class MapPage(QWidget):
         self._reload_btn.clicked.connect(self._reload_map)
         self._reload_btn.setEnabled(False)
 
-        self._open_btn = QPushButton("⬡  В браузере")
+        self._open_btn = QPushButton("В браузере")
         self._open_btn.setObjectName("BtnSecondary")
         # ЗАДАЧА 4: Убираем setMinimumHeight - используем QSS (36px)
-        self._open_btn.setMinimumWidth(195)  # Увеличено для корректного отображения текста
+        self._open_btn.setMinimumWidth(138)
+        self._open_btn.setFixedHeight(36)
         self._open_btn.setSizePolicy(
             QSizePolicy.Policy.Minimum, QSizePolicy.Policy.Fixed
         )
@@ -93,6 +96,9 @@ class MapPage(QWidget):
     def _restyle_topbar(self) -> None:
         """Перекрашивает topbar и заголовок при смене темы."""
         t = theme_manager.tokens
+        for button, icon in ((self._reload_btn, 'reload'), (self._open_btn, 'external')):
+            button.setStyleSheet(compact_button_style(t))
+            button.setIcon(line_icon(icon, t['text_secondary']))
         self._topbar.setStyleSheet(
             f"background: {t['bg_secondary']};"
             f"border-bottom: 1px solid {t['border_subtle']};"

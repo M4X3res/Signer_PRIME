@@ -7,6 +7,7 @@ import os
 import uuid
 import json
 import logging
+from app.json_store import atomic_write_json, serialized_edit
 from datetime import timedelta
 
 import flask
@@ -98,6 +99,30 @@ SIGNS_TEXT_DIR = resource_path("sings_text")
 
 # ── Приложение ─────────────────────────────────────────────────────────────
 app = Flask(__name__, template_folder=TEMPLATES_DIR, static_folder=STATIC_DIR)
+
+
+@app.before_request
+def require_license_access():
+    from licensing.access import get_manager
+    from licensing.license_manager import LicenseStatus
+    manager = get_manager()
+    if manager is None:
+        return jsonify(error='Онлайн-проверка лицензии недоступна'), 403
+    if not manager.has_online_access():
+        return jsonify(error='Работа заблокирована: требуется проверка лицензии'), 403
+@app.after_request
+def verify_license_after_action(response):
+    from licensing.access import get_manager
+    manager = get_manager()
+    if (manager is not None and response.status_code < 400 and
+            (request.method in ('POST', 'PATCH', 'DELETE', 'PUT') or
+             request.path == '/api/geojson_export')):
+        # Preserve the actual result: a completed mutation must not look failed.
+        # The verification emits access_changed and blocks subsequent work on failure.
+        manager._verify_access_internal()
+    return response
+
+
 CORS(app)
 
 # Используем eventlet для более стабильной работы в Windows с Qt
@@ -134,13 +159,14 @@ def set_processing_state(active: bool):
     socketio.emit("processing_state", {"active": active})
 
 
-def emit_processing_finished(sign_count: int):
+def emit_processing_finished(sign_count: int = 0):
     """Уведомляет клиентов о завершении обработки."""
     global _processing_active, _data_ready
     _processing_active = False
     _data_ready = True
     logger.info(f"[MapServer] Отправляем processing_finished: {sign_count} знаков")
-    socketio.emit("processing_finished", {"count": sign_count, "ready": True})
+    socketio.emit("processing_finished", {"count": sign_count, "ready": True, "finished": True})
+    socketio.emit("data_ready", {"ready": True})
 
 
 def notify_data_ready():
@@ -158,8 +184,7 @@ def _load_geojson() -> dict:
 
 
 def _save_geojson(data: dict):
-    with open(config.PATH_TO_GEOJSON, "w", encoding="utf-8") as f:
-        geojson.dump(data, f, ensure_ascii=False)
+    atomic_write_json(config.PATH_TO_GEOJSON, data)
 
 
 def _sign_img_path(sign_type: str, description: str = "") -> str:
@@ -322,20 +347,22 @@ def api_map_config():
         elif settings.map_tile_type == "vector":
             logger.info("[api_map_config] Vector tiles direct (proxy disabled in settings)")
         
+        # BLOCK SETTINGS-1: Ограничение max_zoom до 17 (для пользователей со старыми сохранёнными значениями)
         return jsonify({
             "tile_url": tile_url,
             "attribution": settings.map_tile_attribution,
-            "max_zoom": settings.map_tile_max_zoom,
+            "max_zoom": min(settings.map_tile_max_zoom, 17),
             "tile_type": settings.map_tile_type,  # "raster" | "vector"
             "use_proxy": use_proxy,  # Информация для клиента
         })
     except Exception as e:
         logger.error(f"ERROR in /api/map_config: {e}")
         # Безопасный fallback на OSM, чтобы карта не осталась совсем без подложки
+        # BLOCK SETTINGS-1: fallback также использует max_zoom=17
         return jsonify({
             "tile_url": "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
             "attribution": "© OpenStreetMap",
-            "max_zoom": 19,
+            "max_zoom": 17,
             "tile_type": "raster",  # fallback на растровые тайлы
             "use_proxy": False,
         })
@@ -684,6 +711,7 @@ def api_sign_detail(sign_id: str):
 
 
 @app.route("/api/sign", methods=["POST"])
+@serialized_edit
 def api_sign_create():
     """
     Создание нового знака (BLOCK S.1).
@@ -785,6 +813,7 @@ def api_sign_create():
 
 
 @app.route("/api/sign/<sign_id>", methods=["PATCH"])
+@serialized_edit
 def api_sign_update(sign_id: str):
     """
     Обновление знака.
@@ -793,7 +822,7 @@ def api_sign_update(sign_id: str):
         "description": "5",
         "lat": 53.905,        # Опционально (BLOCK S.2)
         "lon": 27.560,        # Опционально (BLOCK S.2)
-        "azimuth": 90.0       # Опционально (BLOCK S.2)
+        "azimuth": 90.0       # Опционально (BLOCK S.2, BLOCK MAP-AZ-3)
     }
     """
     body = request.get_json(silent=True) or {}
@@ -818,7 +847,7 @@ def api_sign_update(sign_id: str):
                 feat["properties"].pop("SEM250", None)
                 feat["properties"].pop("MVALUE", None)
             
-            # BLOCK S.2: Обновление координат (draggable markers)
+            # BLOCK S.2 + BLOCK MAP-AZ-3: Обновление координат и/или азимута
             if "lat" in body and "lon" in body:
                 new_lat = float(body["lat"])
                 new_lon = float(body["lon"])
@@ -843,6 +872,22 @@ def api_sign_update(sign_id: str):
                             coords[1][1] = new_lat2
                             feat["properties"]["azimuth"] = azimuth
             
+            # BLOCK MAP-AZ-3: Обновление только азимута (без изменения координат)
+            elif "azimuth" in body:
+                new_azimuth = float(body["azimuth"]) % 360
+                feat["properties"]["azimuth"] = new_azimuth
+                
+                # Пересчитываем вторую точку линии на основе нового азимута
+                if feat["geometry"]["type"] == "LineString":
+                    coords = feat["geometry"]["coordinates"]
+                    if len(coords) >= 2:
+                        base_lon, base_lat = coords[0][0], coords[0][1]
+                        from core.coordinate_calculation import CoordinateCalculation
+                        calc = CoordinateCalculation()
+                        new_lat2, new_lon2 = calc.point_at_distance(base_lat, base_lon, new_azimuth, 5.0)
+                        coords[1][0] = new_lon2
+                        coords[1][1] = new_lat2
+            
             updated = True
             break
 
@@ -857,6 +902,7 @@ def api_sign_update(sign_id: str):
 
 
 @app.route("/api/sign/<sign_id>", methods=["DELETE"])
+@serialized_edit
 def api_sign_delete(sign_id: str):
     """Удаление знака по ID."""
     if not os.path.exists(config.PATH_TO_GEOJSON):
@@ -1418,24 +1464,6 @@ def emit_new_sign(sign_dict: dict):
         socketio.emit("new_sign", sign_dict)
     except Exception as e:
         logger.error(f"ERROR in emit_new_sign: {e}")
-
-
-def emit_processing_finished():
-    """Уведомляет клиентов о завершении обработки."""
-    try:
-        global _processing_active, _data_ready
-        _processing_active = False
-        _data_ready = True
-        logger.info("[MapServer] emit_processing_finished вызван")
-        logger.info(f"[MapServer] PATH_TO_GEOJSON = {config.PATH_TO_GEOJSON}")
-        logger.info(f"[MapServer] Файл существует: {os.path.exists(config.PATH_TO_GEOJSON) if config.PATH_TO_GEOJSON else False}")
-        socketio.emit("processing_finished", {"finished": True})
-        socketio.emit("data_ready", {"ready": True})
-        logger.info("[MapServer] События отправлены клиентам")
-    except Exception as e:
-        logger.error(f"ERROR in emit_processing_finished: {e}")
-        import traceback
-        traceback.print_exc()
 
 
 # ── Запуск ─────────────────────────────────────────────────────────────────

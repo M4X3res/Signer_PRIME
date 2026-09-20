@@ -16,63 +16,83 @@ logger = logging.getLogger(__name__)
 class TimingStats:
     """Статистика времени выполнения операции."""
     name: str
-    samples: List[float] = field(default_factory=list)
-    
+    # BLOCK GPU-MEM-2: samples больше не хранит ВСЕ замеры за всё время работы —
+    # это неограниченный по размеру список, который рос всю сессию обработки
+    # длинного видео (часы -> миллионы замеров) и создавал постоянное давление
+    # на GC параллельно с CUDA-аллокатором. Вместо этого храним точные
+    # агрегаты (count/total/min/max) без хранения истории, и ограниченное
+    # скользящее окно последних MAX_SAMPLES_FOR_PERCENTILE замеров только для
+    # приближённого расчёта перцентилей (p50/p95).
+    MAX_SAMPLES_FOR_PERCENTILE: int = field(default=2000, repr=False)
+    _count: int = field(default=0, repr=False)
+    _total: float = field(default=0.0, repr=False)
+    _min: float = field(default=float("inf"), repr=False)
+    _max: float = field(default=0.0, repr=False)
+    _recent: List[float] = field(default_factory=list, repr=False)
+
     def add(self, duration: float):
         """Добавить замер времени (в секундах)."""
-        self.samples.append(duration)
-    
+        self._count += 1
+        self._total += duration
+        if duration < self._min:
+            self._min = duration
+        if duration > self._max:
+            self._max = duration
+        self._recent.append(duration)
+        if len(self._recent) > self.MAX_SAMPLES_FOR_PERCENTILE:
+            # Не даём окну расти бесконечно — отбрасываем самые старые замеры
+            del self._recent[: len(self._recent) - self.MAX_SAMPLES_FOR_PERCENTILE]
+
     @property
     def count(self) -> int:
-        return len(self.samples)
-    
+        return self._count
+
     @property
     def total(self) -> float:
-        return sum(self.samples)
-    
+        return self._total
+
     @property
     def mean(self) -> float:
-        return self.total / self.count if self.count > 0 else 0.0
-    
+        return self._total / self._count if self._count > 0 else 0.0
+
     @property
     def min(self) -> float:
-        return min(self.samples) if self.samples else 0.0
-    
+        return self._min if self._count > 0 else 0.0
+
     @property
     def max(self) -> float:
-        return max(self.samples) if self.samples else 0.0
-    
+        return self._max
+
     @property
     def p50(self) -> float:
-        """Медиана."""
-        if not self.samples:
+        """Медиана (приближённая, по последним MAX_SAMPLES_FOR_PERCENTILE замерам)."""
+        if not self._recent:
             return 0.0
-        sorted_samples = sorted(self.samples)
+        sorted_samples = sorted(self._recent)
         mid = len(sorted_samples) // 2
         return sorted_samples[mid]
-    
+
     @property
     def p95(self) -> float:
-        """95-й перцентиль."""
-        if not self.samples:
+        """95-й перцентиль (приближённый, по последним MAX_SAMPLES_FOR_PERCENTILE замерам)."""
+        if not self._recent:
             return 0.0
-        sorted_samples = sorted(self.samples)
+        sorted_samples = sorted(self._recent)
         idx = int(len(sorted_samples) * 0.95)
         return sorted_samples[min(idx, len(sorted_samples) - 1)]
-    
+
     def report(self) -> str:
         """Форматированный отчет."""
-        if not self.samples:
+        if self._count == 0:
             return f"{self.name}: no data"
-        
         return (
             f"{self.name}:\n"
             f"  Count:  {self.count}\n"
             f"  Total:  {self.total:.3f}s\n"
             f"  Mean:   {self.mean*1000:.1f}ms\n"
             f"  Min:    {self.min*1000:.1f}ms\n"
-            f"  Median: {self.p50*1000:.1f}ms\n"
-            f"  P95:    {self.p95*1000:.1f}ms\n"
+            f"  Median: {self.p50*1000:.1f}ms (last {len(self._recent)} samples)\n"
+            f"  P95:    {self.p95*1000:.1f}ms (last {len(self._recent)} samples)\n"
             f"  Max:    {self.max*1000:.1f}ms"
         )
 

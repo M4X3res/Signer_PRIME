@@ -121,7 +121,13 @@ class UpdateDialog(QDialog):
         super().__init__(parent)
         self.update_info = update_info
         self.download_worker = None
-        self.temp_dir = Path(os.environ.get("LOCALAPPDATA", ".")) / "Signer" / "UpdateTemp"
+        self._pending_result = None
+        self._download_ready = False
+        self._worker_active = False
+        self.temp_dir = updater.get_update_temp_dir()
+        
+        # БАГ-5: Флаг для докачки (resume)
+        self._is_retry = False
         
         # Накопители для расчёта оставшегося времени и прогресса
         self._speed_samples = []
@@ -288,6 +294,9 @@ class UpdateDialog(QDialog):
         self.later_btn.setText("Позже")  # Возвращаем текст "Позже"
         self.later_btn.setEnabled(True)
         
+        # БАГ-5: Устанавливаем флаг ретрая для сохранения .part файлов
+        self._is_retry = True
+        
         # Восстанавливаем соединение для кнопки "Позже"
         try:
             self.later_btn.clicked.disconnect()
@@ -297,17 +306,27 @@ class UpdateDialog(QDialog):
     
     def _start_download(self):
         """Начинает загрузку обновления."""
+        if getattr(self, 'download_worker', None) and (self.download_worker.isRunning() or self._worker_active):
+            return
+        self._pending_result = None
+        self._download_ready = False
         logger.info("[UpdateDialog] Начало загрузки обновления...")
         
-        # Очищаем временную папку
+        # БАГ-5: Условная очистка временной папки (НЕ при ретрае)
         import shutil
-        if self.temp_dir.exists():
+        if not self._is_retry and self.temp_dir.exists():
             try:
                 shutil.rmtree(self.temp_dir)
+                logger.info("[UpdateDialog] Временная папка очищена перед новой загрузкой")
             except Exception as e:
                 logger.warning(f"Не удалось очистить {self.temp_dir}: {e}")
         
-        self.temp_dir.mkdir(parents=True, exist_ok=True)
+        # Создаём директорию в любом случае
+        try:
+            self.temp_dir.mkdir(parents=True, exist_ok=True)
+        except OSError as error:
+            self._on_download_error(f"Не удалось создать папку обновления {self.temp_dir}: {error}")
+            return
         
         self._show_progress_state()
         self._start_time = time.time()
@@ -321,6 +340,8 @@ class UpdateDialog(QDialog):
         self.download_worker.checksum_failed.connect(self._on_checksum_failed)
         self.download_worker.error.connect(self._on_download_error)
         self.download_worker.cancelled.connect(self._on_download_cancelled)
+        self.download_worker.finished.connect(self._on_worker_finished)
+        self._worker_active = True
         self.download_worker.start()
         
         # Подключаем кнопку "Отменить" к методу отмены
@@ -329,26 +350,45 @@ class UpdateDialog(QDialog):
     
     def _cancel_download(self):
         """Отменяет загрузку."""
-        if self.download_worker and self.download_worker.isRunning():
-            logger.info("[UpdateDialog] Пользователь нажал Отменить")
+        self.reject()
+
+    def reject(self):
+        self.done(QDialog.DialogCode.Rejected)
+
+    def done(self, result):
+        if result == QDialog.DialogCode.Rejected:
+            self._pending_result = result
+        if self.download_worker and (self.download_worker.isRunning() or self._worker_active):
+            self._pending_result = result
             self.download_worker.cancel()
             self.later_btn.setEnabled(False)
-            self.status_label.setText("Отмена загрузки...")
+            self.update_btn.setEnabled(False)
+            self.status_label.setText("Ожидание завершения загрузки...")
+            return
+        super().done(result)
+
+    def closeEvent(self, event):
+        if self.download_worker and (self.download_worker.isRunning() or self._worker_active):
+            self.reject()
+            event.ignore()
+        else:
+            super().closeEvent(event)
+
+    def _on_worker_finished(self):
+        self._worker_active = False
+        if self._pending_result is not None:
+            result = self._pending_result
+            self._pending_result = None
+            self.done(result)
+        elif self._download_ready:
+            self.update_applied.emit()
+            self.accept()
     
     def _on_download_cancelled(self):
         """Обработка отмены загрузки."""
         logger.info("[UpdateDialog] Загрузка отменена")
         
-        # Очищаем временную папку
-        import shutil
-        if self.temp_dir.exists():
-            try:
-                shutil.rmtree(self.temp_dir)
-            except Exception as e:
-                logger.warning(f"Не удалось очистить {self.temp_dir}: {e}")
-        
-        # Закрываем диалог
-        self.reject()
+        self._pending_result = QDialog.DialogCode.Rejected
     
     def _on_download_progress(self, filename: str, downloaded: int, total: int, speed_bps: float):
         """Обновляет прогресс загрузки."""
@@ -395,10 +435,7 @@ class UpdateDialog(QDialog):
         self.progress_bar.setValue(100)
         
         # Сигнал для main window для запуска Updater.exe
-        self.update_applied.emit()
-        
-        # Закрываем диалог
-        self.accept()
+        self._download_ready = True
     
     def _on_checksum_failed(self):
         """Обработка ошибки проверки чексумм."""

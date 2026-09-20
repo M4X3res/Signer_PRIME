@@ -2,6 +2,7 @@
 Современные QSS стили для RoadScanner
 С поддержкой анимаций, shadows, и улучшенной типографики
 """
+from pathlib import Path
 
 
 def build_modern_qss(t: dict) -> str:
@@ -21,6 +22,7 @@ def build_modern_qss(t: dict) -> str:
     # Определяем является ли тема темной
     is_dark = t.get('bg_primary', '#000') < '#888888'
     
+    arrow = (Path(__file__).resolve().parents[2] / "assets/ui/chevron-down.svg").as_posix()
     return f"""
 /* ═══════════════════════════════════════════════════════════════════
    MODERN ROADSCANNER THEME
@@ -30,7 +32,7 @@ def build_modern_qss(t: dict) -> str:
 QMainWindow, QDialog, QWidget {{
     background-color: {t['bg_primary']};
     color: {t['text_primary']};
-    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "SF Pro Display", "Helvetica Neue", "Inter", sans-serif;
+    font-family: "Segoe UI Variable", "Segoe UI", sans-serif;
     font-size: 13px;
     font-weight: 400;
 }}
@@ -182,11 +184,11 @@ QLabel {{
     color: {t['text_on_accent']};
     border: none;
     border-radius: 8px;
-    padding: 10px 16px;
+    padding: 0px 18px;
     font-size: 14px;
     font-weight: 600;
     min-width: 120px;
-    min-height: 36px;
+    min-height: 40px;
     letter-spacing: 0.2px;
 }}
 
@@ -209,11 +211,11 @@ QLabel {{
     color: {t['text_primary']};
     border: 1.5px solid {t['border_default']};
     border-radius: 8px;
-    padding: 10px 16px;
+    padding: 0px 18px;
     font-size: 14px;
     font-weight: 500;
     min-width: 120px;
-    min-height: 36px;
+    min-height: 40px;
 }}
 
 #BtnSecondary:hover {{
@@ -412,13 +414,11 @@ QComboBox::drop-down {{
 }}
 
 QComboBox::down-arrow {{
-    image: none;
-    border-left: 4px solid transparent;
-    border-right: 4px solid transparent;
-    border-top: 5px solid {t['text_secondary']};
-    margin-right: 8px;
-    width: 8px;
-    height: 5px;
+    image: url("{arrow}");
+    border: none;
+    margin: 0;
+    width: 16px;
+    height: 16px;
 }}
 
 QComboBox QAbstractItemView {{

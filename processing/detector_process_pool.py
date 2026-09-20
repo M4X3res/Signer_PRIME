@@ -38,6 +38,8 @@ import numpy as np
 from PyQt6.QtCore import QObject, pyqtSignal, QThread
 
 from configs import config
+
+logger = logging.getLogger(__name__)
 from processing.video_reader import RawFrame, _STOP
 
 

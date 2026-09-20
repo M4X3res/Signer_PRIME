@@ -13,6 +13,9 @@ from PyQt6.QtCore import QSettings
 class AppSettings:
     """Настройки приложения с персистентностью."""
     
+    # ── Миграции настроек ─────────────────────────────────────────
+    settings_schema_version: int = 0  # Версия схемы настроек (для миграций)
+    
     # ── Обработка кадров ──────────────────────────────────────────
     frame_step_mode: Literal["auto", "manual"] = "auto"
     frame_step_manual: int = 5  # Используется только если mode == "manual"
@@ -71,6 +74,16 @@ class AppSettings:
     cpu_onnx_inter_threads: int = 1
     cpu_openvino_threads: int = 0       # 0 = авто, та же логика
     
+    # ── ЗАДАЧА 1: CPU-бэкенд прогрев и оптимизация ────────────────
+    cpu_backend_warmup_enabled: bool = True  # Прогрев моделей при загрузке (устраняет задержку на первом кадре)
+    
+    # ── ЗАДАЧА 2: Скрытые ретраи подключения к серверу лицензий ───
+    license_connect_retry_attempts: int = 3        # Число попыток при сетевых ошибках
+    license_connect_retry_backoff_sec: float = 1.5  # Базовая задержка между попытками (фиксированная, не экспоненциальная)
+    
+    # ── ЗАДАЧА 3: Автоприменение рекомендуемых настроек ───────────
+    first_run_recommended_settings_applied: bool = False  # Флаг первого запуска
+    
     # ── Пороги для lane detection (BLOCK P.1) ─────────────────────
     lane_conf_detect: float = 0.65   # Порог уверенности для model_lane_detect
     lane_conf_segment: float = 0.65  # Порог уверенности для model_lane_segment
@@ -95,7 +108,9 @@ class AppSettings:
     # ── Карта (подложка) ──────────────────────────────────────────
     map_tile_url: str = "https://api.maps.by/api/wmts/noLabel/QGIS/{z}/{y}/{x}?apiKey=$2a$10$xZuvOAkmzOG0ShxJ0b.HieJz8AaPdMMhghCxFqemJOMkyfWBOo/h2*$2a$10$xZuvOAkmzOG0ShxJ0b.HieMeAAWpdW4pjfIOBjpUp3afqkCugXGFu"
     map_tile_attribution: str = "© maps.by"
-    map_tile_max_zoom: int = 19
+    # BLOCK SETTINGS-1: map_tile_max_zoom зафиксирован на 17 (согласован с disableClusteringAtZoom в templates/map.html)
+    # Не редактируется из UI. Для пользователей с сохранёнными старыми значениями (19) применяется min(value, 17) в api_map_config.
+    map_tile_max_zoom: int = 17
     map_tile_type: Literal["raster", "vector"] = "raster"  # Тип подложки: растровые (PNG/JPG) или векторные (.pbf)
     map_tile_use_proxy: bool = True  # Использовать серверный прокси для векторных тайлов (обходит CORS)
     
@@ -155,6 +170,33 @@ class AppSettings:
                     print(f"[AppSettings] Ошибка поля {field_name}: {e}, используем default")
                     data[field_name] = getattr(defaults, field_name)
             
+            # ═══════════════════════════════════════════════════════════════
+            # МИГРАЦИИ НАСТРОЕК
+            # ═══════════════════════════════════════════════════════════════
+            # Текущая версия схемы (целевая)
+            CURRENT_SCHEMA_VERSION = 1
+            
+            loaded_version = data.get("settings_schema_version", 0)
+            
+            # Миграция v0 → v1: Принудительное обновление map_tile_url
+            if loaded_version < 1:
+                TARGET_MAP_TILE_URL = "https://api.maps.by/api/wmts/noLabel/QGIS/{z}/{y}/{x}?apiKey=$2a$10$xZuvOAkmzOG0ShxJ0b.HieJz8AaPdMMhghCxFqemJOMkyfWBOo/h2*$2a$10$xZuvOAkmzOG0ShxJ0b.HieMeAAWpdW4pjfIOBjpUp3afqkCugXGFu"
+                old_url = data.get("map_tile_url", "")
+                
+                # Принудительно устанавливаем правильный URL
+                data["map_tile_url"] = TARGET_MAP_TILE_URL
+                data["settings_schema_version"] = 1
+                
+                import logging
+                logger = logging.getLogger(__name__)
+                logger.info(f"[AppSettings] Миграция v0→v1: обновлён map_tile_url")
+                if old_url and old_url != TARGET_MAP_TILE_URL:
+                    logger.info(f"  Старый URL: {old_url[:80]}...")
+                    logger.info(f"  Новый URL: {TARGET_MAP_TILE_URL[:80]}...")
+            
+            # Обновляем до текущей версии
+            data["settings_schema_version"] = CURRENT_SCHEMA_VERSION
+            
             # ЗАДАЧА 2: Приоритетная загрузка license_server_url
             # Приоритет: 1) SIGNER_LICENSE_SERVER_URL (env) 
             #            2) build_config.json 
@@ -206,7 +248,28 @@ class AppSettings:
                     logger.error(error_msg)
                     raise RuntimeError(error_msg)
             
-            return cls(**data)
+            # Создаём объект настроек
+            loaded_settings = cls(**data)
+            
+            # ── ЗАДАЧА 3: Автоприменение рекомендуемых настроек при первом запуске ──
+            if not loaded_settings.first_run_recommended_settings_applied:
+                from configs.hardware_recommend import apply_recommended_settings
+                try:
+                    rec = apply_recommended_settings(loaded_settings)
+                    loaded_settings.first_run_recommended_settings_applied = True
+                    loaded_settings.save()
+                    logger.info(f"[AppSettings] Первый запуск: применены рекомендуемые настройки — {rec['reason']}")
+                except Exception as e:
+                    logger.warning(f"[AppSettings] Не удалось применить рекомендуемые настройки при первом запуске: {e}")
+                    loaded_settings.first_run_recommended_settings_applied = True  # не пытаемся на каждом запуске при ошибке
+                    loaded_settings.save()
+            
+            # Если была миграция (settings_schema_version изменилась), сохраняем
+            if loaded_version < CURRENT_SCHEMA_VERSION:
+                logger.info(f"[AppSettings] Сохранение мигрированных настроек (v{loaded_version}→v{CURRENT_SCHEMA_VERSION})")
+                loaded_settings.save()
+            
+            return loaded_settings
             
         except Exception as e:
             print(f"[AppSettings] Критическая ошибка загрузки: {e}, используем defaults")
@@ -224,9 +287,16 @@ class AppSettings:
         settings.sync()
     
     def reset_to_defaults(self) -> None:
-        """Сбросить все настройки к значениям по умолчанию."""
+        """
+        Сбросить все настройки к значениям по умолчанию.
+        ЗАДАЧА 3: не сбрасывает first_run_recommended_settings_applied, чтобы рекомендации
+        не применились заново при следующем запуске.
+        """
         defaults = AppSettings()
+        preserve = {"first_run_recommended_settings_applied"}  # ЗАДАЧА 3: сохраняем флаг
         for field_name in self.__dataclass_fields__:
+            if field_name in preserve:
+                continue
             setattr(self, field_name, getattr(defaults, field_name))
     
     def to_dict(self) -> dict:

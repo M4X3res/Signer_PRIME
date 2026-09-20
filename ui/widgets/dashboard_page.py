@@ -1,3 +1,4 @@
+from ui.widgets.control_styles import line_icon
 from PyQt6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel,
     QPushButton, QFileDialog, QFrame, QSizePolicy,
@@ -252,8 +253,9 @@ class DashboardPage(QWidget):
         header.addLayout(header_texts)
         header.addStretch()
 
-        self.btn_start = QPushButton("▷   Начать обработку")
+        self.btn_start = QPushButton("Начать обработку")
         self.btn_start.setObjectName("BtnPrimary")
+        self.btn_start.setIcon(line_icon("processing", theme_manager.tokens["text_on_accent"]))
         self.btn_start.setSizePolicy(
             QSizePolicy.Policy.MinimumExpanding, QSizePolicy.Policy.Fixed
         )
@@ -262,8 +264,9 @@ class DashboardPage(QWidget):
         self.btn_start.setEnabled(False)
         self.btn_start.clicked.connect(self._on_start_clicked)
 
-        self.btn_multi = QPushButton("⊞   Массовая обработка")
+        self.btn_multi = QPushButton("Массовая обработка")
         self.btn_multi.setObjectName("BtnSecondary")
+        self.btn_multi.setIcon(line_icon("dashboard", theme_manager.tokens["text_secondary"]))
         self.btn_multi.setSizePolicy(
             QSizePolicy.Policy.MinimumExpanding, QSizePolicy.Policy.Fixed
         )
@@ -532,8 +535,8 @@ class DashboardPage(QWidget):
         if not active:
             self._start_clicked = False
             self._multi_clicked = False
-            self.btn_start.setText("▷   Начать обработку")
-            self.btn_multi.setText("⊞   Массовая обработка")
+            self.btn_start.setText("Начать обработку")
+            self.btn_multi.setText("Массовая обработка")
     
     def _on_start_clicked(self):
         """Обработчик кнопки запуска с защитой от двойного клика."""

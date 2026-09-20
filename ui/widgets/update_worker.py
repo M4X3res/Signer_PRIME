@@ -23,11 +23,20 @@ class UpdateCheckWorker(QThread):
     finished_check = pyqtSignal(object)  # Несёт UpdateInfo | None
     error = pyqtSignal(str)
     
+    def __init__(self, channel: str = "stable"):
+        """
+        Args:
+            channel: Канал обновлений - "stable" или "beta"
+        """
+        super().__init__()
+        self.channel = channel
+    
     def run(self):
         """Выполняет проверку обновлений."""
         try:
-            logger.info("[UpdateCheckWorker] Проверка обновлений...")
-            update_info = updater.check_for_update()
+            logger.info(f"[UpdateCheckWorker] Проверка обновлений (канал: {self.channel})...")
+            # БАГ-2: Передаём канал в check_for_update
+            update_info = updater.check_for_update(self.channel)
             self.finished_check.emit(update_info)
         except Exception as e:
             logger.error(f"[UpdateCheckWorker] Ошибка: {e}", exc_info=True)
@@ -84,11 +93,14 @@ class UpdateDownloadWorker(QThread):
             # Для дельта-обновления нужно прочитать delta_manifest.json
             delta_manifest_data = None
             if self.update_info.is_delta:
-                delta_manifest_path = self.temp_dir / "delta_manifest.json"
+                delta_manifest_path = self.temp_dir / f"delta-from-{updater.APP_VERSION}.json"
                 if delta_manifest_path.exists():
                     import json
                     with open(delta_manifest_path, "r", encoding="utf-8") as f:
                         delta_manifest_data = json.load(f)
+                    if (delta_manifest_data.get('from_version') != updater.APP_VERSION or
+                            delta_manifest_data.get('to_version') != self.update_info.version):
+                        raise ValueError('Версии дельта-обновления не совпадают с выбранным релизом')
             
             # Проверка целостности
             if not updater.verify_downloaded_assets(

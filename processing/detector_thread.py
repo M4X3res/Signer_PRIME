@@ -89,6 +89,12 @@ class DetectorThread(QThread):
         self._ocr_calls_total = 0      # Всего OCR-вызовов
         self._ocr_calls_skipped = 0    # Пропущено благодаря троттлингу
 
+        # BLOCK GPU-MEM-1: периодическое освобождение CUDA-памяти для
+        # длинных видео (часы обработки без empty_cache() фрагментируют
+        # аллокатор и постепенно замедляют инференс на GPU)
+        self._gpu_cleanup_interval = 300  # кадров
+        self._cuda_in_use = False  # устанавливается в run() после проверки CUDA
+
     # ── Control ───────────────────────────────────────────────────
 
     def stop(self) -> None:
@@ -123,6 +129,8 @@ class DetectorThread(QThread):
             # Загружаем настройки
             from configs.settings import get_app_settings
             settings = get_app_settings()
+            
+            self._cuda_in_use = cuda_available and settings.use_cuda
             
             # Task E: Pipeline режим больше не выбирается из UI, всегда False
             self._use_pipeline = False
@@ -185,6 +193,15 @@ class DetectorThread(QThread):
             logger.exception(f"[DetectorThread] Необработанная ошибка в _process_loop: {e}")
             self.error.emit(str(e))
         finally:
+            # CUDA Memory Management: Финальная очистка GPU памяти
+            try:
+                import torch
+                if self._cuda_in_use:
+                    torch.cuda.empty_cache()
+                    logger.info("[CUDA] Финальная очистка кэша выполнена")
+            except Exception:
+                pass
+            
             # БАГ E: Финализируем активные знаки в конце видео
             if self._sign_handler:
                 logger.info("[DetectorThread] Финализация оставшихся активных знаков...")
@@ -193,22 +210,7 @@ class DetectorThread(QThread):
                 except Exception as e:
                     logger.exception(f"[DetectorThread] Ошибка финализации активных знаков: {e}")
                 
-                # BLOCK SIGN-LOSS-1 FIX (finally block): Добавляем финализированные знаки в очередь результатов
-                # с блокирующим put и попыткой для каждого знака, без break при первой ошибке
-                if self._sign_handler.result_signs:
-                    logger.debug(f"Финальная отправка {len(self._sign_handler.result_signs)} знаков в очередь")
-                    lost = []
-                    for sign in self._sign_handler.result_signs:
-                        try:
-                            self._result_q.put(sign, timeout=2.0)
-                        except queue.Full:
-                            lost.append(sign.best_cnn)
-                    if lost:
-                        logger.error(
-                            f"[SignLoss-Guard] КРИТИЧНО: {len(lost)} знаков потеряны при финальной "
-                            f"отправке (очередь не освободилась даже за 2с/знак): {lost}"
-                        )
-                    self._sign_handler.result_signs.clear()
+                self._flush_result_signs()
             
             # Останавливаем OCR Worker если был запущен
             if self._ocr_worker:
@@ -225,12 +227,27 @@ class DetectorThread(QThread):
             
             self.finished_work.emit()
 
+    def _flush_result_signs(self) -> None:
+        """Передаёт результаты без ожидания; остаток заберёт контроллер."""
+        pending = self._sign_handler.result_signs
+        for index, sign in enumerate(pending):
+            try:
+                self._result_q.put_nowait(sign)
+            except queue.Full:
+                self._sign_handler.result_signs = pending[index:]
+                return
+        self._sign_handler.result_signs = []
+
     def _process_loop(self) -> None:
         from core.turn import Turn
         turn = Turn()
         
         self._frame_errors = 0  # BLOCK STAB-1: счётчик кадров, пропущенных из-за ошибок
         last_position_update = 0  # Для throttling обновлений позиции
+        
+        # CUDA Memory Management: Счётчик для периодической очистки GPU кэша
+        frames_since_cuda_clear = 0
+        cuda_clear_interval = 500  # Очищаем каждые 500 кадров
 
         while not self._stop:
             try:
@@ -253,6 +270,24 @@ class DetectorThread(QThread):
                 turn, last_position_update = self._process_single_frame(
                     raw, turn, last_position_update
                 )
+                
+                # CUDA Memory Management: Периодическая очистка GPU кэша
+                # Предотвращает накопление неиспользуемых тензоров в VRAM,
+                # что может привести к Out of Memory (OOM) или Access Violation (0xC0000005)
+                frames_since_cuda_clear += 1
+                if self._cuda_in_use and frames_since_cuda_clear >= cuda_clear_interval:
+                    try:
+                        import torch
+                        if torch.cuda.is_available():
+                            torch.cuda.empty_cache()
+                            # Опционально: сборка мусора Python для освобождения CPU RAM
+                            import gc
+                            gc.collect()
+                            logger.debug(f"[CUDA] Кэш очищен на кадре {raw.abs_frame_number}")
+                    except Exception as cuda_err:
+                        logger.debug(f"[CUDA] Не удалось очистить кэш: {cuda_err}")
+                    frames_since_cuda_clear = 0
+                
             except Exception as e:
                 self._frame_errors += 1
                 logger.exception(
@@ -280,13 +315,14 @@ class DetectorThread(QThread):
         изменений поведения; изменилась только структура (extract method).
         """
         # Обновляем глобальные индексы (нужны старым модулям)
+        config.VIDEO_FPS = raw.fps
         config.INDEX_OF_FRAME      = raw.frame_number
         config.INDEX_OF_All_FRAME  = raw.abs_frame_number
         config.INDEX_OF_VIDEO      = raw.video_index
         config.INDEX_OF_GPS        = raw.gps_index
 
         # Отправляем позицию на карту (раз в секунду)
-        current_second = int(raw.abs_frame_number / config.VIDEO_FPS)  # BLOCK J.2: реальный FPS
+        current_second = int(raw.timestamp_s)  # BLOCK J.2: реальный FPS
         if current_second != last_position_update:
             last_position_update = current_second
             try:
@@ -296,7 +332,7 @@ class DetectorThread(QThread):
                 pass
 
         # Получаем скорость для умного skipping
-        speed = self._gpx.get_speed(raw.gps_index)
+        speed = self._gpx.get_speed_at_time(raw.timestamp_s)
         
         # Пропускаем если машина стоит (BLOCK CPU-7: через SmartFrameSkipper)
         if self._skipper.is_stationary(speed):
@@ -374,32 +410,7 @@ class DetectorThread(QThread):
                     else:
                         self._ocr_calls_skipped += 1  # BLOCK CPU-4: пропущено
 
-        # Финальные знаки → в очередь результатов
-        # BLOCK SIGN-LOSS-1 FIX: НЕ теряем знаки при переполнении очереди
-        if self._sign_handler.result_signs:
-            logger.debug(f"Добавляю {len(self._sign_handler.result_signs)} знаков в очередь")
-        
-        remaining = []
-        for sign in self._sign_handler.result_signs:
-            try:
-                self._result_q.put(sign, timeout=0.1)
-            except queue.Full:
-                # BLOCK SIGN-LOSS-1 FIX: НЕ теряем знак — откладываем его и пробуем
-                # отправить повторно на следующей итерации цикла, когда в очереди
-                # освободится место (её вычитывает ProcessingController.get_result_signs()
-                # только в конце обработки, поэтому переполнение — явление временное).
-                logger.warning(
-                    f"result_queue переполнена (размер={self._result_q.qsize()})! "
-                    f"Знак {sign.best_cnn} отложен и будет отправлен повторно."
-                )
-                remaining.append(sign)
-        
-        # ВАЖНО: очищаем список знаков, которые ДЕЙСТВИТЕЛЬНО ушли в очередь.
-        # Всё, что не поместилось, остаётся в self._sign_handler.result_signs и
-        # НИКОГДА не удаляется молча.
-        self._sign_handler.result_signs = remaining
-        if remaining:
-            logger.warning(f"[SignLoss-Guard] {len(remaining)} знаков ожидают повторной отправки в очередь")
+        self._flush_result_signs()
         
         # Автосохранение checkpoint (если контроллер передан)
         if self._controller and hasattr(self._controller, 'save_checkpoint'):
@@ -434,12 +445,14 @@ class DetectorThread(QThread):
         Конвертирует raw-результат Detector в список DetectedSign.
         detections item: [box, color, label, class_name, res, text, isSide]
         """
+        if not detections:
+            return []
         result = []
         lat, lon = 0.0, 0.0
         
         try:
             # BLOCK J.2: Используем интерполированные GPS координаты
-            gps_point = self._gpx.get_interpolated(raw.abs_frame_number, config.VIDEO_FPS)
+            gps_point = self._gpx.get_interpolated(raw.timestamp_s, 1.0)
             
             if gps_point:
                 lat, lon = gps_point.latitude, gps_point.longitude
@@ -522,7 +535,34 @@ class DetectorThread(QThread):
         self._last_emit_time = now
         return True
 
+    def _maybe_release_gpu_memory(self) -> None:
+        """
+        BLOCK GPU-MEM-1: раз в self._gpu_cleanup_interval обработанных кадров
+        принудительно освобождает неиспользуемую CUDA-память и запускает сборщик
+        мусора. Устраняет постепенное замедление инференса на GPU при обработке
+        многочасовых видео (фрагментация CUDA-аллокатора из-за постоянно
+        варьирующихся batch-размеров и тензоров в Ultralytics Results, которые
+        не освобождаются немедленно).
+        """
+        if not self._cuda_in_use:
+            return
+        if self._frames_processed == 0 or self._frames_processed % self._gpu_cleanup_interval != 0:
+            return
+        try:
+            import gc
+            import torch
+            gc.collect()
+            torch.cuda.empty_cache()
+            logger.debug(
+                f"[DetectorThread] GPU memory released at frame {self._frames_processed} "
+                f"(allocated={torch.cuda.memory_allocated()/1024**2:.1f}MB, "
+                f"reserved={torch.cuda.memory_reserved()/1024**2:.1f}MB)"
+            )
+        except Exception as e:
+            logger.debug(f"[DetectorThread] GPU cleanup skipped: {e}")
+
     def _update_stats(self, n_detections: int) -> None:
+        self._maybe_release_gpu_memory()
         self._frames_processed += 1
         self._signs_found      += n_detections
         self._fps_frames       += 1

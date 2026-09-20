@@ -15,6 +15,7 @@ import os
 os.environ["OPENCV_FFMPEG_READ_ATTEMPTS"] = "100000"
 
 import queue
+import threading
 import time
 from dataclasses import dataclass
 from typing import Optional
@@ -42,6 +43,9 @@ class RawFrame:
     video_name:         str
     gps_index:          int    # соответствующий индекс GPS точки
 
+    timestamp_s: float = 0.0
+    fps: float = 60.0
+
 
 class VideoReaderThread(QThread):
     """
@@ -65,6 +69,7 @@ class VideoReaderThread(QThread):
     GRAB_RETRY_ATTEMPTS = 3        # количество попыток при сбое grab()
     GRAB_RETRY_DELAY_S  = 0.05     # задержка между попытками
     FRAME_COUNT_SAFETY_MARGIN = 1.02  # запас на неточность cv2 CAP_PROP_FRAME_COUNT
+    VIDEO_REOPEN_ATTEMPTS = 2      # количество попыток переоткрыть видео при стойком сбое
 
     def __init__(
         self,
@@ -73,6 +78,7 @@ class VideoReaderThread(QThread):
     ):
         super().__init__(parent)
         self._queue   = frame_queue
+        self._consumer_stopped = threading.Event()
         self._stop    = False
         self._paused  = False
         self._next_cap = None  # Prefetched VideoCapture для следующего видео
@@ -81,17 +87,80 @@ class VideoReaderThread(QThread):
 
     def stop(self) -> None:
         self._stop = True
-        # Разблокируем очередь если детектор ждёт
-        try:
-            self._queue.put_nowait(_STOP)
-        except queue.Full:
-            pass
+        self._paused = False
+
+    def consumer_finished(self) -> None:
+        """Unblock the producer when the consumer exits, including model errors."""
+        self._consumer_stopped.set()
+        self.stop()
 
     def pause(self) -> None:
         self._paused = True
 
     def resume(self) -> None:
         self._paused = False
+
+    # ── Helper: открытие видео с fallback бэкендами ───────────────
+
+    def _open_video_with_fallback(self, video_path: str, start_frame: int = 0) -> Optional[cv2.VideoCapture]:
+        """
+        Открывает видео, пробуя разные бэкенды.
+        Если start_frame > 0, позиционируется на этот кадр.
+        
+        Returns:
+            VideoCapture или None если не удалось открыть
+        """
+        backends_to_try = [
+            (cv2.CAP_MSMF, "MSMF (Windows Media Foundation)"),
+            (cv2.CAP_DSHOW, "DirectShow"),
+            (cv2.CAP_FFMPEG, "FFMPEG"),
+            (cv2.CAP_ANY, "Auto"),
+        ]
+        
+        for backend_id, backend_name in backends_to_try:
+            try:
+                test_cap = cv2.VideoCapture(video_path, backend_id)
+                if not test_cap.isOpened():
+                    test_cap.release()
+                    logger.debug(f"[VideoReader] Бэкенд {backend_name} не открыл файл")
+                    continue
+                
+                # Проверяем что можем читать кадры
+                ret = test_cap.grab()
+                if not ret:
+                    test_cap.release()
+                    logger.warning(f"[VideoReader] ⚠️ Бэкенд {backend_name} открыл файл, но не может читать кадры")
+                    continue
+                
+                # Бэкенд работает! Позиционируемся если нужно
+                if start_frame > 0:
+                    # Для GoPro set() не надежен, читаем и пропускаем кадры
+                    test_cap.set(cv2.CAP_PROP_POS_FRAMES, 0)
+                    for _ in range(start_frame):
+                        if not test_cap.grab():
+                            logger.warning(f"[VideoReader] Не удалось перемотать до кадра {start_frame}")
+                            test_cap.release()
+                            break
+                    else:
+                        # Успешно перемотали
+                        actual_backend = test_cap.getBackendName()
+                        logger.info(f"[VideoReader] ✅ Переоткрыли видео с {backend_name} (actual: {actual_backend}), позиция: кадр {start_frame}")
+                        test_cap.set(cv2.CAP_PROP_BUFFERSIZE, 1)
+                        return test_cap
+                else:
+                    # start_frame == 0, начинаем с начала
+                    test_cap.set(cv2.CAP_PROP_POS_FRAMES, 0)
+                    actual_backend = test_cap.getBackendName()
+                    logger.info(f"[VideoReader] ✅ Используем бэкенд: {backend_name} (actual: {actual_backend})")
+                    test_cap.set(cv2.CAP_PROP_BUFFERSIZE, 1)
+                    return test_cap
+                    
+            except Exception as e:
+                logger.warning(f"[VideoReader] Ошибка при попытке использовать {backend_name}: {e}")
+                continue
+        
+        logger.error(f"[VideoReader] ❌ Все бэкенды не смогли открыть видео")
+        return None
 
     # ── Main loop ─────────────────────────────────────────────────
 
@@ -102,15 +171,26 @@ class VideoReaderThread(QThread):
             logger.error(f"Ошибка чтения видео: {e}")
             self.error.emit(str(e))
         finally:
-            self._queue.put(_STOP)
+            while not self._consumer_stopped.is_set():
+                try:
+                    self._queue.put(_STOP, timeout=0.2)
+                    break
+                except queue.Full:
+                    continue
             self.finished_reading.emit()
 
     def _read_all_videos(self) -> None:
+        # Индексы config далее изменяет детектор; позиция возобновления
+        # должна оставаться неизменной на протяжении чтения всех файлов.
+        start_video = config.INDEX_OF_VIDEO
+        start_frame = config.INDEX_OF_FRAME
         total = self._count_total_frames()
         self.started_reading.emit(total)
-
-        abs_frame  = config.INDEX_OF_FRAME + (config.FRAMES_PER_VIDEO * config.INDEX_OF_VIDEO)
-        gps_index  = int(round(abs_frame / config.VIDEO_FPS, 0))  # BLOCK J.2: используем реальный FPS
+        if any(count <= 0 for count in self._video_frame_counts[:start_video]):
+            raise ValueError("Не удалось определить длины видео до позиции восстановления")
+        frame_offset = sum(self._video_frame_counts[:start_video])
+        time_offset = sum(count / fps for count, fps in zip(
+            self._video_frame_counts[:start_video], self._video_fps[:start_video]))
         
         # Fix 2.4: Используем logging вместо прямого file I/O
         # Создаём отдельный logger для video debug
@@ -134,7 +214,7 @@ class VideoReaderThread(QThread):
                 break
 
             # Пропускаем видео, которые уже обработаны
-            if video_idx < config.INDEX_OF_VIDEO:
+            if video_idx < start_video:
                 video_logger.info(f"[VIDEO {video_idx}] SKIPPED: {video_name}")
                 self.video_switched.emit(video_idx, video_name)
                 continue
@@ -147,17 +227,14 @@ class VideoReaderThread(QThread):
                 cap = self._next_cap
                 self._next_cap = None
             else:
-                # GoPro FIX: Используем MSMF (Windows Media Foundation) бэкенд
-                # FFMPEG падает на 44 кадре из-за множественных потоков (видео+GPS+акселерометр)
-                # MSMF корректно обрабатывает GoPro MP4 файлы
-                cap = cv2.VideoCapture(video_path, cv2.CAP_MSMF)
-                
-                if not cap.isOpened():
-                    # Fallback на автоопределение
-                    cap = cv2.VideoCapture(video_path)
+                cap = self._open_video_with_fallback(video_path)
             
-            if not cap.isOpened():
+            if cap is None or not cap.isOpened():
                 self.error.emit(f"Не удалось открыть {video_name}")
+                if self._video_frame_counts[video_idx] <= 0:
+                    raise ValueError(f"Неизвестна длина {video_name}; GPS-привязка следующих видео невозможна")
+                time_offset += self._video_frame_counts[video_idx] / self._video_fps[video_idx]
+                frame_offset += self._video_frame_counts[video_idx]
                 continue
             
             # Читаем метаданные видео и сохраняем в config (BLOCK 2: для bearing geometry)
@@ -171,6 +248,7 @@ class VideoReaderThread(QThread):
             else:
                 config.VIDEO_FPS = 60.0  # Fallback если метаданные некорректны
             
+            fps = fps if fps > 0 else 60.0
             logger.info(f"[VideoReader] Видео: {config.FRAME_WIDTH}x{config.FRAME_HEIGHT}, FPS: {config.VIDEO_FPS:.2f}")
             
             # Минимальный буфер для уменьшения задержки
@@ -184,15 +262,15 @@ class VideoReaderThread(QThread):
             frame_in_video = 0
 
             # Если это первое обрабатываемое видео — начинаем с сохранённой позиции
-            if video_idx == config.INDEX_OF_VIDEO and config.INDEX_OF_FRAME > 0:
+            if video_idx == start_video and start_frame > 0:
                 # ДЛЯ GOPRO: cap.set() не работает надежно - нужно читать и пропускать кадры
                 # Пропускаем кадры вручную
-                for _ in range(config.INDEX_OF_FRAME):
+                for _ in range(start_frame):
                     ret, _ = cap.read()
                     if not ret:
                         break
-                local_frame = config.INDEX_OF_FRAME
-                frame_in_video = config.INDEX_OF_FRAME
+                local_frame = start_frame
+                frame_in_video = start_frame
 
             total_frames_in_video = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
 
@@ -213,7 +291,7 @@ class VideoReaderThread(QThread):
                 if self._stop:
                     break
 
-                while self._paused:
+                while self._paused and not self._stop:
                     time.sleep(0.05)
 
                 step = max(1, int(config.FRAME_STEP))
@@ -261,13 +339,81 @@ class VideoReaderThread(QThread):
                     video_logger.debug(f"  Frame {local_frame}: grabbed={grabbed}")
                 
                 if not grabbed:
+                    # GoPro RECOVERY: Попытка переоткрыть видео и продолжить
+                    # Это может помочь при рассинхронизации multi-stream MP4
                     current_pos = cap.get(cv2.CAP_PROP_POS_FRAMES)
-                    video_logger.info(f"[VIDEO {video_idx}] END (grab failed after {self.GRAB_RETRY_ATTEMPTS} retries): frames_read={frames_read}, local_frame={local_frame}/{total_frames_in_video}")
-                    video_logger.info(f"  CAP_PROP_POS_FRAMES: {current_pos}")
-                    video_logger.info(f"  CAP_PROP_FRAME_COUNT: {cap.get(cv2.CAP_PROP_FRAME_COUNT)}")
-                    video_logger.info(f"  isOpened: {cap.isOpened()}\n")
-                    logger.info(f"[VIDEO {video_idx}] Завершено: не удалось захватить кадр {local_frame} после повторов, прочитано {frames_read} кадров")
-                    break
+                    
+                    # Проверяем что это не конец файла
+                    if local_frame < int(total_frames_in_video * 0.95):  # Если меньше 95% видео
+                        logger.warning(
+                            f"[VIDEO {video_idx}] Grab failed на кадре {local_frame}/{total_frames_in_video} "
+                            f"({local_frame/total_frames_in_video*100:.1f}%). Пытаемся переоткрыть видео..."
+                        )
+                        video_logger.info(
+                            f"[VIDEO {video_idx}] Пытаемся переоткрыть видео и продолжить с кадра {local_frame}"
+                        )
+                        
+                        # Закрываем текущий захват
+                        cap.release()
+                        
+                        # Пытаемся переоткрыть и продолжить
+                        for reopen_attempt in range(self.VIDEO_REOPEN_ATTEMPTS):
+                            new_cap = self._open_video_with_fallback(video_path, start_frame=local_frame)
+                            if new_cap is not None and new_cap.isOpened():
+                                # Проверяем что новый захват может читать
+                                test_grab = new_cap.grab()
+                                if test_grab:
+                                    logger.info(
+                                        f"[VIDEO {video_idx}] ✅ Видео переоткрыто успешно, "
+                                        f"продолжаем с кадра {local_frame} (попытка {reopen_attempt + 1})"
+                                    )
+                                    video_logger.info(
+                                        f"  Reopen successful (attempt {reopen_attempt + 1}), continuing from frame {local_frame}"
+                                    )
+                                    cap = new_cap
+                                    grabbed = True
+                                    break
+                                else:
+                                    new_cap.release()
+                                    logger.warning(
+                                        f"[VIDEO {video_idx}] Переоткрытое видео не может читать кадры "
+                                        f"(попытка {reopen_attempt + 1}/{self.VIDEO_REOPEN_ATTEMPTS})"
+                                    )
+                            else:
+                                logger.warning(
+                                    f"[VIDEO {video_idx}] Не удалось переоткрыть видео "
+                                    f"(попытка {reopen_attempt + 1}/{self.VIDEO_REOPEN_ATTEMPTS})"
+                                )
+                                if new_cap is not None:
+                                    new_cap.release()
+                            
+                            time.sleep(0.1)  # Небольшая пауза перед следующей попыткой
+                        
+                        if not grabbed:
+                            logger.error(
+                                f"[VIDEO {video_idx}] ❌ Не удалось переоткрыть видео после "
+                                f"{self.VIDEO_REOPEN_ATTEMPTS} попыток. Завершаем обработку этого видео."
+                            )
+                            video_logger.info(
+                                f"[VIDEO {video_idx}] END (reopen failed): frames_read={frames_read}, "
+                                f"local_frame={local_frame}/{total_frames_in_video}\n"
+                            )
+                            break
+                        # Если grabbed == True, продолжаем обработку с переоткрытым файлом
+                    else:
+                        # Похоже на реальный конец файла
+                        video_logger.info(
+                            f"[VIDEO {video_idx}] END (grab failed after {self.GRAB_RETRY_ATTEMPTS} retries): "
+                            f"frames_read={frames_read}, local_frame={local_frame}/{total_frames_in_video}"
+                        )
+                        video_logger.info(f"  CAP_PROP_POS_FRAMES: {current_pos}")
+                        video_logger.info(f"  CAP_PROP_FRAME_COUNT: {cap.get(cv2.CAP_PROP_FRAME_COUNT)}")
+                        video_logger.info(f"  isOpened: {cap.isOpened()}\n")
+                        logger.info(
+                            f"[VIDEO {video_idx}] Завершено: не удалось захватить кадр {local_frame} "
+                            f"после повторов, прочитано {frames_read} кадров"
+                        )
+                        break
                 
                 local_frame += 1
                 frame_counter += 1
@@ -294,13 +440,8 @@ class VideoReaderThread(QThread):
                 # frame_in_video и abs_frame соответствуют local_frame
                 frame_in_video = local_frame
                 
-                # GPS синхронизация: 1 GPS точка ≈ 60 кадров
-                # abs_frame = начальная позиция + local_frame текущего видео
-                if video_idx == 0:
-                    abs_frame = local_frame
-                else:
-                    # Для видео после первого нужно учесть все предыдущие
-                    abs_frame = (video_idx * config.FRAMES_PER_VIDEO) + local_frame
+                # Реальная суммарная длина предыдущих файлов.
+                abs_frame = frame_offset + local_frame
                 
                 # Лог каждые 100 кадров для контроля прогресса
                 if frames_read % 100 == 0:
@@ -308,8 +449,8 @@ class VideoReaderThread(QThread):
                     logger.info(f"[VIDEO {video_idx}] Прогресс: {frames_read} кадров, local_frame={local_frame}/{total_frames_in_video}")
                 
                 # BLOCK FIX-3.1: используем реальный VIDEO_FPS вместо захардкоженного 60
-                if (abs_frame - gps_index * config.VIDEO_FPS) > config.VIDEO_FPS:
-                    gps_index += 1
+                timestamp_s = time_offset + local_frame / fps
+                gps_index = int(timestamp_s)
 
                 raw = RawFrame(
                     image            = image,
@@ -318,6 +459,8 @@ class VideoReaderThread(QThread):
                     video_index      = video_idx,
                     video_name       = video_name,
                     gps_index        = gps_index,
+                    timestamp_s      = timestamp_s,
+                    fps              = fps,
                 )
 
                 # Backpressure — ждём пока DetectorThread освободит очередь
@@ -337,6 +480,10 @@ class VideoReaderThread(QThread):
                 local_frame > total_frames_in_video - 500):
                 self._prefetch_next_video(video_idx + 1)
 
+            # Учитываем и кадры, пропущенные FRAME_STEP. При преждевременной
+            # ошибке чтения сохраняем временной интервал из метаданных.
+            time_offset += max(local_frame, total_frames_in_video) / fps
+            frame_offset += max(total_frames_in_video, local_frame)
             cap.release()
             
             # Используем prefetched cap для следующего видео (если есть)
@@ -355,16 +502,9 @@ class VideoReaderThread(QThread):
             
             logger.info(f"[VideoReader] Prefetch: открываем {next_video_name}...")
             
-            # Открываем с тем же бэкендом что и основное видео
-            self._next_cap = cv2.VideoCapture(next_video_path, cv2.CAP_MSMF)
+            self._next_cap = self._open_video_with_fallback(next_video_path)
             
-            if not self._next_cap.isOpened():
-                # Fallback
-                self._next_cap = cv2.VideoCapture(next_video_path)
-            
-            if self._next_cap.isOpened():
-                # Устанавливаем минимальный буфер
-                self._next_cap.set(cv2.CAP_PROP_BUFFERSIZE, 1)
+            if self._next_cap is not None and self._next_cap.isOpened():
                 logger.info(f"[VideoReader] ✅ Prefetch успешен для {next_video_name}")
             else:
                 logger.warning(f"[VideoReader] ⚠️ Prefetch не удался для {next_video_name}")
@@ -377,10 +517,18 @@ class VideoReaderThread(QThread):
     def _count_total_frames(self) -> int:
         """Быстрый подсчёт общего числа кадров по metadata."""
         total = 0
+        self._video_frame_counts = []
+        self._video_fps = []
         for name in config.VIDEOS:
             path = os.path.join(config.PATH_TO_VIDEO, name)
             cap  = cv2.VideoCapture(path)
-            if cap.isOpened():
-                total += int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
+            try:
+                count = max(0, int(cap.get(cv2.CAP_PROP_FRAME_COUNT))) if cap.isOpened() else 0
+                fps = cap.get(cv2.CAP_PROP_FPS) if cap.isOpened() else 0
+                self._video_fps.append(fps if fps > 0 else 60.0)
+                self._video_frame_counts.append(count)
+                total += count
+            finally:
                 cap.release()
+        config.VIDEO_TIMELINE = list(zip(self._video_frame_counts, self._video_fps))
         return total

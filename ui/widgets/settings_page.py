@@ -52,6 +52,7 @@ class SettingsRow(QWidget):
 
         layout.addLayout(text_col)
         layout.addStretch()
+        control.setAccessibleName(label)
         layout.addWidget(control)
 
 
@@ -80,45 +81,32 @@ class SettingsGroup(QWidget):
         return self
 
 
-class ToggleButton(QPushButton):
-    """Минималистичный переключатель вместо QCheckBox."""
+from ui.widgets.toggle_switch import ToggleSwitch
+from ui.widgets.control_styles import line_icon, compact_button_style
+
+
+class ToggleButton(ToggleSwitch):
+    """Settings adapter for the shared animated switch."""
     toggled_state = pyqtSignal(bool)
 
-    def __init__(self, initial: bool = False, parent=None):
+    def __init__(self, initial=False, parent=None):
         super().__init__(parent)
-        self._checked = initial
-        self.setFixedSize(44, 24)
-        self.setCursor(Qt.CursorShape.PointingHandCursor)
-        self.clicked.connect(self._toggle)
+        self.set_checked(initial)
+        self.toggled.connect(self.toggled_state.emit)
+        theme_manager.theme_changed.connect(self._repaint)
         self._repaint()
-
-    def _toggle(self):
-        self._checked = not self._checked
-        self._repaint()
-        self.toggled_state.emit(self._checked)
 
     def _repaint(self):
         t = theme_manager.tokens
-        if self._checked:
-            bg = t["accent"]
-            circle_pos = "right: 2px;"
-        else:
-            bg = t["bg_hover"]
-            circle_pos = "left: 2px;"
-        self.setStyleSheet(
-            f"QPushButton {{"
-            f"  background: {bg}; border: none;"
-            f"  border-radius: 12px;"
-            f"}}"
-        )
-        self.setText("●" if self._checked else "○")
+        self.setColors(t['border_strong'], t['accent'])
 
-    def is_checked(self) -> bool:
-        return self._checked
+    def is_checked(self):
+        return self.isChecked()
 
-    def set_checked(self, v: bool):
-        self._checked = v
-        self._repaint()
+    def set_checked(self, value):
+        blocked = self.blockSignals(True)
+        self.setChecked(value)
+        self.blockSignals(blocked)
 
 
 class SettingsPage(QWidget):
@@ -309,7 +297,11 @@ class SettingsPage(QWidget):
         self._map_tile_url_edit = QLineEdit()
         self._map_tile_url_edit.setFixedWidth(400)
         self._map_tile_url_edit.setText(self._settings.map_tile_url)
+        # BLOCK SETTINGS-3: Показываем начало URL, а не конец
+        self._map_tile_url_edit.setCursorPosition(0)
         self._map_tile_url_edit.setPlaceholderText("https://api.maps.by/api/wmts/noLabel/QGIS/{z}/{y}/{x}?apiKey=...")
+        # BLOCK SETTINGS-3: При потере фокуса возвращаем видимую область к началу строки
+        self._map_tile_url_edit.editingFinished.connect(lambda: self._map_tile_url_edit.setCursorPosition(0))
         map_group.add_row(
             "URL тайлов",
             "Шаблон подложки карты: {s}=сервер, {z}=zoom, {x}/{y}=координаты тайла",
@@ -326,15 +318,7 @@ class SettingsPage(QWidget):
             self._map_attribution_edit,
         )
 
-        self._map_max_zoom_spin = QSpinBox()
-        self._map_max_zoom_spin.setRange(1, 22)
-        self._map_max_zoom_spin.setValue(self._settings.map_tile_max_zoom)
-        self._map_max_zoom_spin.setFixedWidth(80)
-        map_group.add_row(
-            "Макс. зум",
-            "Максимальный уровень приближения карты (для OSM обычно 19)",
-            self._map_max_zoom_spin,
-        )
+        # BLOCK SETTINGS-1: Поле "Макс. зум" удалено (зафиксировано на 17 в датаклассе)
 
         # Прокси для векторных тайлов (CORS bypass)
         self._map_use_proxy_toggle = ToggleButton(self._settings.map_tile_use_proxy)
@@ -601,19 +585,7 @@ class SettingsPage(QWidget):
             self._auto_check_updates_toggle,
         )
         
-        self._update_channel_combo = QComboBox()
-        self._update_channel_combo.setFixedWidth(140)
-        self._update_channel_combo.addItems(["Стабильный", "Бета"])
-        self._update_channel_combo.setCurrentIndex(0 if self._settings.update_channel == "stable" else 1)
-        self._update_channel_combo.setToolTip(
-            "Стабильный: только финальные релизы\n"
-            "Бета: ранний доступ к новым функциям (может быть нестабильно)"
-        )
-        update_group.add_row(
-            "Канал обновлений",
-            "Выбор типа релизов для установки",
-            self._update_channel_combo,
-        )
+        # BLOCK SETTINGS-2: Поле "Канал обновлений" удалено из UI (поле update_channel остаётся в датаклассе для совместимости)
         
         # Кнопка проверки + статус
         check_updates_layout = QVBoxLayout()
@@ -925,20 +897,32 @@ class SettingsPage(QWidget):
         btn_row = QHBoxLayout()
         btn_row.addStretch()
 
-        reset_btn = QPushButton("↻  Сбросить")
+        reset_btn = QPushButton("Сбросить")
         reset_btn.setObjectName("BtnSecondary")
         reset_btn.setMinimumHeight(40)
         reset_btn.setMinimumWidth(120)
         reset_btn.setCursor(Qt.CursorShape.PointingHandCursor)
         reset_btn.clicked.connect(self._reset)
 
-        save_btn = QPushButton("💾  Сохранить")
+        save_btn = QPushButton("Сохранить")
         save_btn.setObjectName("BtnPrimary")
         save_btn.setMinimumHeight(40)
         save_btn.setMinimumWidth(120)
         save_btn.setCursor(Qt.CursorShape.PointingHandCursor)
         save_btn.clicked.connect(self._save)
 
+        def style_actions():
+            t = theme_manager.tokens
+            reset_btn.setStyleSheet(compact_button_style(t))
+            save_btn.setStyleSheet(compact_button_style(t) + f"""
+                QPushButton {{ background: {t['accent']}; color: {t['text_on_accent']}; border-color: {t['accent']}; }}
+                QPushButton:hover {{ background: {t['accent_hover']}; }}
+                QPushButton:pressed {{ background: {t['accent_pressed']}; }}
+            """)
+            reset_btn.setIcon(line_icon("reload", t["text_secondary"]))
+            save_btn.setIcon(line_icon("check", t["text_on_accent"]))
+        style_actions()
+        theme_manager.theme_changed.connect(style_actions)
         btn_row.addWidget(reset_btn)
         btn_row.addSpacing(12)
         btn_row.addWidget(save_btn)
@@ -1050,8 +1034,7 @@ class SettingsPage(QWidget):
                 self._settings.map_tile_url = self._map_tile_url_edit.text().strip()
             if hasattr(self, '_map_attribution_edit'):
                 self._settings.map_tile_attribution = self._map_attribution_edit.text().strip()
-            if hasattr(self, '_map_max_zoom_spin'):
-                self._settings.map_tile_max_zoom = self._map_max_zoom_spin.value()
+            # BLOCK SETTINGS-1: _map_max_zoom_spin удалён, значение фиксировано в датаклассе на 17
             if hasattr(self, '_map_use_proxy_toggle'):
                 self._settings.map_tile_use_proxy = self._map_use_proxy_toggle.is_checked()
             
@@ -1098,9 +1081,7 @@ class SettingsPage(QWidget):
             # Updates (новые настройки)
             if hasattr(self, '_auto_check_updates_toggle'):
                 self._settings.auto_check_updates = self._auto_check_updates_toggle.is_checked()
-            if hasattr(self, '_update_channel_combo'):
-                channel_idx = self._update_channel_combo.currentIndex()
-                self._settings.update_channel = "stable" if channel_idx == 0 else "beta"
+            # BLOCK SETTINGS-2: _update_channel_combo удалён (поле update_channel остаётся в датаклассе со значением "stable")
             
         except Exception as e:
             print(f"[SettingsPage] ОШИБКА в _collect_settings: {e}")
@@ -1429,10 +1410,11 @@ class SettingsPage(QWidget):
                 self._map_tile_type_combo.setCurrentIndex(0 if defaults.map_tile_type == "raster" else 1)
             if hasattr(self, '_map_tile_url_edit'):
                 self._map_tile_url_edit.setText(defaults.map_tile_url)
+                # BLOCK SETTINGS-3: Показываем начало URL после сброса
+                self._map_tile_url_edit.setCursorPosition(0)
             if hasattr(self, '_map_attribution_edit'):
                 self._map_attribution_edit.setText(defaults.map_tile_attribution)
-            if hasattr(self, '_map_max_zoom_spin'):
-                self._map_max_zoom_spin.setValue(defaults.map_tile_max_zoom)
+            # BLOCK SETTINGS-1: _map_max_zoom_spin удалён
             if hasattr(self, '_map_use_proxy_toggle'):
                 self._map_use_proxy_toggle.set_checked(defaults.map_tile_use_proxy)
             
@@ -1613,37 +1595,40 @@ class SettingsPage(QWidget):
         и сбалансированные пороги качества/производительности к текущему UI
         (без немедленного сохранения — пользователь может передумать и не
         нажать "Сохранить", как и с любыми другими изменениями в форме).
+        
+        ЗАДАЧА 3: рефакторинг — использует общую функцию apply_recommended_settings
+        из hardware_recommend.py, синхронизирует виджеты UI с обновлёнными значениями.
         """
-        from configs.hardware_recommend import detect_recommended_backend
+        from configs.hardware_recommend import apply_recommended_settings
 
         try:
-            rec = detect_recommended_backend()
+            # Применяем рекомендации к настройкам (не сохраняем, только меняем объект)
+            rec = apply_recommended_settings(self._settings)
 
-            # ── Backend / CUDA ──────────────────────────────────────
+            # ── Синхронизируем виджеты UI с обновлёнными настройками ──
+            # Backend / CUDA
             if hasattr(self, '_cuda_toggle'):
-                self._cuda_toggle.set_checked(rec["use_cuda"])
+                self._cuda_toggle.set_checked(self._settings.use_cuda)
             if hasattr(self, '_cpu_backend_combo'):
                 backend_map_rev = {"torch": 0, "onnx": 1, "openvino": 2}
                 self._cpu_backend_combo.setCurrentIndex(
-                    backend_map_rev.get(rec["cpu_inference_backend"], 0)
+                    backend_map_rev.get(self._settings.cpu_inference_backend, 0)
                 )
                 # update_backend_enabled() уже подключён к toggled_state CUDA-тумблера,
                 # но сработает только если состояние тумблера реально ИЗМЕНИЛОСЬ —
                 # принудительно синхронизируем enabled-состояние комбобокса:
-                self._cpu_backend_combo.setEnabled(not rec["use_cuda"])
+                self._cpu_backend_combo.setEnabled(not self._settings.use_cuda)
 
-            # ── Рекомендованные пороги качества/производительности ──
-            # (значения см. в PROMPT_FIX_UI_OVERLAP_MAP_EDIT_SETTINGS.md, раздел 5.1)
+            # Пороги качества/производительности
             if hasattr(self, '_conf_side_spin'):
-                self._conf_side_spin.setValue(0.55)
+                self._conf_side_spin.setValue(self._settings.conf_side)
             if hasattr(self, '_iou_spin'):
-                self._iou_spin.setValue(0.15)
+                self._iou_spin.setValue(self._settings.iou_threshold)
             if hasattr(self, '_dedup_track_spin'):
-                self._dedup_track_spin.setValue(10)
+                self._dedup_track_spin.setValue(self._settings.dedup_radius_track_m)
             if hasattr(self, '_dedup_azimuth_spin'):
-                self._dedup_azimuth_spin.setValue(40)
-            # preview_fps_limit применяем напрямую
-            self._settings.preview_fps_limit = 10.0
+                self._dedup_azimuth_spin.setValue(self._settings.dedup_azimuth_deg)
+            # preview_fps_limit уже применён в apply_recommended_settings
 
             # ── Статус для пользователя ──────────────────────────────
             status_lines = [rec["reason"]]
@@ -1916,10 +1901,11 @@ class SettingsPage(QWidget):
                 self._map_tile_type_combo.setCurrentIndex(0 if map_tile_type == "raster" else 1)
             if hasattr(self, '_map_tile_url_edit'):
                 self._map_tile_url_edit.setText(settings_dict.get("map_tile_url", "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"))
+                # BLOCK SETTINGS-3: Показываем начало URL после импорта
+                self._map_tile_url_edit.setCursorPosition(0)
             if hasattr(self, '_map_attribution_edit'):
                 self._map_attribution_edit.setText(settings_dict.get("map_tile_attribution", "© OpenStreetMap"))
-            if hasattr(self, '_map_max_zoom_spin'):
-                self._map_max_zoom_spin.setValue(settings_dict.get("map_tile_max_zoom", 19))
+            # BLOCK SETTINGS-1: _map_max_zoom_spin удалён
             if hasattr(self, '_map_use_proxy_toggle'):
                 self._map_use_proxy_toggle.set_checked(settings_dict.get("map_tile_use_proxy", True))
             
@@ -2140,7 +2126,8 @@ class SettingsPage(QWidget):
         # Запускаем воркер проверки
         from ui.widgets.update_worker import UpdateCheckWorker
         
-        self._update_check_worker = UpdateCheckWorker()
+        # БАГ-2: Передаём канал обновлений
+        self._update_check_worker = UpdateCheckWorker(channel=self._settings.update_channel)
         
         def on_check_finished(update_info):
             if update_info:
@@ -2162,6 +2149,9 @@ class SettingsPage(QWidget):
                         from updater import updater
                         from app.version import APP_VERSION
                         
+                        # БАГ-4: Используем единую функцию mark_update_pending
+                        updater.mark_update_pending(APP_VERSION)
+                        
                         # Определяем директорию установки
                         if getattr(sys, "frozen", False):
                             install_dir = Path(sys.executable).parent
@@ -2172,7 +2162,7 @@ class SettingsPage(QWidget):
                         is_delta = dialog.update_info.is_delta
                         delta_manifest_path = None
                         if is_delta:
-                            delta_manifest_path = dialog.temp_dir / "delta_manifest.json"
+                            delta_manifest_path = dialog.temp_dir / f"delta-from-{updater.APP_VERSION}.json"
                         
                         # Запускаем Updater и закрываем приложение
                         updater.launch_updater_and_exit(

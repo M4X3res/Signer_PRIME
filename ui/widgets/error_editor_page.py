@@ -10,6 +10,8 @@ ui/widgets/error_editor_page.py
   - Сохранение изменений в GeoJSON
 """
 from __future__ import annotations
+from licensing.access import online_action
+from app.json_store import atomic_write_json, serialized_edit
 
 import json
 import os
@@ -35,6 +37,8 @@ from configs import config
 from configs.sign_data import CODES_SIGNS, TYPE_SIGNS_WITH_TEXT, NAMES_SIGNS_BY_TYPE
 from ui.themes.theme_manager import theme_manager
 from ui.widgets.utils import connect_combobox_theme_updates  # ЗАДАЧА 1
+from ui.widgets.control_styles import compact_button_style, line_icon
+from app.utils import resource_path
 
 
 # ── Модель данных ─────────────────────────────────────────────────
@@ -83,6 +87,14 @@ class SignRecord:
         else:
             # Если нет готового значения — рассчитываем (50/50 как в core/sign.py)
             self.total_confidence = 0.5 * self.confidence + 0.5 * self.gps_confidence
+
+        # TASK B.1: Хронологический ключ для сортировки по времени обработки
+        # Среднее значение абсолютных номеров кадров — знаки идут в порядке появления в видео
+        if self._abs_frames:
+            self.chrono_key: float = sum(self._abs_frames) / len(self._abs_frames)
+        else:
+            # Знаки без данных о кадрах идут в конец списка независимо от направления
+            self.chrono_key: float = float("inf")
 
         # Изменения пользователя
         self.new_type: str  = self.type
@@ -261,18 +273,56 @@ class SignListModel(QAbstractListModel):
         super().__init__(parent)
         self._records: list[SignRecord] = []
 
-    def load(self, records: list[SignRecord], ascending: bool = True) -> None:
+    def load(self, records: list[SignRecord], ascending: bool = True, criteria: str = "confidence") -> None:
+        """
+        Загружает записи с сортировкой по указанному критерию.
+        
+        Args:
+            records: Список записей знаков
+            ascending: Направление сортировки (True = по возрастанию, False = по убыванию)
+            criteria: Критерий сортировки ("confidence" или "chrono")
+        """
         self.beginResetModel()
-        # ЗАДАЧА 3 (P2): Сортировка с учётом направления
-        self._records = sorted(
-            records, key=lambda r: r.total_confidence, reverse=not ascending
-        )
-        print(f"[SignListModel] Загружено {len(self._records)} записей (ascending={ascending})")
+        
+        # TASK B.3: Параметризованный ключ сортировки
+        if criteria == "chrono":
+            # Для хронологии: знаки с inf (нет данных) всегда в конце
+            # Используем двухуровневую сортировку: сначала по наличию данных, потом по ключу
+            def chrono_sort_key(r: SignRecord):
+                has_data = not (r.chrono_key == float("inf"))
+                if ascending:
+                    # По возрастанию: данные идут первыми (True > False), потом по chrono_key
+                    return (not has_data, r.chrono_key)
+                else:
+                    # По убыванию: данные идут первыми, но в обратном порядке
+                    return (not has_data, -r.chrono_key if has_data else r.chrono_key)
+            
+            self._records = sorted(records, key=chrono_sort_key)
+            print(f"[SignListModel] Загружено {len(self._records)} записей (criteria=chrono, ascending={ascending})")
+        else:
+            # По уверенности (существующая логика)
+            self._records = sorted(
+                records, key=lambda r: r.total_confidence, reverse=not ascending
+            )
+            print(f"[SignListModel] Загружено {len(self._records)} записей (criteria=confidence, ascending={ascending})")
+        
         if self._records:
-            print(f"[SignListModel] Диапазон уверенности: {self._records[0].total_confidence:.3f} - {self._records[-1].total_confidence:.3f}")
+            if criteria == "chrono":
+                # Показываем диапазон времени
+                first_time = self._records[0].time if self._records[0]._abs_frames else "N/A"
+                last_time = self._records[-1].time if self._records[-1]._abs_frames else "N/A"
+                print(f"[SignListModel] Временной диапазон: {first_time} - {last_time}")
+            else:
+                # Показываем диапазон уверенности
+                print(f"[SignListModel] Диапазон уверенности: {self._records[0].total_confidence:.3f} - {self._records[-1].total_confidence:.3f}")
+            
             print(f"[SignListModel] Первые 3 знака:")
             for i, r in enumerate(self._records[:3]):
-                print(f"  [{i}] {r.type} - confidence: {r.confidence:.3f}, gps: {r.gps_confidence:.3f}, total: {r.total_confidence:.3f}")
+                if criteria == "chrono":
+                    print(f"  [{i}] {r.type} - time: {r.time}, chrono_key: {r.chrono_key:.1f}")
+                else:
+                    print(f"  [{i}] {r.type} - confidence: {r.confidence:.3f}, gps: {r.gps_confidence:.3f}, total: {r.total_confidence:.3f}")
+        
         self.endResetModel()
 
     def rowCount(self, parent=QModelIndex()) -> int:
@@ -364,13 +414,13 @@ class SignItemDelegate(QStyledItemDelegate):
         painter.setPen(QColor(t["text_primary"] if not rec.deleted else t["text_disabled"]))
 
         # Тип знака (крупно)
-        f_type = QFont("Segoe UI", 13, QFont.Weight.Light)
+        f_type = QFont(QApplication.font().family(), 13, QFont.Weight.Light)
         painter.setFont(f_type)
         display_type = rec.new_type if rec.modified else rec.type
         painter.drawText(tx, ty + 22, display_type)
 
         # Название (мелко)
-        f_name = QFont("Segoe UI", 10)
+        f_name = QFont(QApplication.font().family(), 10)
         painter.setFont(f_name)
         painter.setPen(QColor(t["text_tertiary"]))
         name = NAMES_SIGNS_BY_TYPE.get(display_type, "")
@@ -381,13 +431,13 @@ class SignItemDelegate(QStyledItemDelegate):
 
         # Время
         painter.setPen(QColor(t["text_tertiary"]))
-        f_small = QFont("Segoe UI", 9)
+        f_small = QFont(QApplication.font().family(), 9)
         painter.setFont(f_small)
         painter.drawText(tx, ty + 56, rec.time)
 
         # ── % уверенности (справа) ────────────────────────────────
         painter.setPen(QColor(conf_color))
-        f_conf = QFont("Segoe UI", 11, QFont.Weight.Light)
+        f_conf = QFont(QApplication.font().family(), 11, QFont.Weight.Light)
         painter.setFont(f_conf)
         painter.drawText(
             r.right() - 54, ty, 50, r.height(),
@@ -423,6 +473,7 @@ class ErrorEditorPage(QWidget):
         self._current_rec: Optional[SignRecord] = None
         self._cap: Optional[cv2.VideoCapture] = None
         self._sort_ascending: bool = True  # ЗАДАЧА 3 (P2): Состояние направления сортировки
+        self._sort_criteria: str = "confidence"  # TASK B.2: Критерий сортировки ("confidence" | "chrono")
 
         root = QVBoxLayout(self)
         root.setContentsMargins(0, 0, 0, 0)
@@ -467,13 +518,13 @@ class ErrorEditorPage(QWidget):
         t = theme_manager.tokens
         bar = QWidget()
         bar.setObjectName("EditorTopbar")
-        bar.setMinimumHeight(48)  # Минимальная высота
-        bar.setMaximumHeight(56)  # Максимальная высота
+        bar.setFixedHeight(72)
         lay = QHBoxLayout(bar)
         lay.setContentsMargins(20, 0, 20, 0)
         lay.setSpacing(12)
 
-        title = QLabel("Редактор ошибок")
+        title = QLabel("Редактор знаков")
+        self._editor_title = title
         title.setObjectName("PageTitle")
         lay.addWidget(title)
         lay.addStretch()
@@ -487,27 +538,30 @@ class ErrorEditorPage(QWidget):
         sep = QFrame()
         sep.setObjectName("Separator")
         sep.setFixedWidth(1)
+        sep.setFixedHeight(24)
         lay.addWidget(sep)
 
         # Кнопки
         # ЗАДАЧА 4: Унифицируем размеры парных кнопок
-        self._btn_load = QPushButton("↑  Загрузить GeoJSON")
+        self._btn_load = QPushButton("Загрузить GeoJSON")
         self._btn_load.setObjectName("BtnSecondary")
         self._btn_load.setSizePolicy(
             QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed
         )
         # ЗАДАЧА 4: Используем min-height из QSS (36px), убираем конфликт
-        self._btn_load.setFixedWidth(220)  # Увеличено — "Загрузить GeoJSON" обрезался
+        self._btn_load.setFixedWidth(174)
+        self._btn_load.setFixedHeight(36)
         self._btn_load.setCursor(Qt.CursorShape.PointingHandCursor)
         self._btn_load.clicked.connect(self.load_geojson)
 
-        self._btn_save = QPushButton("✓  Сохранить")
+        self._btn_save = QPushButton("Сохранить")
         self._btn_save.setObjectName("BtnPrimary")
         self._btn_save.setSizePolicy(
             QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed
         )
         # ЗАДАЧА 4: Используем min-height из QSS (36px), убираем конфликт
-        self._btn_save.setFixedWidth(220)  # Увеличено — держим пару одинаковой ширины
+        self._btn_save.setFixedWidth(130)
+        self._btn_save.setFixedHeight(36)
         self._btn_save.setCursor(Qt.CursorShape.PointingHandCursor)
         self._btn_save.setEnabled(False)
         self._btn_save.clicked.connect(self.save_geojson)
@@ -522,6 +576,8 @@ class ErrorEditorPage(QWidget):
 
     def _tb_badge(self, text: str) -> QLabel:
         lbl = QLabel(text)
+        lbl.setFixedHeight(28)
+        lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
         return lbl
     
     def _restyle_badges(self) -> None:
@@ -531,18 +587,28 @@ class ErrorEditorPage(QWidget):
         которые нельзя выразить статическим objectName без потери смысла.
         """
         t = theme_manager.tokens
+        self._editor_title.setStyleSheet(f"color: {t['text_primary']}; background: transparent; border: none; font-size: 19px; font-weight: 600;")
+        self._btn_load.setStyleSheet(compact_button_style(t))
+        self._btn_load.setIcon(line_icon('upload', t['text_secondary']))
+        self._btn_save.setStyleSheet(compact_button_style(t) + f"""
+            QPushButton {{ background: {t['accent']}; color: {t['text_on_accent']}; border-color: {t['accent']}; font-weight: 600; }}
+            QPushButton:hover {{ background: {t['accent_hover']}; border-color: {t['accent_hover']}; }}
+            QPushButton:pressed {{ background: {t['accent_pressed']}; }}
+            QPushButton:disabled {{ background: {t['bg_tertiary']}; color: {t['text_tertiary']}; border-color: {t['border_subtle']}; }}
+        """)
+        self._btn_save.setIcon(line_icon('check', t['text_on_accent']))
         self._lbl_total.setStyleSheet(
-            f"color: {t['text_tertiary']}; font-size: 11px; font-weight: 600;"
-            "background: transparent; padding: 0 4px;"
+            f"color: {t['text_secondary']}; background: {t['bg_tertiary']}; font-size: 11px; font-weight: 500;"
+            "border-radius: 8px; padding: 6px 9px;"
         )
         self._lbl_low_conf.setStyleSheet(
             f"color: {t['error']}; font-size: 11px; font-weight: 600;"
-            "background: transparent; padding: 0 4px;"
+            f"background: {t['bg_tertiary']}; border-radius: 8px; padding: 6px 9px;"
         )
 
     def _restyle_list_panel(self) -> None:
         """
-        Перекрашивает левую панель списка и фильтр-комбобокс при смене темы.
+        Перекрашивает левую панель списка и фильтр-комбобоксы при смене темы.
         Они используют инлайн-стили с токенами темы и не покрываются
         статическим objectName-QSS.
         """
@@ -551,7 +617,10 @@ class ErrorEditorPage(QWidget):
             f"background: {t['bg_secondary']};"
             f"border-right: 1px solid {t['border_subtle']};"
         )
-        self._filter_combo.setStyleSheet(
+        
+        arrow_path = resource_path('assets/ui/chevron-down.svg').replace('\\', '/')
+        # Общий стиль для chip-комбобоксов
+        chip_style = (
             f"QComboBox#FilterChipCombo {{"
             f"  color: {t['text_secondary']}; font-size: 11px; background: {t['bg_tertiary']};"
             f"  border: 1px solid {t['border_subtle']}; border-radius: 12px; padding: 5px 12px;"
@@ -560,6 +629,32 @@ class ErrorEditorPage(QWidget):
             f"QComboBox#FilterChipCombo::drop-down {{ width: 0px; border: none; }}"
             f"QComboBox#FilterChipCombo::down-arrow {{ width: 0px; height: 0px; image: none; }}"
         )
+        
+        self._filter_combo.setStyleSheet(chip_style)
+        self._sort_criteria_combo.setStyleSheet(chip_style)  # TASK B.2: новый комбобокс
+        control_style = f"""
+            QComboBox#FilterChipCombo {{ background: {t['bg_tertiary']}; color: {t['text_primary']};
+                border: 1px solid {t['border_subtle']}; border-radius: 9px;
+                padding: 0 30px 0 12px; font-size: 12px; min-height: 0px; }}
+            QComboBox#FilterChipCombo:hover {{ border-color: {t['border_strong']}; }}
+            QComboBox#FilterChipCombo:focus {{ border-color: {t['accent']}; }}
+            QComboBox#FilterChipCombo::drop-down {{ width: 28px; border: none; padding: 0; background: transparent; }}
+            QComboBox#FilterChipCombo::down-arrow {{ image: url("{arrow_path}"); width: 16px; height: 16px; border: none; margin: 0; }}
+        """
+        for combo in (self._filter_combo, self._sort_criteria_combo):
+            combo.setFixedHeight(34)
+            combo.setStyleSheet(control_style)
+        self._search.setStyleSheet(f"""
+            QLineEdit {{ background: {t['bg_secondary']}; color: {t['text_primary']};
+                border: 1px solid {t['border_subtle']}; border-radius: 9px;
+                padding: 0 12px; font-size: 12px; min-height: 0px; }}
+            QLineEdit:focus {{ border-color: {t['accent']}; }}
+        """)
+        for button, icon in ((self._btn_prev, 'left'), (self._btn_next, 'right'),
+                             (self._sort_dir_btn, 'up' if self._sort_ascending else 'down')):
+            button.setStyleSheet(compact_button_style(t))
+            button.setIcon(line_icon(icon, t['text_secondary']))
+        self._sort_dir_btn.setText('')
 
     # ── Левая панель: список ──────────────────────────────────────
 
@@ -579,24 +674,61 @@ class ErrorEditorPage(QWidget):
         # Фильтры
         filter_bar = QWidget()
         filter_bar.setObjectName("EditorFilterBar")
-        filter_bar.setMinimumHeight(78)  # Увеличено для двух рядов
-        filter_bar.setMaximumHeight(86)  # Увеличено для двух рядов
+        filter_bar.setMinimumHeight(140)
         fb_lay = QVBoxLayout(filter_bar)  # Изменено на вертикальный layout
-        fb_lay.setContentsMargins(10, 6, 10, 6)
-        fb_lay.setSpacing(6)
+        fb_lay.setContentsMargins(12, 10, 12, 10)
+        fb_lay.setSpacing(8)
 
         # Ряд 1: Поле поиска
         self._search = QLineEdit()
         self._search.setPlaceholderText("Поиск по типу…")
         self._search.setObjectName("FilePathBox")
         self._search.setMinimumHeight(32)  # Минимальная высота вместо фиксированной
+        self._search.setFixedHeight(34)
+        self._search.setClearButtonEnabled(True)
         self._search.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
         self._search.textChanged.connect(self._apply_filter)
         fb_lay.addWidget(self._search)
 
-        # Ряд 2: Фильтр уверенности + кнопка сортировки
+        # Ряд 2: Критерий сортировки + направление
         row2 = QHBoxLayout()
         row2.setSpacing(6)
+        
+        # TASK B.2: Комбобокс выбора критерия сортировки
+        self._sort_criteria_combo = QComboBox()
+        self._sort_criteria_combo.setObjectName("FilterChipCombo")
+        self._sort_criteria_combo.addItems(["По уверенности", "По хронологии"])
+        self._sort_criteria_combo.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
+        self._sort_criteria_combo.setStyleSheet(
+            f"QComboBox#FilterChipCombo {{"
+            f"  color: {t['text_secondary']}; font-size: 11px; background: {t['bg_tertiary']};"
+            f"  border: 1px solid {t['border_subtle']}; border-radius: 12px; padding: 5px 12px;"
+            f"}}"
+            f"QComboBox#FilterChipCombo:hover {{ border-color: {t['border_strong']}; }}"
+            f"QComboBox#FilterChipCombo::drop-down {{ width: 0px; border: none; }}"
+            f"QComboBox#FilterChipCombo::down-arrow {{ width: 0px; height: 0px; image: none; }}"
+        )
+        self._sort_criteria_combo.currentIndexChanged.connect(self._on_sort_criteria_changed)
+        connect_combobox_theme_updates(self._sort_criteria_combo)
+        
+        row2.addWidget(self._sort_criteria_combo, 1)   # stretch=1 — забирает всё свободное место
+
+        # ЗАДАЧА 3 (P2): Кнопка переключения направления сортировки
+        self._sort_dir_btn = QPushButton("↑")
+        self._sort_dir_btn.setObjectName("BtnNavCompact")
+        self._sort_dir_btn.setCheckable(True)
+        self._sort_dir_btn.setChecked(False)  # False = по возрастанию (дефолт)
+        self._sort_dir_btn.setFixedSize(38, 34)
+        self._sort_dir_btn.setToolTip("По возрастанию")
+        self._sort_dir_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        self._sort_dir_btn.clicked.connect(self._on_sort_direction_toggled)
+        row2.addWidget(self._sort_dir_btn, 0)   # stretch=0 — фиксированный квадрат
+        
+        fb_lay.addLayout(row2)
+
+        # Ряд 3: Фильтр уверенности
+        row3 = QHBoxLayout()
+        row3.setSpacing(6)
         
         self._filter_combo = QComboBox()
         self._filter_combo.setObjectName("FilterChipCombo")
@@ -617,20 +749,9 @@ class ErrorEditorPage(QWidget):
         # ЗАДАЧА 1: Стилизация popup для корректного отображения темы
         connect_combobox_theme_updates(self._filter_combo)
         
-        row2.addWidget(self._filter_combo, 1)   # stretch=1 — забирает всё свободное место
-
-        # ЗАДАЧА 3 (P2): Кнопка переключения направления сортировки
-        self._sort_dir_btn = QPushButton("↑")
-        self._sort_dir_btn.setObjectName("BtnNavCompact")
-        self._sort_dir_btn.setCheckable(True)
-        self._sort_dir_btn.setChecked(False)  # False = по возрастанию (дефолт)
-        self._sort_dir_btn.setFixedSize(36, 32)             # компактный квадрат под иконку
-        self._sort_dir_btn.setToolTip("По возрастанию")
-        self._sort_dir_btn.setCursor(Qt.CursorShape.PointingHandCursor)
-        self._sort_dir_btn.clicked.connect(self._on_sort_direction_toggled)
-        row2.addWidget(self._sort_dir_btn, 0)   # stretch=0 — фиксированный квадрат
+        row3.addWidget(self._filter_combo, 1)   # stretch=1 — забирает всё свободное место
         
-        fb_lay.addLayout(row2)
+        fb_lay.addLayout(row3)
 
         lay.addWidget(filter_bar)
 
@@ -651,19 +772,19 @@ class ErrorEditorPage(QWidget):
         # Кнопки навигации
         nav_bar = QWidget()
         nav_bar.setObjectName("EditorNavBar")
-        nav_bar.setMinimumHeight(40)  # Минимальная высота
-        nav_bar.setMaximumHeight(48)  # Максимальная высота
+        nav_bar.setMinimumHeight(56)
 
         nb_lay = QHBoxLayout(nav_bar)
-        nb_lay.setContentsMargins(6, 0, 6, 0)
-        nb_lay.setSpacing(4)
+        nb_lay.setContentsMargins(12, 8, 12, 8)
+        nb_lay.setSpacing(8)
 
-        self._btn_prev = QPushButton("← Пред.")
-        self._btn_next = QPushButton("След. →")
+        self._btn_prev = QPushButton("Назад")
+        self._btn_next = QPushButton("Далее")
         for btn in (self._btn_prev, self._btn_next):
             btn.setObjectName("BtnNavCompact")
             btn.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
             btn.setMinimumWidth(0)          # явно снять любой унаследованный минимум
+            btn.setFixedHeight(34)
             btn.setCursor(Qt.CursorShape.PointingHandCursor)
         self._btn_prev.clicked.connect(self._go_prev)
         self._btn_next.clicked.connect(self._go_next)
@@ -671,7 +792,7 @@ class ErrorEditorPage(QWidget):
         self._lbl_nav = QLabel("—")
         self._lbl_nav.setObjectName("EditorNavLabel")
         self._lbl_nav.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self._lbl_nav.setFixedWidth(48)      # фиксированная, но МАЛЕНЬКАЯ ширина под "12 / 34"
+        self._lbl_nav.setMinimumWidth(56)
         self._lbl_nav.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed)
 
         nb_lay.addWidget(self._btn_prev, 1)   # stretch=1
@@ -805,15 +926,25 @@ class ErrorEditorPage(QWidget):
         row1 = QHBoxLayout()
         row1.setSpacing(8)
 
+        # Кнопка "К кадру" скрыта, но функциональность сохранена для будущего
         self._btn_jump_frame = QPushButton("⏩  К кадру")
+        self._btn_jump_frame.setObjectName("BtnSecondary")
+        self._btn_jump_frame.setMinimumHeight(36)
+        self._btn_jump_frame.setSizePolicy(
+            QSizePolicy.Policy.MinimumExpanding, QSizePolicy.Policy.Fixed
+        )
+        self._btn_jump_frame.setCursor(Qt.CursorShape.PointingHandCursor)
+        self._btn_jump_frame.setEnabled(False)
+        self._btn_jump_frame.setVisible(False)  # СКРЫТА (не добавляем в layout)
+        self._btn_jump_frame.clicked.connect(self._on_jump_to_frame)
+        
         self._btn_apply      = QPushButton("✓  Применить")
         self._btn_delete     = QPushButton("✕  Удалить")
 
-        self._btn_jump_frame.setObjectName("BtnSecondary")
         self._btn_apply.setObjectName("BtnPrimary")
         self._btn_delete.setObjectName("BtnDanger")
 
-        for btn in (self._btn_jump_frame, self._btn_apply, self._btn_delete):
+        for btn in (self._btn_apply, self._btn_delete):
             btn.setMinimumHeight(36)
             btn.setSizePolicy(
                 QSizePolicy.Policy.MinimumExpanding, QSizePolicy.Policy.Fixed
@@ -821,11 +952,10 @@ class ErrorEditorPage(QWidget):
             btn.setCursor(Qt.CursorShape.PointingHandCursor)
             btn.setEnabled(False)
 
-        self._btn_jump_frame.clicked.connect(self._on_jump_to_frame)
         self._btn_apply.clicked.connect(self._on_apply)
         self._btn_delete.clicked.connect(self._on_delete)
 
-        row1.addWidget(self._btn_jump_frame)
+        # НЕ добавляем _btn_jump_frame в layout (кнопка скрыта)
         row1.addWidget(self._btn_apply)
         row1.addWidget(self._btn_delete)
         
@@ -896,8 +1026,8 @@ class ErrorEditorPage(QWidget):
             
             print(f"[ErrorEditor] Создано {len(records)} SignRecord объектов")
 
-            # ЗАДАЧА 3 (P2): Передаём ascending при первичной загрузке
-            self._model.load(records, ascending=self._sort_ascending)
+            # ЗАДАЧА 3 (P2) + TASK B.3: Передаём ascending и criteria при первичной загрузке
+            self._model.load(records, ascending=self._sort_ascending, criteria=self._sort_criteria)
             self._populate_type_combo("")
             self._update_counters()
             self._btn_save.setEnabled(True)
@@ -914,6 +1044,8 @@ class ErrorEditorPage(QWidget):
             import traceback
             traceback.print_exc()
 
+    @online_action
+    @serialized_edit
     def save_geojson(self) -> None:
         """Сохраняет изменения в GeoJSON."""
         target = config.PATH_TO_GEOJSON
@@ -948,14 +1080,21 @@ class ErrorEditorPage(QWidget):
             new_features.append(feat)
 
         data["features"] = new_features
-        with open(target, "w", encoding="utf-8") as f:
-            geojson.dump(data, f, ensure_ascii=False)
+        atomic_write_json(target, data)
+
+        # Commit the edit baseline only after the file was replaced successfully.
+        for row, rec in enumerate(self._model.all_records()):
+            if rec.modified and not rec.deleted:
+                rec.type = rec.new_type
+                rec.text = rec.new_text
+                rec.modified = False
+                self._model.update_record(row)
 
         self._btn_save.setStyleSheet(
             f"background: {theme_manager.tokens['success']}; color: #fff;"
             "border-radius: 6px; padding: 8px 24px;"
         )
-        QTimer.singleShot(2000, lambda: self._btn_save.setStyleSheet(""))
+        QTimer.singleShot(2000, self._restyle_badges)
 
     # ── Отображение знака ─────────────────────────────────────────
 
@@ -963,6 +1102,11 @@ class ErrorEditorPage(QWidget):
         row = current.row()
         rec = self._model.record_at(row)
         if rec is None:
+            self._current_row = -1
+            self._current_rec = None
+            for button in (self._btn_apply, self._btn_delete, self._btn_jump_frame, self._btn_show_on_map):
+                button.setEnabled(False)
+            self._update_nav_label()
             return
         self._current_row = row
         self._current_rec = rec
@@ -1111,22 +1255,28 @@ class ErrorEditorPage(QWidget):
 
     # ── Фильтрация и сортировка ───────────────────────────────────
 
+    def _on_sort_criteria_changed(self) -> None:
+        """TASK B.3: Обработчик изменения критерия сортировки."""
+        idx = self._sort_criteria_combo.currentIndex()
+        self._sort_criteria = "chrono" if idx == 1 else "confidence"
+        self._resort_model()
+
     def _on_sort_direction_toggled(self) -> None:
         """ЗАДАЧА 3 (P2): Обработчик переключения направления сортировки."""
         self._sort_ascending = not self._sort_dir_btn.isChecked()
         # Обновляем иконку и тултип для компактной кнопки
         if self._sort_ascending:
-            self._sort_dir_btn.setText("↑")
+            self._sort_dir_btn.setIcon(line_icon('up', theme_manager.tokens['text_secondary']))
             self._sort_dir_btn.setToolTip("По возрастанию")
         else:
-            self._sort_dir_btn.setText("↓")
+            self._sort_dir_btn.setIcon(line_icon('down', theme_manager.tokens['text_secondary']))
             self._sort_dir_btn.setToolTip("По убыванию")
         self._resort_model()
 
     def _resort_model(self) -> None:
-        """ЗАДАЧА 3 (P2): Пересортировывает текущие записи без перезагрузки из файла."""
+        """ЗАДАЧА 3 (P2) + TASK B.3: Пересортировывает текущие записи без перезагрузки из файла."""
         records = self._model.all_records()
-        self._model.load(records, ascending=self._sort_ascending)
+        self._model.load(records, ascending=self._sort_ascending, criteria=self._sort_criteria)
         self._apply_filter()  # переприменяем текущий текст/чипы фильтра после пересортировки
 
     def _apply_filter(self) -> None:

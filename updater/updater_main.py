@@ -21,6 +21,9 @@ import zipfile
 import json
 from pathlib import Path
 
+if not getattr(sys, 'frozen', False):
+    sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+
 # ════════════════════════════════════════════════════════════════
 # Настройка логирования в файл
 # ════════════════════════════════════════════════════════════════
@@ -96,12 +99,17 @@ def wait_for_process_exit(pid: int, timeout_sec: int = 30) -> bool:
             SYNCHRONIZE = 0x00100000
             
             kernel32 = ctypes.windll.kernel32
+            kernel32.OpenProcess.argtypes = [wintypes.DWORD, wintypes.BOOL, wintypes.DWORD]
+            kernel32.OpenProcess.restype = wintypes.HANDLE
+            kernel32.WaitForSingleObject.argtypes = [wintypes.HANDLE, wintypes.DWORD]
+            kernel32.WaitForSingleObject.restype = wintypes.DWORD
+            kernel32.CloseHandle.argtypes = [wintypes.HANDLE]
             
             # Открываем процесс
             handle = kernel32.OpenProcess(PROCESS_QUERY_INFORMATION | SYNCHRONIZE, False, pid)
             if not handle:
                 logger.info(f"Процесс PID={pid} уже не существует (OpenProcess failed)")
-                return True
+                return kernel32.GetLastError() == 87
             
             try:
                 # Ждём завершения процесса
@@ -111,9 +119,9 @@ def wait_for_process_exit(pid: int, timeout_sec: int = 30) -> bool:
                 if wait_result == WAIT_TIMEOUT:
                     logger.warning(f"Таймаут ожидания процесса PID={pid}, продолжаем...")
                     return False
-                else:
-                    logger.info(f"Процесс PID={pid} завершён (WaitForSingleObject)")
+                elif wait_result == 0:
                     return True
+                return False
                     
             finally:
                 kernel32.CloseHandle(handle)
@@ -122,8 +130,7 @@ def wait_for_process_exit(pid: int, timeout_sec: int = 30) -> bool:
             logger.error(f"Ошибка при ожидании процесса через ctypes: {e}")
             # Простой fallback: просто подождём фиксированное время
             logger.info(f"Ждём {timeout_sec} секунд...")
-            time.sleep(timeout_sec)
-            return True
+            return False
 
 
 # ════════════════════════════════════════════════════════════════
@@ -192,12 +199,15 @@ def extract_update(temp_dir: Path, install_dir: Path, seven_zip_exe: Path) -> bo
         logger.info(f"Распаковка {first_volume} в {install_dir}...")
         logger.info(f"Используется 7z: {seven_zip_exe}")
         
+        import tempfile
+        extraction = tempfile.TemporaryDirectory(prefix="signer-full-", dir=temp_dir)
+        staging = Path(extraction.name)
         # Запускаем 7z.exe x "Signer.7z.001" -o"install_dir" -y
         cmd = [
             str(seven_zip_exe),
             "x",
             str(first_volume),
-            f"-o{install_dir}",
+            f"-o{staging}",
             "-y"  # Перезаписываем без подтверждения
         ]
         
@@ -215,6 +225,16 @@ def extract_update(temp_dir: Path, install_dir: Path, seven_zip_exe: Path) -> bo
             logger.error(f"stderr: {result.stderr}")
             return False
         
+        from updater.transaction import apply_full
+        source = staging / 'Signer'
+        if not (source / 'Signer.exe').is_file():
+            raise ValueError('Archive has no Signer/Signer.exe')
+        manifest_path = temp_dir / 'manifest.json'
+        if not manifest_path.exists():
+            raise ValueError('Full update manifest is missing')
+        manifest = json.loads(manifest_path.read_text(encoding='utf-8-sig'))
+        apply_full(source, install_dir, manifest)
+        extraction.cleanup()
         logger.info("Распаковка завершена успешно")
         logger.info(f"7z stdout: {result.stdout}")
         return True
@@ -239,145 +259,13 @@ def apply_delta_update(temp_dir: Path, delta_manifest_path: Path, install_dir: P
     Returns:
         True при успехе, False при ошибке (с роллбеком)
     """
-    logger = logging.getLogger(__name__)
-    backup_dir = install_dir / ".update_backup"
-    extraction_dir = temp_dir / "_delta_extracted"
-    
-    # БАГ 2: Инициализируем backed_up_files ДО try блока, чтобы except мог на него сослаться
-    backed_up_files = []
-    
     try:
-        # Шаг 1: Читаем манифест
-        logger.info(f"Чтение {delta_manifest_path}...")
-        with open(delta_manifest_path, "r", encoding="utf-8") as f:
-            delta_manifest = json.load(f)
-        
-        from_version = delta_manifest.get("from_version")
-        to_version = delta_manifest.get("to_version")
-        changed_or_added = delta_manifest.get("changed_or_added", [])
-        removed = delta_manifest.get("removed", [])
-        
-        logger.info(f"Применение дельты {from_version} → {to_version}")
-        logger.info(f"  Изменено/добавлено: {len(changed_or_added)} файлов")
-        logger.info(f"  Удалено: {len(removed)} файлов")
-        
-        # Шаг 2: Распаковываем дельта-архив
-        delta_zip_name = f"delta-from-{from_version}.zip"
-        delta_zip_path = temp_dir / delta_zip_name
-        
-        if not delta_zip_path.exists():
-            logger.error(f"Дельта-архив не найден: {delta_zip_path}")
-            return False
-        
-        logger.info(f"Распаковка {delta_zip_name}...")
-        extraction_dir.mkdir(parents=True, exist_ok=True)
-        
-        with zipfile.ZipFile(delta_zip_path, "r") as zf:
-            zf.extractall(extraction_dir)
-        
-        logger.info(f"✓ Распаковано в {extraction_dir}")
-        
-        # Шаг 3: Создаём бэкап изменяемых файлов
-        logger.info("Создание бэкапа существующих файлов...")
-        backup_dir.mkdir(parents=True, exist_ok=True)
-        
-        for rel_path in changed_or_added:
-            target_file = install_dir / rel_path
-            
-            if target_file.exists():
-                backup_file = backup_dir / rel_path
-                backup_file.parent.mkdir(parents=True, exist_ok=True)
-                
-                def copy_to_backup():
-                    shutil.copy2(target_file, backup_file)
-                
-                retry_file_operation(copy_to_backup)
-                backed_up_files.append(rel_path)
-        
-        logger.info(f"✓ Создан бэкап {len(backed_up_files)} файлов")
-        
-        # Шаг 4: Копируем новые/изменённые файлы с атомарной заменой
-        logger.info("Копирование обновлённых файлов...")
-        
-        for i, rel_path in enumerate(changed_or_added, 1):
-            src_file = extraction_dir / rel_path
-            target_file = install_dir / rel_path
-            temp_file = install_dir / f"{rel_path}.new"
-            
-            if not src_file.exists():
-                logger.error(f"delta apply failed at file {rel_path}: файл отсутствует в дельта-архиве")
-                raise FileNotFoundError(f"Файл не найден в дельта-архиве: {rel_path}")
-            
-            # Создаём директории
-            target_file.parent.mkdir(parents=True, exist_ok=True)
-            temp_file.parent.mkdir(parents=True, exist_ok=True)
-            
-            # Атомарная замена: копируем во временный файл → os.replace()
-            def atomic_copy():
-                shutil.copy2(src_file, temp_file)
-                # os.replace атомарен на Windows
-                os.replace(temp_file, target_file)
-            
-            retry_file_operation(atomic_copy)
-            
-            if i % 50 == 0:
-                logger.info(f"  Обработано {i}/{len(changed_or_added)} файлов...")
-        
-        logger.info(f"✓ Скопировано {len(changed_or_added)} файлов")
-        
-        # Шаг 5: Удаляем файлы из списка removed
-        if removed:
-            logger.info(f"Удаление {len(removed)} устаревших файлов...")
-            
-            for rel_path in removed:
-                target_file = install_dir / rel_path
-                
-                if target_file.exists():
-                    def remove_file():
-                        target_file.unlink()
-                    
-                    retry_file_operation(remove_file)
-            
-            logger.info(f"✓ Удалено {len(removed)} файлов")
-        
-        # Шаг 6: Очистка бэкапа (успех)
-        logger.info("Очистка бэкапа...")
-        shutil.rmtree(backup_dir, ignore_errors=True)
-        
-        logger.info("✓ Дельта-обновление применено успешно")
+        from updater.transaction import apply_delta
+        apply_delta(temp_dir, delta_manifest_path, install_dir)
         return True
-        
-    except Exception as e:
-        logger.error(f"ОШИБКА при применении дельты: {e}", exc_info=True)
-        
-        # Роллбек
-        if backup_dir.exists():
-            logger.info("Попытка отката изменений...")
-            
-            try:
-                for backed_up_file in backed_up_files:
-                    backup_file = backup_dir / backed_up_file
-                    target_file = install_dir / backed_up_file
-                    
-                    if backup_file.exists():
-                        def restore_file():
-                            shutil.copy2(backup_file, target_file)
-                        
-                        retry_file_operation(restore_file)
-                
-                logger.info("✓ Откат выполнен, файлы восстановлены")
-                shutil.rmtree(backup_dir, ignore_errors=True)
-                
-            except Exception as rollback_error:
-                logger.error(f"Ошибка при откате: {rollback_error}", exc_info=True)
-                logger.error("ВНИМАНИЕ: Установка может быть повреждена!")
-        
+    except Exception:
+        logging.getLogger(__name__).exception("Delta update failed")
         return False
-    
-    finally:
-        # Очистка extraction_dir
-        if extraction_dir.exists():
-            shutil.rmtree(extraction_dir, ignore_errors=True)
 
 
 # ════════════════════════════════════════════════════════════════
@@ -430,7 +318,11 @@ def main():
         
         # Шаг 1: Ждём завершения Signer
         if not wait_for_process_exit(args.pid, timeout_sec=30):
-            logger.warning("Процесс Signer не завершился в течение таймаута, продолжаем")
+            logger.error("Signer ещё работает; обновление отменено до изменения файлов")
+            show_error_messagebox("Signer — обновление отложено",
+                "Signer ещё работает. Дождитесь завершения обработки и сохранения, "
+                "закройте программу и повторите обновление. Файлы не изменены.")
+            sys.exit(1)
         
         # Небольшая пауза для гарантированного освобождения файлов
         logger.info("Пауза перед обновлением...")

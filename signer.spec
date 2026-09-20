@@ -79,6 +79,52 @@ def check_package_installed(package_name: str) -> bool:
     except Exception:
         return False
 
+def get_package_version(package_name: str) -> str:
+    """Возвращает версию установленного пакета."""
+    try:
+        result = subprocess.run(
+            [sys.executable, "-m", "pip", "show", package_name],
+            capture_output=True,
+            text=True,
+            check=False
+        )
+        if result.returncode == 0:
+            for line in result.stdout.splitlines():
+                if line.startswith("Version:"):
+                    return line.split(":", 1)[1].strip()
+        return "unknown"
+    except Exception:
+        return "unknown"
+
+# КРИТИЧНО: Проверяем соответствие версий требованиям
+REQUIRED_VERSIONS = {
+    "onnx": "1.17.0",
+    "onnxruntime": "1.19.2",
+    "openvino": "2024.4.0",
+}
+
+version_mismatches = []
+for package_name, required_version in REQUIRED_VERSIONS.items():
+    if check_package_installed(package_name):
+        installed_version = get_package_version(package_name)
+        if installed_version != required_version:
+            version_mismatches.append(
+                f"{package_name}: требуется {required_version}, установлено {installed_version}"
+            )
+
+if version_mismatches:
+    print(f"[signer.spec] ❌ ERROR: Несоответствие версий CPU-бэкендов!")
+    for mismatch in version_mismatches:
+        print(f"[signer.spec]    {mismatch}")
+    print(f"[signer.spec] ")
+    print(f"[signer.spec] КРИТИЧНО: Версии при экспорте и runtime должны совпадать!")
+    print(f"[signer.spec] Установите точные версии:")
+    print(f"[signer.spec]    pip install -r requirements-cpu-backends.txt")
+    raise RuntimeError(
+        "Несоответствие версий CPU-бэкендов. Экспортированные модели могут не загружаться. "
+        f"Проблемы: {'; '.join(version_mismatches)}"
+    )
+
 # Проверяем ONNX Runtime
 onnx_installed = check_package_installed('onnxruntime')
 if onnx_installed:
@@ -97,10 +143,48 @@ else:
 
 # Проверяем OpenVINO
 openvino_installed = check_package_installed('openvino')
+# Временное хранилище для дополнительных файлов OpenVINO
+extra_openvino_datas = []
+
 if openvino_installed:
     openvino_libs = collect_dynamic_libs('openvino')
     binaries += openvino_libs
     print(f"[signer.spec] ✅ OpenVINO: найдено {len(openvino_libs)} библиотек")
+    
+    # КРИТИЧЕСКОЕ ИСПРАВЛЕНИЕ (BUG-ROOT-CAUSE): явный сбор всех файлов OpenVINO
+    # collect_dynamic_libs не всегда подхватывает плагины и конфиги
+    import glob
+    try:
+        import openvino
+        ov_root = os.path.dirname(openvino.__file__)
+        ov_libs_dir = os.path.join(ov_root, 'libs')
+        
+        # Собираем все файлы из libs/ (DLL, XML конфиги плагинов и т.д.)
+        if os.path.isdir(ov_libs_dir):
+            extra_ov_files = []
+            for root_dir, dirs, files in os.walk(ov_libs_dir):
+                for file in files:
+                    src = os.path.join(root_dir, file)
+                    # Относительный путь внутри openvino/libs/
+                    rel_path = os.path.relpath(src, ov_root)
+                    dest_dir = os.path.join('openvino', os.path.dirname(rel_path))
+                    
+                    # Добавляем как data (не binary), чтобы сохранить структуру
+                    extra_ov_files.append((src, dest_dir))
+            
+            # Убираем дубликаты с binaries (уже добавленные через collect_dynamic_libs)
+            existing_binaries_set = {os.path.basename(b[0]) for b in binaries}
+            unique_ov_files = [
+                (src, dst) for src, dst in extra_ov_files 
+                if os.path.basename(src) not in existing_binaries_set
+            ]
+            
+            if unique_ov_files:
+                extra_openvino_datas = unique_ov_files
+            
+            print(f"[signer.spec] ℹ️  OpenVINO root: {ov_root}")
+    except Exception as e:
+        print(f"[signer.spec] ⚠️  Ошибка при сборе дополнительных файлов OpenVINO: {e}")
 else:
     print(f"[signer.spec] ❌ ERROR: OpenVINO не установлен в venv сборки!")
     print(f"[signer.spec]    Установите: pip install openvino")
@@ -126,8 +210,16 @@ onnx_data = collect_data_files('onnxruntime')
 openvino_data = collect_data_files('openvino')
 datas += onnx_data
 datas += openvino_data
+
+# Добавляем дополнительные файлы OpenVINO, собранные выше
+if extra_openvino_datas:
+    datas += extra_openvino_datas
+
 print(f"[signer.spec] ✅ ONNX Runtime data: {len(onnx_data)} файлов")
 print(f"[signer.spec] ✅ OpenVINO data: {len(openvino_data)} файлов")
+if extra_openvino_datas:
+    print(f"[signer.spec] ✅ OpenVINO дополнительные файлы добавлены: {len(extra_openvino_datas)}")
+
 
 # ── Собственные ресурсы проекта ────────────────────────────────────
 # Обёрнуто в проверку на существование, чтобы явная ошибка была видна

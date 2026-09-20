@@ -45,13 +45,6 @@ def _check_production_key():
     ЗАДАЧА 3: Проверяет, что production-сборка не использует dev-ключ.
     Вызывается при импорте модуля.
     """
-    # ВРЕМЕННО ОТКЛЮЧЕНО для тестового билда
-    # TODO: ВКЛЮЧИТЬ ОБРАТНО перед production релизом!
-    import os
-    if os.environ.get('SKIP_PROD_KEY_CHECK') == '1':
-        logger.warning("⚠️ PRODUCTION KEY CHECK SKIPPED! FOR TESTING ONLY!")
-        return
-    
     if getattr(sys, "frozen", False):
         # В frozen-сборке проверяем хэш ключа
         current_key_hash = hashlib.sha256(LICENSE_PUBLIC_KEY_PEM.encode()).hexdigest()

@@ -6,14 +6,16 @@ from PyQt6.QtCore import Qt, pyqtSignal, QSize
 from PyQt6.QtGui import QIcon, QFont
 from ui.themes.theme_manager import theme_manager, Theme
 from ui.widgets.toggle_switch import ToggleSwitch
+from ui.widgets.control_styles import line_icon
+from app.version import APP_VERSION
 
 
 # Иконки — Unicode символы (не требуют внешних зависимостей)
 NAV_ITEMS = [
-    ("dashboard",   "⊞",  "Dashboard"),
+    ("dashboard",   "⊞",  "Обзор"),
     ("processing",  "▷",  "Обработка"),
     ("map",         "◎",  "Карта"),
-    ("errors",      "◈",  "Ошибки"),
+    ("errors",      "◈",  "Редактор знаков"),
     ("settings",    "⚙",  "Настройки"),
 ]
 
@@ -27,6 +29,7 @@ class SidebarItem(QPushButton):
         self.setObjectName("SidebarItem")
         self.setCursor(Qt.CursorShape.PointingHandCursor)
         self.setCheckable(False)
+        self.setAccessibleName(label)
 
         layout = QHBoxLayout(self)
         layout.setContentsMargins(14, 0, 12, 0)
@@ -35,6 +38,7 @@ class SidebarItem(QPushButton):
         self._icon_lbl = QLabel(icon)
         self._icon_lbl.setObjectName("SidebarItemIcon")
         self._icon_lbl.setFixedWidth(18)
+        self._icon_lbl.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents)
         self._icon_lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self._icon_lbl.setStyleSheet("background: transparent; font-size: 15px;")
 
@@ -42,13 +46,15 @@ class SidebarItem(QPushButton):
         self._text_lbl.setObjectName("SidebarItemText")
         self._text_lbl.setStyleSheet("background: transparent; font-size: 12px;")
         self._text_lbl.setWordWrap(False)  # Не переносим в sidebar
+        self._text_lbl.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents)
 
         layout.addWidget(self._icon_lbl)
         layout.addWidget(self._text_lbl)
         layout.addStretch()
 
-        self.setMinimumHeight(38)  # Минимальная высота
-        self.setMinimumWidth(180)
+        self.setFixedHeight(44)
+        self.setMinimumWidth(0)
+        self.set_active(False)
 
     def set_active(self, active: bool):
         self._active = active
@@ -57,6 +63,14 @@ class SidebarItem(QPushButton):
         self.style().unpolish(self)
         self.style().polish(self)
         t = theme_manager.tokens
+        background = t['accent_subtle'] if active else 'transparent'
+        border = t['accent_muted'] if active else 'transparent'
+        self.setStyleSheet(f"""
+            QPushButton#SidebarItem {{ background: {background}; border: 1px solid {border};
+                border-radius: 10px; padding: 0; margin: 0; min-width: 0; min-height: 42px; max-height: 42px; text-align: left; }}
+            QPushButton#SidebarItem:hover {{ background: {t['bg_tertiary']}; }}
+            QPushButton#SidebarItem:focus {{ border-color: {t['accent']}; }}
+        """)
         if active:
             color = t["accent"]
         else:
@@ -65,8 +79,9 @@ class SidebarItem(QPushButton):
             f"background: transparent; font-size: 15px; color: {color};"
         )
         self._text_lbl.setStyleSheet(
-            f"background: transparent; font-size: 12px; color: {color};"
+            f"background: transparent; font-size: 12px; color: {color}; font-weight: {'600' if active else '400'};"
         )
+        self._icon_lbl.setPixmap(line_icon(self.page_id, color).pixmap(QSize(18, 18)))
 
 
 class Sidebar(QWidget):
@@ -75,7 +90,7 @@ class Sidebar(QWidget):
     def __init__(self, parent=None):
         super().__init__(parent)
         self.setObjectName("Sidebar")
-        self.setFixedWidth(200)
+        self.setFixedWidth(216)
 
         self._items: dict[str, SidebarItem] = {}
         self._current_page = ""
@@ -87,11 +102,17 @@ class Sidebar(QWidget):
         # ── Logo block
         logo_block = QWidget()
         logo_block.setObjectName("SidebarLogoBlock")
-        logo_block.setMinimumHeight(64)  # Минимальная высота
+        logo_block.setFixedHeight(92)
         logo_block.setStyleSheet("background: transparent;")
-        logo_layout = QVBoxLayout(logo_block)
-        logo_layout.setContentsMargins(16, 16, 16, 8)
-        logo_layout.setSpacing(2)
+        logo_layout = QHBoxLayout(logo_block)
+        logo_layout.setContentsMargins(18, 18, 16, 18)
+        logo_layout.setSpacing(10)
+        self._brand_mark = QLabel()
+        self._brand_mark.setFixedSize(36, 36)
+        self._brand_mark.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        logo_layout.addWidget(self._brand_mark)
+        brand_text = QVBoxLayout()
+        brand_text.setSpacing(3)
 
         self._logo_lbl = QLabel("Signer")
         self._logo_lbl.setObjectName("SidebarLogo")
@@ -101,15 +122,16 @@ class Sidebar(QWidget):
             "background: transparent;"
         )
 
-        self._ver_lbl = QLabel("v2.0")
+        self._ver_lbl = QLabel(f"PRIME  ·  v{APP_VERSION}")
         self._ver_lbl.setObjectName("SidebarVersion")
         self._ver_lbl.setStyleSheet(
             f"color: {theme_manager.tokens['text_tertiary']};"
             "font-size: 10px; background: transparent;"
         )
 
-        logo_layout.addWidget(self._logo_lbl)
-        logo_layout.addWidget(self._ver_lbl)
+        brand_text.addWidget(self._logo_lbl)
+        brand_text.addWidget(self._ver_lbl)
+        logo_layout.addLayout(brand_text)
         root.addWidget(logo_block)
 
         # ── Thin separator
@@ -122,7 +144,7 @@ class Sidebar(QWidget):
         # ── Section label
         self._nav_lbl = QLabel("НАВИГАЦИЯ")
         self._nav_lbl.setObjectName("SectionLabel")
-        self._nav_lbl.setContentsMargins(16, 14, 0, 6)
+        self._nav_lbl.setContentsMargins(22, 20, 0, 10)
         self._nav_lbl.setStyleSheet(
             f"color: {theme_manager.tokens['text_tertiary']};"
             "font-size: 9px; font-weight: 700; letter-spacing: 1.5px;"
@@ -134,8 +156,8 @@ class Sidebar(QWidget):
         nav_items_widget = QWidget()
         nav_items_widget.setStyleSheet("background: transparent;")
         nav_layout = QVBoxLayout(nav_items_widget)
-        nav_layout.setContentsMargins(8, 0, 8, 0)
-        nav_layout.setSpacing(2)
+        nav_layout.setContentsMargins(12, 0, 12, 0)
+        nav_layout.setSpacing(6)
 
         for page_id, icon, label in NAV_ITEMS:
             item = SidebarItem(page_id, icon, label)
@@ -206,9 +228,11 @@ class Sidebar(QWidget):
     def _restyle_static_elements(self):
         """Обновляет цвета статичных элементов сайдбара под текущую тему."""
         t = theme_manager.tokens
+        self._brand_mark.setStyleSheet(f"background: {t['accent_subtle']}; border: 1px solid {t['accent_muted']}; border-radius: 11px;")
+        self._brand_mark.setPixmap(line_icon('brand', t['accent']).pixmap(QSize(24, 24)))
         self._logo_lbl.setStyleSheet(
             f"color: {t['text_primary']};"
-            "font-size: 13px; font-weight: 700; letter-spacing: 1.8px;"
+            "font-size: 18px; font-weight: 700; letter-spacing: 0.3px;"
             "background: transparent;"
         )
         self._ver_lbl.setStyleSheet(

@@ -62,6 +62,38 @@ def detect_recommended_backend() -> dict:
     }
 
 
+def apply_recommended_settings(settings: "AppSettings") -> dict:
+    """
+    Определяет и записывает в settings рекомендуемые параметры на основе железа.
+    Мутирует settings на месте. Возвращает dict с результатом detect_recommended_backend()
+    (для логирования/показа пользователю).
+    Не вызывает settings.save() — вызывающий код сам решает, когда сохранять.
+    
+    ЗАДАЧА 3: вынесена из SettingsPage._apply_recommended_settings для переиспользования
+    при первом запуске.
+    
+    Args:
+        settings: AppSettings для изменения
+        
+    Returns:
+        dict с результатом detect_recommended_backend() (use_cuda, cpu_inference_backend, reason)
+    """
+    rec = detect_recommended_backend()
+    
+    # ── Backend / CUDA ──────────────────────────────────────
+    settings.use_cuda = rec["use_cuda"]
+    settings.cpu_inference_backend = rec["cpu_inference_backend"]
+    
+    # ── Рекомендованные пороги качества/производительности ──
+    settings.conf_side = 0.55
+    settings.iou_threshold = 0.15
+    settings.dedup_radius_track_m = 10.0
+    settings.dedup_azimuth_deg = 40.0
+    settings.preview_fps_limit = 10.0
+    
+    return rec
+
+
 def _detect_cpu_vendor() -> str:
     """
     Пытается определить производителя CPU: "intel", "amd" или "unknown".

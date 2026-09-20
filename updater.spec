@@ -26,6 +26,7 @@ a = Analysis(
     binaries=[],
     datas=[],
     hiddenimports=[
+        'updater.transaction',
         'psutil',  # Опционально, для корректной проверки процесса
         'app.version',  # Updater использует version для проверки
     ],

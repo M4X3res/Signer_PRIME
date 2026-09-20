@@ -52,6 +52,18 @@ scripts\build\prepare_release.bat
 
 Для разработки без продакшн-сервера запустите локальный dev-сервер из `signer-license-server/` и установите `SIGNER_LICENSE_SERVER_URL=http://localhost:8000`.
 
+### CPU-бэкенды (ONNX/OpenVINO)
+
+Для использования CPU-оптимизированных бэкендов (альтернатива CUDA):
+
+- **Инструкция по применению фикса:** [docs/CPU_BACKENDS_FIX_INSTRUCTIONS.md](docs/CPU_BACKENDS_FIX_INSTRUCTIONS.md)
+- **Технический отчёт:** [docs/CPU_BACKENDS_FIX_REPORT.md](docs/CPU_BACKENDS_FIX_REPORT.md)
+
+⚠️ **Важно:** После обновления кода пересоберите экспортированные модели:
+```bash
+python scripts/export_models_onnx.py --format all --force
+```
+
 ## Структура проекта
 
 ### Основные файлы

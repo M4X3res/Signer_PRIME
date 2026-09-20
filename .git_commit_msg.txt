@@ -1,0 +1,36 @@
+fix: production bugfixes (tasks 1-5)
+
+TASK 1 (CRITICAL): Fixed dev key check
+- Corrected DEV_KEY_SHA256 to match actual key hash
+- Added TestProductionKeyCheck with 2 unit tests
+- Now properly detects dev key in production builds
+
+TASK 2 (CRITICAL): Added build_config.json support
+- Added reading license_server_url from build_config.json
+- Priority: env var > build_config.json > default
+- Added validation in prepare_release.bat
+- Updated RELEASE.md documentation
+
+TASK 3: Internal licenses in CLI
+- Added "internal" plan to create_license_manual.py
+- Added example in help text
+
+TASK 4: Stripe Price IDs via environment
+- Added stripe_price_id_* fields to Settings
+- Implemented get_stripe_price_to_plan_map() for runtime mapping
+- Removed hardcoded STRIPE_PRICE_TO_PLAN
+- Added warnings on startup for missing Price IDs
+- Updated .env.example and README.md
+
+TASK 5: CORS warnings verification
+- Verified warnings in app/main.py and deploy_gcloud.sh
+- Confirmed correct existing configuration
+
+Documentation:
+- Created 11 files: INDEX.md, BUGFIXES_README.md, SUMMARY.md, etc.
+- Added verification scripts: test_fixes.py, run_all_tests.bat
+- Created build_config.json.example template
+
+Changed: 12 files (6 client + 6 server)
+Created: 11 files (config, tests, docs, scripts)
+Status: Ready for production after configuration

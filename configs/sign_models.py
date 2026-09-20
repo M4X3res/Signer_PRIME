@@ -102,41 +102,74 @@ def reload_all_models_if_device_changed() -> bool:
 
 def verify_backend_active() -> dict[str, str]:
     """
-    BLOCK FIX-4.1: принудительно грузит ВСЕ модели (если ещё не загружены) и
-    возвращает {имя_модели: реальный_backend}. Вызывать один раз при старте
-    обработки, чтобы явно предупредить пользователя, если запрошенный backend
-    (ONNX/OpenVINO) фактически не используется хотя бы для одной модели —
-    вместо тихого отката, о котором сейчас можно узнать только из roadscan.log.
-    """
-    # Импортируем все модели, которые будут определены ниже
-    # (избегаем circular import, поэтому используем locals() после их определения)
-    result = {}
+    BLOCK FIX-4.1 + CPU-BACKENDS-FIX (Задача 3): принудительно грузит ВСЕ модели
+    (если ещё не загружены), выполняет РЕАЛЬНЫЙ dummy-инференс с корректным imgsz,
+    и возвращает {имя_модели: реальный_backend}.
     
-    # Получаем все глобальные переменные, которые являются _LazyModel
-    # Это будет работать, только если вызвать ПОСЛЕ определения всех моделей
-    # Для безопасности, соберём список моделей вручную:
+    Вызывать один раз при старте обработки, чтобы:
+    1. Явно предупредить пользователя, если запрошенный backend (ONNX/OpenVINO)
+       фактически не используется хотя бы для одной модели — вместо тихого отката.
+    2. Поймать ошибки несовместимости shape СРАЗУ, до начала обработки видео, а не
+       на тысячах кадров подряд (что приводит к "успешно завершённой" обработке с 0 знаков).
+    3. Прогреть все модели (JIT-компиляция/загрузка) вне "горячего пути" первого кадра видео.
+    """
+    import numpy as np
+    from configs.settings import get_app_settings
+    
+    result = {}
+    settings = get_app_settings()
+    
+    # Определяем правильные размеры входов (согласованы с scripts/export_models_onnx.py и core/detector.py)
+    CLASSIFY_IMGSZ = 32  # Все классификаторы в small_models/*
+    DETECT_SIDE_IMGSZ = 608  # model_side_detect
+    DETECT_LANE_IMGSZ = 640  # arrow_detect, arrow_segment
+    
+    # Собираем все модели вручную (чтобы избежать circular import)
     try:
         all_models = {
-            "model_side_detect": model_side_detect,
-            "rube_modal": rube_modal,
-            "model_lane_detect": model_lane_detect,
-            "model_lane_segment": model_lane_segment,
+            "model_side_detect": (model_side_detect, "detect", DETECT_SIDE_IMGSZ),
+            "rube_modal": (rube_modal, "classify", CLASSIFY_IMGSZ),
+            "model_lane_detect": (model_lane_detect, "detect", DETECT_LANE_IMGSZ),
+            "model_lane_segment": (model_lane_segment, "segment", DETECT_LANE_IMGSZ),
         }
-        # Добавляем модели из словарей
+        # Добавляем модели из словарей (все — классификаторы 32×32)
         for k, v in model_dict.items():
-            all_models[f"model_dict[{k}]"] = v
+            all_models[f"model_dict[{k}]"] = (v, "classify", CLASSIFY_IMGSZ)
         for k, v in sub_models.items():
-            all_models[f"sub_models[{k}]"] = v
+            all_models[f"sub_models[{k}]"] = (v, "classify", CLASSIFY_IMGSZ)
         
-        for name, m in all_models.items():
+        for name, (m, task, imgsz) in all_models.items():
             try:
-                m._load()  # Принудительно загрузить модель
-                result[name] = m._backend or "unknown"
+                # 1. Загружаем модель
+                m._load()
+                backend = m._backend or "unknown"
+                
+                # 2. Dummy-инференс с правильным размером
+                # Создаём dummy-изображение BGR (Height, Width, Channels)
+                if task == "classify":
+                    # Классификаторы: 32×32×3
+                    dummy_img = np.zeros((imgsz, imgsz, 3), dtype=np.uint8)
+                elif task in ("detect", "segment"):
+                    # Детекторы/сегментация: imgsz×imgsz×3
+                    dummy_img = np.zeros((imgsz, imgsz, 3), dtype=np.uint8)
+                else:
+                    raise ValueError(f"Неизвестный task: {task}")
+                
+                # Прогоняем инференс (с тем же imgsz, что будет использоваться в runtime)
+                _ = m.predict(dummy_img, imgsz=imgsz, verbose=False)
+                
+                result[name] = backend
+                logger.debug(f"[verify_backend_active] ✅ {name}: {backend} (dummy inference passed)")
+                
             except Exception as e:
                 result[name] = f"ERROR: {e}"
-                logger.warning(f"[verify_backend_active] Не удалось загрузить {name}: {e}")
+                logger.error(
+                    f"[verify_backend_active] ❌ {name}: ОШИБКА при dummy inference! "
+                    f"Backend={m._backend or 'unknown'}, Error={e}",
+                    exc_info=True  # Логируем полный traceback
+                )
     except Exception as e:
-        logger.error(f"[verify_backend_active] Критическая ошибка при проверке backend: {e}")
+        logger.error(f"[verify_backend_active] Критическая ошибка при проверке backend: {e}", exc_info=True)
         result["_error"] = str(e)
     
     return result
@@ -160,18 +193,20 @@ class _LazyModel:
     
     BLOCK M: Расширена для поддержки ONNX Runtime и OpenVINO backends.
     """
-    def __init__(self, path_fn, task: str = None, onnx_path_fn=None, openvino_path_fn=None):
+    def __init__(self, path_fn, task: str = None, onnx_path_fn=None, openvino_path_fn=None, warmup_shape=(32, 32)):
         """
         Args:
             path_fn: callable, возвращает путь к .pt файлу
             task: тип задачи ("detect", "classify", "segment") - обязателен для ONNX/OpenVINO
             onnx_path_fn: callable, возвращает путь к .onnx файлу
             openvino_path_fn: callable, возвращает путь к .xml файлу OpenVINO
+            warmup_shape: размер входа для прогрева (width, height), default (32, 32) для classify
         """
         self._path_fn = path_fn   # callable -> str
         self._task = task
         self._onnx_path_fn = onnx_path_fn
         self._openvino_path_fn = openvino_path_fn
+        self._warmup_shape = warmup_shape  # ЗАДАЧА 1.1: размер входа для прогрева
         self._model   = None
         self._device  = None      # кешируем device при первой загрузке
         self._backend = None      # реально загруженный backend
@@ -266,6 +301,33 @@ class _LazyModel:
                 logger.info(f"[sign_models] Загружена PyTorch-модель: {os.path.basename(pt_path)}")
             self._backend = "torch"
 
+        # ── ЗАДАЧА 1.1: Прогрев модели (только для ONNX/OpenVINO) ──
+        # Компиляция графа ONNX Runtime / OpenVINO происходит лениво при первом
+        # реальном predict(), из-за чего первый кадр обработки на CPU-backend
+        # может подвисать на секунды. Выполняем явный прогрев сразу после загрузки.
+        from configs.settings import get_app_settings
+        settings = get_app_settings()
+        
+        if settings.cpu_backend_warmup_enabled and self._backend in ("onnx", "openvino"):
+            try:
+                import numpy as np
+                from core.profiler import profiler
+                
+                # Создаём dummy-изображение правильной формы (Height, Width, Channels)
+                h, w = self._warmup_shape[1], self._warmup_shape[0]  # (width, height) -> (height, width)
+                dummy_img = np.zeros((h, w, 3), dtype=np.uint8)
+                
+                # Прогрев с замером времени
+                model_name = os.path.basename(self._onnx_path_fn() if self._backend == "onnx" else self._openvino_path_fn() or "unknown")
+                with profiler.measure(f"model_warmup_{model_name}"):
+                    _ = self._model.predict(dummy_img, imgsz=max(h, w), verbose=False)
+                
+                logger.info(f"[sign_models] ✓ Прогрев модели {model_name} завершён ({self._backend}, {w}×{h})")
+                
+            except Exception as e:
+                logger.warning(f"[sign_models] Не удалось прогреть модель: {e}")
+                # Не роняем загрузку модели из-за ошибки прогрева
+
         return self._model
 
     def _predict_kwargs_with_cpu_pin(self, kwargs: dict) -> dict:
@@ -295,11 +357,50 @@ class _LazyModel:
                 pass
 
     def predict(self, *args, **kwargs):
+        """
+        Выполняет предсказание с автоматическим fallback на PyTorch при ошибках
+        ONNX/OpenVINO runtime.
+        
+        WORKAROUND: OpenVINO может выдавать "Tensor without names" для некоторых
+        моделей (особенно segment). В таких случаях автоматически откатываемся
+        на PyTorch backend.
+        """
         model = self._load()
         kwargs = self._predict_kwargs_with_cpu_pin(kwargs)
-        result = model.predict(*args, **kwargs)
-        self._reassert_cpu_predictor(model)
-        return result
+        
+        try:
+            result = model.predict(*args, **kwargs)
+            self._reassert_cpu_predictor(model)
+            return result
+        except RuntimeError as e:
+            # WORKAROUND: OpenVINO "Tensor without names" или другие runtime ошибки
+            if self._backend in ("onnx", "openvino") and ("Tensor without names" in str(e) or "Exception from" in str(e)):
+                logger.warning(
+                    f"[sign_models] {self._backend} runtime error: {e}. "
+                    f"Автоматический откат на PyTorch backend."
+                )
+                
+                # Перезагружаем модель как PyTorch
+                from ultralytics import YOLO  # Локальный импорт для fallback
+                
+                self._model = None
+                self._backend = None
+                
+                # Принудительно загружаем PyTorch версию
+                pt_path = self._path_fn()
+                self._model = YOLO(pt_path)
+                try:
+                    self._model.to(self._device)
+                    logger.info(f"[sign_models] Загружена PyTorch-модель (fallback): {os.path.basename(pt_path)}")
+                except Exception:
+                    logger.info(f"[sign_models] Загружена PyTorch-модель (fallback): {os.path.basename(pt_path)}")
+                self._backend = "torch"
+                
+                # Повторяем предсказание с PyTorch моделью
+                return self._model.predict(*args, **kwargs)
+            else:
+                # Другие ошибки пробрасываем наверх
+                raise
 
     def __call__(self, *args, **kwargs):
         # ВАЖНО (BUG-1 fix): раньше здесь был прямой self._load()(*args, **kwargs),
@@ -347,15 +448,16 @@ def _p_openvino(rel: str):
     return _get
 
 
-# Главная модель детекции знаков
+# Главная модель детекции знаков (ЗАДАЧА 1.1: warmup_shape=608×608)
 model_side_detect = _LazyModel(
     _p("CNN_side/best.pt"),
     task="detect",
     onnx_path_fn=_p_onnx("CNN_side/best.pt"),
-    openvino_path_fn=_p_openvino("CNN_side/best.pt")
+    openvino_path_fn=_p_openvino("CNN_side/best.pt"),
+    warmup_shape=(608, 608)
 )
 
-# Грубая фильтрация
+# Грубая фильтрация (классификатор 32×32, default warmup_shape)
 rube_modal = _LazyModel(
     _p("small_models/rude.pt"),
     task="classify",
@@ -455,18 +557,20 @@ sub_models = {
     ),
 }
 
-# Модели разметки полос
+# Модели разметки полос (ЗАДАЧА 1.1: warmup_shape=640×640)
 model_lane_detect = _LazyModel(
     _p("lane_guidance_models/arrow_detect.pt"),
     task="detect",
     onnx_path_fn=_p_onnx("lane_guidance_models/arrow_detect.pt"),
-    openvino_path_fn=_p_openvino("lane_guidance_models/arrow_detect.pt")
+    openvino_path_fn=_p_openvino("lane_guidance_models/arrow_detect.pt"),
+    warmup_shape=(640, 640)
 )
 model_lane_segment = _LazyModel(
     _p("lane_guidance_models/arrow_segment.pt"),
     task="segment",
     onnx_path_fn=_p_onnx("lane_guidance_models/arrow_segment.pt"),
-    openvino_path_fn=_p_openvino("lane_guidance_models/arrow_segment.pt")
+    openvino_path_fn=_p_openvino("lane_guidance_models/arrow_segment.pt"),
+    warmup_shape=(640, 640)
 )
 
 # BLOCK 2.3.4: Удалены неиспользуемые классы _LazyKeras, _LazyJoblib

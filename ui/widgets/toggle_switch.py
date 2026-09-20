@@ -15,7 +15,8 @@ class ToggleSwitch(QWidget):
 
     def __init__(self, parent=None):
         super().__init__(parent)
-        self.setFixedSize(44, 24)
+        self.setFixedSize(46, 26)
+        self.setFocusPolicy(Qt.FocusPolicy.StrongFocus)
         self.setCursor(Qt.CursorShape.PointingHandCursor)
         
         self._checked = False
@@ -36,7 +37,9 @@ class ToggleSwitch(QWidget):
         painter.setRenderHint(QPainter.RenderHint.Antialiasing)
         
         # Фон (округлый прямоугольник)
-        rect = QRectF(0, 0, self.width(), self.height())
+        rect = QRectF(1, 1, self.width()-2, self.height()-2)
+        if not self.isEnabled():
+            painter.setOpacity(0.4)
         
         # Плавная интерполяция цвета фона
         if self._checked:
@@ -48,6 +51,12 @@ class ToggleSwitch(QWidget):
         painter.setBrush(bg_color)
         painter.drawRoundedRect(rect, self.height() / 2, self.height() / 2)
         
+        if self.hasFocus():
+            painter.setPen(QPen(self._bg_color_on, 1))
+            painter.setBrush(Qt.BrushStyle.NoBrush)
+            painter.drawRoundedRect(QRectF(0.5, 0.5, self.width()-1, self.height()-1), 13, 13)
+            painter.setPen(Qt.PenStyle.NoPen)
+
         # Кружок (переключатель)
         circle_radius = self.height() - 6
         circle_x = 3 + self._circle_position * (self.width() - circle_radius - 6)
@@ -58,6 +67,13 @@ class ToggleSwitch(QWidget):
             int(circle_x), int(circle_y),
             int(circle_radius), int(circle_radius)
         )
+
+    def keyPressEvent(self, event):
+        if event.key() in (Qt.Key.Key_Space, Qt.Key.Key_Return):
+            self.toggle()
+            event.accept()
+        else:
+            super().keyPressEvent(event)
 
     def mousePressEvent(self, event):
         if event.button() == Qt.MouseButton.LeftButton:

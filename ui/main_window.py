@@ -2,6 +2,8 @@ import logging
 import os
 import cv2
 import numpy as np
+from licensing.access import online_action
+from licensing.license_manager import LicenseStatus
 
 from PyQt6.QtWidgets import (
     QMainWindow, QWidget, QHBoxLayout, QVBoxLayout,
@@ -66,7 +68,16 @@ class StatusBar(QWidget):
             f"color: {t['text_tertiary']}; font-size: 11px; background: transparent;"
         )
 
-    def set_status(self, text: str, color: str = ""):
+    def set_status(self, text: str, color: str = "", duration_ms: int = 0):
+        """
+        Устанавливает текст статуса.
+        
+        Args:
+            text: Текст статуса
+            color: Цвет текста (опционально, по умолчанию text_tertiary)
+            duration_ms: Длительность показа в миллисекундах. Если >0, автоматически
+                        вернётся к "Готов к работе" через указанное время.
+        """
         t = theme_manager.tokens
         c = color or t["text_tertiary"]
         self._status.setText(text)
@@ -76,6 +87,11 @@ class StatusBar(QWidget):
         self._dot.setStyleSheet(
             f"color: {c}; font-size: 8px; background: transparent;"
         )
+        
+        # БАГ-3: Поддержка автосброса статуса через duration_ms
+        if duration_ms > 0:
+            from PyQt6.QtCore import QTimer
+            QTimer.singleShot(duration_ms, lambda: self.set_status("Готов к работе"))
 
 
 class MainWindow(QMainWindow):
@@ -202,10 +218,50 @@ class MainWindow(QMainWindow):
         idx = self._page_map.get(page_id, 0)
         self._pages.setCurrentIndex(idx)
 
+    def on_license_access_changed(self, status):
+        """Lock work immediately on a failed check; keep recovery UI available."""
+        valid = status == LicenseStatus.VALID and self.license_manager.has_online_access()
+        self._license_blocked = not valid
+        self._pages.setEnabled(valid)
+        self.sidebar.setEnabled(valid)
+        if valid:
+            dialog = getattr(self, '_license_access_dialog', None)
+            if dialog:
+                dialog.close()
+            self._license_access_dialog = None
+            return
+        controller = getattr(self, '_controller', None)
+        if controller and controller.is_running:
+            self._license_interrupted = True
+            controller.finish_and_save()
+        self.status_bar.set_status('Работа заблокирована: требуется онлайн-проверка лицензии', theme_manager.tokens['warning'])
+        if getattr(self, '_license_access_dialog', None):
+            return
+        dialog = QMessageBox(self)
+        self._license_access_dialog = dialog
+        dialog.setWindowTitle('Требуется проверка лицензии')
+        dialog.setText('Связь с сервером не подтверждена или лицензия недействительна.\n'
+                       'Работа заблокирована. Текущая обработка останавливается с сохранением прогресса.')
+        dialog.setStandardButtons(QMessageBox.StandardButton.Retry | QMessageBox.StandardButton.Close)
+        def respond(button):
+            self._license_access_dialog = None
+            if dialog.standardButton(button) == QMessageBox.StandardButton.Retry:
+                if self.license_manager._access_status in (LicenseStatus.NOT_ACTIVATED, LicenseStatus.EXPIRED, LicenseStatus.REVOKED):
+                    from ui.widgets.license_dialog import LicenseDialog
+                    LicenseDialog(self.license_manager).exec()
+                self.license_manager.verify_access_async(lambda status, error: None)
+            else:
+                self.close()
+        dialog.buttonClicked.connect(respond)
+        dialog.open()
+
     # ── Processing wiring (to be connected to ButtonsHandler) ──
 
+    @online_action
     def _on_start(self):
         """Вызывается когда пользователь нажимает 'Начать обработку'."""
+        if getattr(self, '_saving_results', False) or (self._controller and self._controller.is_running):
+            return
         
         logger.info("Запуск обработки...")
         
@@ -228,6 +284,10 @@ class MainWindow(QMainWindow):
                 QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
                 QMessageBox.StandardButton.Yes
             )
+
+            if not self.license_manager.has_online_access():
+                self.on_license_access_changed(LicenseStatus.NETWORK_ERROR)
+                return
             
             if reply == QMessageBox.StandardButton.Yes:
                 if self._controller.load_checkpoint():
@@ -259,8 +319,11 @@ class MainWindow(QMainWindow):
         except Exception as e:
             self.page_processing.log(f"Предупреждение: {e}", "warn")
 
+    @online_action
     def _on_multiple(self):
         """Массовая обработка."""
+        if getattr(self, '_saving_results', False) or (self._controller and self._controller.is_running):
+            return
         
         # Сбрасываем флаги при старте новой обработки
         self._finish_requested_called = False
@@ -333,51 +396,32 @@ class MainWindow(QMainWindow):
 
     def _on_finish(self):
         """Завершение обработки."""
-        # Защита от двойного вызова
-        if not self._controller or not self._controller.is_running:
-            if hasattr(self, '_finish_called') and self._finish_called:
-                print("[MainWindow] _on_finish уже был вызван, пропускаем")
-                return
-        
+        if self._finish_called:
+            return
+        if getattr(self, '_license_blocked', False) or getattr(self, '_license_interrupted', False):
+            self._controller.save_checkpoint(force=True)
+            self._license_interrupted = False
+            self.page_processing.set_active(False)
+            self.page_dashboard.set_processing_active(False)
+            self._saving_results = False
+            return
         self._finish_called = True
-        
+        self._saving_results = True
         self.page_processing.set_active(False)
-        self.page_dashboard.set_processing_active(False)
+        self.page_dashboard.set_processing_active(True)
         
         print("[MainWindow] Начинаем сохранение результатов...")
         
         # Сохраняем результаты в GeoJSON
         try:
+            # Детектор завершён: фиксируем и последние знаки до чтения очереди.
+            self._controller.save_checkpoint(force=True)
             self._save_results()
         except Exception as e:
             import traceback
             print(f"[MainWindow] КРИТИЧЕСКАЯ ОШИБКА в _save_results:")
             print(traceback.format_exc())
-            self.page_processing.log(f"Критическая ошибка: {e}", "error")
-        
-        # Удаляем checkpoint после успешного завершения
-        if self._controller:
-            try:
-                self._controller.delete_checkpoint()
-                self.page_processing.log("Checkpoint очищен", "info")
-            except Exception as e:
-                print(f"[MainWindow] Ошибка удаления checkpoint: {e}")
-        
-        t = theme_manager.tokens
-        self.status_bar.set_status("Обработка завершена", t["success"])
-        self.page_processing.log("Обработка завершена — результат сохранён в GeoJSON", "success")
-        self.page_processing.set_progress(100)
-        
-        # Уведомляем карту о завершении
-        try:
-            from server.map_server import emit_processing_finished
-            emit_processing_finished()
-        except Exception as e:
-            self.page_processing.log(f"Предупреждение: не удалось уведомить карту: {e}", "warn")
-        
-        # Сбрасываем флаги для следующей обработки
-        self._finish_called = False
-        self._finish_requested_called = False
+            self._on_save_error(str(e))
 
     # ── Public API for PlayerHandler integration ────────────────
 
@@ -431,6 +475,7 @@ class MainWindow(QMainWindow):
             t = theme_manager.tokens
             self.status_bar.set_status("Обработка приостановлена", t["warning"])
     
+    @online_action
     def _on_resume_requested(self):
         """Возобновление обработки."""
         if self._controller:
@@ -461,6 +506,7 @@ class MainWindow(QMainWindow):
             f"Знак {sign_type} — {video}", "info"
         )
 
+    @online_action
     def _save_results(self):
         """Финальное сохранение GeoJSON через FinalHandler."""
         print("[MainWindow] _save_results вызван")
@@ -523,9 +569,7 @@ class MainWindow(QMainWindow):
             import traceback
             print(f"[MainWindow] ОШИБКА создания потока сохранения:")
             print(traceback.format_exc())
-            self.page_processing.log(f"Ошибка: {e}", "error")
-            t = theme_manager.tokens
-            self.status_bar.set_status(f"Ошибка: {e}", t["error"])
+            self._on_save_error(str(e))
     
     def _on_save_progress(self, current: int, total: int, message: str):
         """Обработчик прогресса сохранения."""
@@ -538,6 +582,11 @@ class MainWindow(QMainWindow):
     
     def _on_save_finished(self, sign_count: int):
         """Вызывается когда сохранение завершено успешно."""
+        if self._controller:
+            self._controller.delete_checkpoint()
+        self._saving_results = False
+        self.page_dashboard.set_processing_active(False)
+        self.page_processing.set_progress(100)
         print(f"[MainWindow] Сохранение завершено: {sign_count} знаков")
         t = theme_manager.tokens
         
@@ -578,9 +627,15 @@ class MainWindow(QMainWindow):
         
         # Эмитим сигнал о завершении сохранения (для ожидания в main.py при истечении лицензии)
         self.results_saved.emit()
+        from licensing.access import get_manager
+        manager = get_manager()
+        if manager is not None:
+            manager.verify_access_async(lambda status, error: None)
     
     def _on_save_error(self, error_msg: str):
         """Вызывается при ошибке сохранения."""
+        self._saving_results = False
+        self.page_dashboard.set_processing_active(False)
         print(f"[MainWindow] ОШИБКА сохранения:")
         print(error_msg)
         self.page_processing.log(f"Ошибка сохранения", "error")
@@ -740,29 +795,33 @@ class MainWindow(QMainWindow):
     
     def closeEvent(self, event):
         """Обработка закрытия окна — очистка ресурсов."""
+        if getattr(self, '_license_interrupted', False) and self._controller and self._controller.is_running:
+            self.page_processing.log('Сохраняется прогресс остановленной обработки. Закройте окно после завершения.', 'info')
+            event.ignore()
+            return
+        manager = getattr(self, 'license_manager', None)
+        if manager and manager._verify_workers:
+            event.ignore()
+            QTimer.singleShot(200, self.close)
+            return
+        if getattr(self, '_saving_results', False):
+            self.page_processing.log("Дождитесь завершения сохранения результатов", "info")
+            event.ignore()
+            if getattr(self, '_closing_processing', False):
+                QTimer.singleShot(200, self.close)
+            return
+        controller = self._controller
+        if controller:
+            workers = [getattr(controller, name, None) for name in
+                       ('_reader', '_detector', '_detector_pool')]
+            if controller.is_running or any(worker and worker.isRunning() for worker in workers):
+                if not getattr(self, '_closing_processing', False):
+                    self._closing_processing = True
+                    controller.finish_and_save()
+                event.ignore()
+                QTimer.singleShot(200, self.close)
+                return
         try:
-            print("[MainWindow] Закрытие приложения...")
-            
-            # Останавливаем обработку если она идёт
-            if self._controller and self._controller.is_running:
-                print("[MainWindow] Остановка обработки...")
-                self._controller.stop()
-                
-                # Ждём завершения потоков (до 5 секунд)
-                if self._controller._detector:
-                    print("[MainWindow] Ожидание завершения DetectorThread...")
-                    if not self._controller._detector.wait(5000):
-                        print("[MainWindow] WARNING: DetectorThread не завершился за 5 сек")
-                elif self._controller._detector_pool:
-                    print("[MainWindow] Ожидание завершения DetectorPool...")
-                    if not self._controller._detector_pool.wait(5000):
-                        print("[MainWindow] WARNING: DetectorPool не завершился за 5 сек")
-                
-                if self._controller._reader:
-                    print("[MainWindow] Ожидание завершения VideoReader...")
-                    if not self._controller._reader.wait(2000):
-                        print("[MainWindow] WARNING: VideoReader не завершился за 2 сек")
-            
             # Очищаем ресурсы редактора
             self.page_errors.cleanup()
             

@@ -187,6 +187,9 @@ Write-Host ""
 $allFiles = @()
 $allFiles += Get-ChildItem "release\Signer.7z.*"
 $allFiles += Get-ChildItem "release\checksum.sha256"
+$allFiles += Get-ChildItem "release\manifest.json" -ErrorAction Stop
+$allFiles += Get-ChildItem "release\delta-from-*.zip" -ErrorAction SilentlyContinue
+$allFiles += Get-ChildItem "release\delta-from-*.json" -ErrorAction SilentlyContinue
 $allFiles += Get-ChildItem "release\release_notes.txt"
 
 if (Test-Path "release\README.md") {

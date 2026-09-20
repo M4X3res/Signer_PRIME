@@ -44,3 +44,6 @@ configs/lane_guidance_models/
 
 # ЗАДАЧА 2: Production конфигурация (содержит реальный URL сервера лицензий)
 build_config.json
+
+# Preserved release builds used to create incremental updates
+release_baselines/

@@ -24,6 +24,8 @@ from configs import config
 from processing.video_reader  import VideoReaderThread
 from processing.detector_thread import DetectorThread
 
+logger = logging.getLogger(__name__)
+
 
 class ProcessingController(QObject):
     """
@@ -50,7 +52,9 @@ class ProcessingController(QObject):
 
     # ── Размеры очередей (ограничение памяти) ────────────────────
     FRAME_QUEUE_SIZE  = 100   # кадров в буфере (было 8, увеличено для стабильности)
-    RESULT_QUEUE_SIZE = 5000  # знаков в буфере (увеличено с 500 до 5000 для длинных видео)
+    # Результаты читаются после завершения, поэтому очередь не может ждать
+    # потребителя. Все найденные знаки хранятся до записи GeoJSON.
+    RESULT_QUEUE_SIZE = 0
     
     # ── Автосохранение checkpoint ─────────────────────────────────
     CHECKPOINT_INTERVAL = 60  # секунд между автосохранениями
@@ -106,11 +110,13 @@ class ProcessingController(QObject):
                 exc_info=True,
             )
         
-        # BLOCK CPU-6: Проверка реального backend перед началом обработки (асинхронно)
-        # До BLOCK CPU-6 это делалось синхронно, загружая все модели в GUI-потоке → зависание UI.
-        requested_backend = "torch" if settings.use_cuda else settings.cpu_inference_backend
-        if requested_backend != "torch":
-            self._start_backend_verify(requested_backend)
+        # BLOCK REMOVE-NOTIF-1: автоматическая runtime-проверка backend'а и
+        # предупреждение об откате на PyTorch убраны. Сборка (signer.spec)
+        # теперь обязательно требует наличия ONNX Runtime и OpenVINO — как
+        # зависимостей, так и экспортированных моделей (иначе сборка падает
+        # с RuntimeError) — поэтому несовпадение backend'а больше не является
+        # ожидаемым сценарием в production-сборке, и всплывающее предупреждение
+        # только сбивало с толку пользователей при штатной работе.
         
         self._create_queues()
         self._start_reader()
@@ -182,6 +188,11 @@ class ProcessingController(QObject):
                 results.append(self._result_q.get_nowait())
             except queue.Empty:
                 break
+        # Защита для детекторов, которым передали ограниченную очередь.
+        if self._detector and self._detector._sign_handler:
+            pending = self._detector._sign_handler.result_signs
+            results.extend(pending)
+            pending.clear()
         logging.getLogger(__name__).info(f"[ProcessingController] Получено {len(results)} знаков из очереди")
         return results
 
@@ -237,8 +248,7 @@ class ProcessingController(QObject):
 
     def _create_queues(self) -> None:
         """
-        Создаёт очереди с ограниченным размером.
-        Предотвращает неконтролируемый рост памяти.
+        Ограничивает буфер кадров; результаты накапливаются до сохранения.
         """
         self._frame_q  = queue.Queue(maxsize=self.FRAME_QUEUE_SIZE)
         self._result_q = queue.Queue(maxsize=self.RESULT_QUEUE_SIZE)
@@ -371,6 +381,8 @@ class ProcessingController(QObject):
         pass
 
     def _on_detector_finished(self) -> None:
+        if self._reader:
+            self._reader.consumer_finished()
         self._running = False
         self._stop_checkpoint_timer()
         self.finished.emit()
@@ -387,7 +399,7 @@ class ProcessingController(QObject):
         """Останавливает автосохранение."""
         self._last_checkpoint_time = 0
     
-    def save_checkpoint(self) -> None:
+    def save_checkpoint(self, force: bool = False) -> None:
         """
         Сохраняет текущий прогресс обработки в checkpoint файл.
         Вызывается автоматически каждые CHECKPOINT_INTERVAL секунд.
@@ -399,7 +411,7 @@ class ProcessingController(QObject):
         now = time.time()
         
         # Throttling — сохраняем не чаще чем раз в N секунд
-        if (self._last_checkpoint_time > 0 and 
+        if (not force and self._last_checkpoint_time > 0 and 
             now - self._last_checkpoint_time < self.CHECKPOINT_INTERVAL):
             return
         
@@ -421,6 +433,13 @@ class ProcessingController(QObject):
             return
         
         try:
+            # Вызывается между кадрами в потоке детектора (либо после его
+            # завершения). Уже отправленные результаты тоже нужны для resume.
+            queued_signs = []
+            if self._result_q is not None:
+                with self._result_q.mutex:
+                    queued_signs = list(self._result_q.queue)
+            result_signs = queued_signs + list(sign_handler.result_signs)
             checkpoint_data = {
                 'version': '1.0',
                 'timestamp': now,
@@ -436,7 +455,7 @@ class ProcessingController(QObject):
                     'PATH_TO_GEOJSON': config.PATH_TO_GEOJSON,
                 },
                 'signs': {
-                    'result_signs': sign_handler.result_signs,
+                    'result_signs': result_signs,
                     'active_signs': sign_handler.signs,
                     'turns': sign_handler.turns,
                 },
@@ -451,11 +470,9 @@ class ProcessingController(QObject):
             joblib.dump(checkpoint_data, temp_path, compress=3)
             
             # Атомарная замена
-            if os.path.exists(self.CHECKPOINT_PATH):
-                os.remove(self.CHECKPOINT_PATH)
-            os.rename(temp_path, self.CHECKPOINT_PATH)
+            os.replace(temp_path, self.CHECKPOINT_PATH)
             
-            logger.info(f"[Checkpoint] Сохранено: {len(sign_handler.result_signs)} знаков, "
+            logger.info(f"[Checkpoint] Сохранено: {len(result_signs)} знаков, "
                        f"кадр {config.INDEX_OF_All_FRAME}, видео {config.INDEX_OF_VIDEO}")
         
         except Exception as e:
@@ -480,18 +497,29 @@ class ProcessingController(QObject):
         try:
             checkpoint_data = joblib.load(self.CHECKPOINT_PATH)
             
-            # Восстанавливаем config
+            # Validate the entire snapshot before changing any live configuration.
             cfg = checkpoint_data['config']
-            config.INDEX_OF_FRAME = cfg['INDEX_OF_FRAME']
-            config.INDEX_OF_VIDEO = cfg['INDEX_OF_VIDEO']
-            config.INDEX_OF_All_FRAME = cfg['INDEX_OF_All_FRAME']
-            config.INDEX_OF_GPS = cfg['INDEX_OF_GPS']
-            config.FRAME_STEP = cfg['FRAME_STEP']
-            config.VIDEOS = cfg['VIDEOS']
-            config.PATH_TO_VIDEO = cfg['PATH_TO_VIDEO']
-            config.PATH_TO_GPX = cfg['PATH_TO_GPX']
-            config.PATH_TO_GEOJSON = cfg['PATH_TO_GEOJSON']
-            
+            keys = ('INDEX_OF_FRAME', 'INDEX_OF_VIDEO', 'INDEX_OF_All_FRAME',
+                    'INDEX_OF_GPS', 'FRAME_STEP', 'VIDEOS', 'PATH_TO_VIDEO',
+                    'PATH_TO_GPX', 'PATH_TO_GEOJSON')
+            restored = {key: cfg[key] for key in keys}
+            for key in keys[:5]:
+                if type(restored[key]) is not int or restored[key] < 0:
+                    raise ValueError('Invalid checkpoint index: ' + key)
+            if restored['FRAME_STEP'] == 0:
+                raise ValueError('Invalid frame step')
+            if not isinstance(restored['VIDEOS'], list) or not all(
+                    isinstance(path, str) for path in restored['VIDEOS']):
+                raise ValueError('Invalid video list')
+            if not all(isinstance(restored[key], str) for key in keys[6:]):
+                raise ValueError('Invalid checkpoint paths')
+            signs = checkpoint_data['signs']
+            for key in ('result_signs', 'active_signs', 'turns'):
+                if not isinstance(signs[key], list):
+                    raise ValueError('Invalid checkpoint signs: ' + key)
+            for key, value in restored.items():
+                setattr(config, key, value)
+
             # BLOCK SIGN-LOSS-2: сохраняем данные и выставляем флаг восстановления
             self._checkpoint_data = checkpoint_data
             self._resume_from_checkpoint = True
@@ -522,48 +550,4 @@ class ProcessingController(QObject):
         import os
         return os.path.exists(self.CHECKPOINT_PATH)
     
-    # ── BLOCK CPU-6: Backend verify (асинхронно) ──────────────────
-    
-    def _start_backend_verify(self, requested_backend: str) -> None:
-        """
-        Запускает асинхронную проверку backend'ов моделей.
-        
-        Args:
-            requested_backend: Ожидаемый backend ('onnx' или 'openvino')
-        
-        Note:
-            Работает параллельно с запуском VideoReader/DetectorThread.
-            Не блокирует UI и не блокирует начало обработки.
-        """
-        from processing.backend_verify_thread import BackendVerifyThread
-        
-        self._backend_verify_thread = BackendVerifyThread(self)
-        self._backend_verify_thread.finished_check.connect(
-            lambda status: self._on_backend_verify_finished(requested_backend, status)
-        )
-        self._backend_verify_thread.error.connect(
-            lambda msg: logging.getLogger(__name__).warning(
-                f"[ProcessingController] backend verify error: {msg}"
-            )
-        )
-        self._backend_verify_thread.start()
-    
-    def _on_backend_verify_finished(self, requested_backend: str, backend_status: dict) -> None:
-        """
-        Обработчик завершения проверки backend'ов.
-        
-        Args:
-            requested_backend: Ожидаемый backend
-            backend_status: Результат проверки {model_name: backend_or_error}
-        """
-        mismatched = {k: v for k, v in backend_status.items()
-                      if not str(v).startswith("ERROR") and v != requested_backend}
-        
-        if mismatched:
-            msg = (
-                f"Backend '{requested_backend}' запрошен в настройках, но реально "
-                f"не используется для {len(mismatched)} моделей: {list(mismatched.keys())}. "
-                f"Проверьте экспорт моделей (scripts/export_models_onnx.py --format {requested_backend})."
-            )
-            logging.getLogger(__name__).warning(msg)
-            self.error.emit(f"⚠️ ПРЕДУПРЕЖДЕНИЕ: {msg}")
+    # ── BLOCK CPU-6: Backend verify (асинхронно) — УДАЛЁН (BLOCK REMOVE-NOTIF-1) ──────────────────

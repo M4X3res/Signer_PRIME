@@ -6,6 +6,7 @@ GPXHandler — чтение и работа с GPS-треком из GPX фай�
 from __future__ import annotations
 
 import math
+from bisect import bisect_left
 import xml.etree.ElementTree as ET
 from dataclasses import dataclass
 from typing import Optional
@@ -176,12 +177,43 @@ class GPXHandler:
         pt = self.get_point(index)
         return pt.speed if pt else 0.0
 
+    def get_speed_at_time(self, timestamp_s: float) -> Optional[float]:
+        """Use GPX timestamps rather than assuming one point per second."""
+        point = self.get_interpolated(timestamp_s, 1.0)
+        if point is None or not math.isfinite(point.speed):
+            return None
+        return point.speed
+
     def get_count_dot(self) -> int:
         return len(self._points)
 
     def get_all_points(self) -> list[tuple[float, float]]:
         """Все точки трека как [(lat, lon), ...]."""
         return [(p.latitude, p.longitude) for p in self._points]
+
+    def _interpolation_segments(self, t: float) -> range:
+        """Find the same first matching segment as the original linear scan.
+
+        GPX timestamps normally increase. Keep the linear path for malformed
+        tracks; never sort points, since that would change their meaning.
+        The index is rebuilt after loading/replacing/clearing the point list.
+        """
+        if (getattr(self, '_time_index_source', None) is not self._points or
+                getattr(self, '_time_index_length', -1) != len(self._points)):
+            offsets = tuple(point.time_offset_s for point in self._points)
+            self._time_offsets = offsets
+            self._time_index_sorted = (
+                all(math.isfinite(value) for value in offsets) and
+                all(a <= b for a, b in zip(offsets, offsets[1:]))
+            )
+            self._time_index_source = self._points
+            self._time_index_length = len(self._points)
+        if self._time_index_sorted and math.isfinite(t):
+            # bisect_left preserves the preceding segment at exact timestamps,
+            # including the first occurrence of duplicate timestamps.
+            index = max(0, bisect_left(self._time_offsets, t) - 1)
+            return range(index, min(index + 1, len(self._points) - 1))
+        return range(len(self._points) - 1)
     
     def get_interpolated(self, abs_frame: int, fps: float) -> Optional[GPSPoint]:
         """
@@ -211,8 +243,7 @@ class GPXHandler:
         if t >= self._points[-1].time_offset_s:
             return self._points[-1]
         
-        # Бинарный поиск или линейный (для небольших треков линейный достаточно быстр)
-        for i in range(len(self._points) - 1):
+        for i in self._interpolation_segments(t):
             p1 = self._points[i]
             p2 = self._points[i + 1]
             

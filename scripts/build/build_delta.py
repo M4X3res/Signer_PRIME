@@ -1,0 +1,60 @@
+"""Create a release inventory and deltas from preserved clean release builds."""
+import argparse
+import json
+import sys
+import zipfile
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
+from updater.transaction import digest, inventory
+
+
+def build(current, output, bases):
+    bases = list(bases)
+    output.mkdir(parents=True, exist_ok=True)
+    version = json.loads((current/'version.json').read_text(encoding='utf-8-sig'))['version']
+    target = inventory(current)
+    manifest = {'version': version, 'files': target, 'previous_files': {
+        json.loads((base/'version.json').read_text(encoding='utf-8-sig'))['version']: inventory(base)
+        for base in bases}}
+    (output/'manifest.json').write_text(json.dumps(manifest, indent=2), encoding='utf-8')
+    for base in bases:
+        old_version = json.loads((base/'version.json').read_text(encoding='utf-8-sig'))['version']
+        if old_version == version:
+            raise ValueError('Source and target versions must differ')
+        import re
+        if not re.fullmatch(r'[0-9]+(?:\.[0-9]+)*', old_version):
+            raise ValueError('Invalid source version')
+        source = inventory(base)
+        changed = sorted(n for n,h in target.items() if source.get(n) != h)
+        removed = sorted(set(source)-set(target))
+        archive = output/f'delta-from-{old_version}.zip'
+        with zipfile.ZipFile(archive, 'w', zipfile.ZIP_DEFLATED) as zf:
+            for name in changed:
+                zf.write(current/name, name)
+        data = dict(from_version=old_version, to_version=version, source_files=source,
+                    target_files=target, changed_or_added=changed, removed=removed,
+                    archive_sha256=digest(archive))
+        (output/f'delta-from-{old_version}.json').write_text(json.dumps(data, indent=2), encoding='utf-8')
+
+
+if __name__ == '__main__':
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument('--current', type=Path, default=Path('dist/Signer'))
+    parser.add_argument('--output', type=Path, default=Path('release'))
+    parser.add_argument('--bases', type=Path, default=Path('release_baselines'))
+    args = parser.parse_args()
+    version = json.loads((args.current/'version.json').read_text(encoding='utf-8-sig'))['version']
+    import re
+    if not re.fullmatch(r'[0-9]+(?:\.[0-9]+)*', version):
+        raise ValueError('Invalid target version')
+    snapshot = args.bases/version
+    if snapshot.exists() and inventory(snapshot) != inventory(args.current):
+        raise ValueError('This version already has a different build; increment version.json')
+    bases = [p for p in args.bases.iterdir() if p != snapshot and p.is_dir() and (p/'version.json').exists()] if args.bases.exists() else []
+    build(args.current, args.output, bases)
+    if not snapshot.exists():
+        import shutil
+        args.bases.mkdir(parents=True, exist_ok=True)
+        shutil.copytree(args.current, snapshot)
+    print(f'Created manifest and {len(bases)} delta(s)')

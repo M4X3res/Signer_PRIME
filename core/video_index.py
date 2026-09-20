@@ -5,8 +5,12 @@ Task C: Корректная функция для преобразования 
 в (video_idx, frame_in_video) с использованием РЕАЛЬНЫХ длин видеофайлов,
 а не константы config.FRAMES_PER_VIDEO.
 """
+import os
 import cv2
 from configs import config
+
+
+_cached_video_paths: tuple[str, ...] = ()
 
 
 def resolve_video_and_frame(abs_frame: int) -> tuple[int, int]:
@@ -54,8 +58,14 @@ def _ensure_video_frame_counts():
     
     Использует cv2.VideoCapture для чтения FRAME_COUNT каждого видео.
     """
-    # Инициализируем список, если его ещё нет
-    if not hasattr(config, 'VIDEO_FRAME_COUNTS'):
+    global _cached_video_paths
+    video_paths = tuple(os.path.normcase(os.path.abspath(
+        os.path.join(config.PATH_TO_VIDEO, name))) for name in config.VIDEOS)
+    # Даже при одинаковом числе файлов другая папка/порядок требуют пересчёта.
+    if video_paths != _cached_video_paths:
+        config.VIDEO_FRAME_COUNTS = []
+        _cached_video_paths = video_paths
+    elif not hasattr(config, 'VIDEO_FRAME_COUNTS'):
         config.VIDEO_FRAME_COUNTS = []
     
     # Досчитываем недостающие длины
@@ -68,7 +78,8 @@ def _ensure_video_frame_counts():
     print(f"[video_index] Определяем длины видеофайлов ({num_cached}/{num_videos} закэшировано)...")
     
     for i in range(num_cached, num_videos):
-        video_path = config.VIDEOS[i]
+        video_path = video_paths[i]
+        cap = None
         try:
             cap = cv2.VideoCapture(video_path)
             if not cap.isOpened():
@@ -81,10 +92,12 @@ def _ensure_video_frame_counts():
                     frame_count = config.FRAMES_PER_VIDEO
                 else:
                     print(f"[video_index] {video_path}: {frame_count} кадров")
-            cap.release()
         except Exception as e:
             print(f"[video_index] ОШИБКА при чтении {video_path}: {e}, используем дефолт")
             frame_count = config.FRAMES_PER_VIDEO
+        finally:
+            if cap is not None:
+                cap.release()
         
         config.VIDEO_FRAME_COUNTS.append(frame_count)
     

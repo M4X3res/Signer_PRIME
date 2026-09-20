@@ -1,0 +1,662 @@
+[
+  {
+    "file": "frames/empty_720p_00000.png",
+    "clip": "empty_720p",
+    "frame": 0,
+    "objects": []
+  },
+  {
+    "file": "frames/empty_720p_00025.png",
+    "clip": "empty_720p",
+    "frame": 25,
+    "objects": []
+  },
+  {
+    "file": "frames/empty_720p_00050.png",
+    "clip": "empty_720p",
+    "frame": 50,
+    "objects": []
+  },
+  {
+    "file": "frames/empty_720p_00075.png",
+    "clip": "empty_720p",
+    "frame": 75,
+    "objects": []
+  },
+  {
+    "file": "frames/empty_720p_00100.png",
+    "clip": "empty_720p",
+    "frame": 100,
+    "objects": []
+  },
+  {
+    "file": "frames/empty_720p_00125.png",
+    "clip": "empty_720p",
+    "frame": 125,
+    "objects": []
+  },
+  {
+    "file": "frames/sparse_720p_00000.png",
+    "clip": "sparse_720p",
+    "frame": 0,
+    "objects": [
+      {
+        "synthetic_kind": "speed_40",
+        "xyxy": [
+          102,
+          180,
+          134,
+          212
+        ]
+      },
+      {
+        "synthetic_kind": "warning",
+        "xyxy": [
+          422,
+          180,
+          454,
+          212
+        ]
+      }
+    ]
+  },
+  {
+    "file": "frames/sparse_720p_00025.png",
+    "clip": "sparse_720p",
+    "frame": 25,
+    "objects": [
+      {
+        "synthetic_kind": "speed_40",
+        "xyxy": [
+          102,
+          194,
+          148,
+          240
+        ]
+      },
+      {
+        "synthetic_kind": "warning",
+        "xyxy": [
+          422,
+          194,
+          468,
+          240
+        ]
+      }
+    ]
+  },
+  {
+    "file": "frames/sparse_720p_00050.png",
+    "clip": "sparse_720p",
+    "frame": 50,
+    "objects": [
+      {
+        "synthetic_kind": "speed_40",
+        "xyxy": [
+          102,
+          208,
+          163,
+          269
+        ]
+      },
+      {
+        "synthetic_kind": "warning",
+        "xyxy": [
+          422,
+          208,
+          483,
+          269
+        ]
+      }
+    ]
+  },
+  {
+    "file": "frames/sparse_720p_00075.png",
+    "clip": "sparse_720p",
+    "frame": 75,
+    "objects": [
+      {
+        "synthetic_kind": "speed_40",
+        "xyxy": [
+          102,
+          180,
+          134,
+          212
+        ]
+      },
+      {
+        "synthetic_kind": "warning",
+        "xyxy": [
+          422,
+          180,
+          454,
+          212
+        ]
+      }
+    ]
+  },
+  {
+    "file": "frames/sparse_720p_00100.png",
+    "clip": "sparse_720p",
+    "frame": 100,
+    "objects": [
+      {
+        "synthetic_kind": "speed_40",
+        "xyxy": [
+          102,
+          194,
+          148,
+          240
+        ]
+      },
+      {
+        "synthetic_kind": "warning",
+        "xyxy": [
+          422,
+          194,
+          468,
+          240
+        ]
+      }
+    ]
+  },
+  {
+    "file": "frames/sparse_720p_00125.png",
+    "clip": "sparse_720p",
+    "frame": 125,
+    "objects": [
+      {
+        "synthetic_kind": "speed_40",
+        "xyxy": [
+          102,
+          208,
+          163,
+          269
+        ]
+      },
+      {
+        "synthetic_kind": "warning",
+        "xyxy": [
+          422,
+          208,
+          483,
+          269
+        ]
+      }
+    ]
+  },
+  {
+    "file": "frames/dense_1080p_00000.png",
+    "clip": "dense_1080p",
+    "frame": 0,
+    "objects": [
+      {
+        "synthetic_kind": "speed_40",
+        "xyxy": [
+          153,
+          270,
+          201,
+          318
+        ]
+      },
+      {
+        "synthetic_kind": "warning",
+        "xyxy": [
+          633,
+          270,
+          681,
+          318
+        ]
+      },
+      {
+        "synthetic_kind": "parking",
+        "xyxy": [
+          1113,
+          270,
+          1161,
+          318
+        ]
+      },
+      {
+        "synthetic_kind": "speed_40",
+        "xyxy": [
+          1593,
+          270,
+          1641,
+          318
+        ]
+      },
+      {
+        "synthetic_kind": "warning",
+        "xyxy": [
+          153,
+          594,
+          201,
+          642
+        ]
+      },
+      {
+        "synthetic_kind": "parking",
+        "xyxy": [
+          633,
+          594,
+          681,
+          642
+        ]
+      },
+      {
+        "synthetic_kind": "speed_40",
+        "xyxy": [
+          1113,
+          594,
+          1161,
+          642
+        ]
+      },
+      {
+        "synthetic_kind": "warning",
+        "xyxy": [
+          1593,
+          594,
+          1641,
+          642
+        ]
+      }
+    ]
+  },
+  {
+    "file": "frames/dense_1080p_00025.png",
+    "clip": "dense_1080p",
+    "frame": 25,
+    "objects": [
+      {
+        "synthetic_kind": "speed_40",
+        "xyxy": [
+          153,
+          291,
+          223,
+          361
+        ]
+      },
+      {
+        "synthetic_kind": "warning",
+        "xyxy": [
+          633,
+          291,
+          703,
+          361
+        ]
+      },
+      {
+        "synthetic_kind": "parking",
+        "xyxy": [
+          1113,
+          291,
+          1183,
+          361
+        ]
+      },
+      {
+        "synthetic_kind": "speed_40",
+        "xyxy": [
+          1593,
+          291,
+          1663,
+          361
+        ]
+      },
+      {
+        "synthetic_kind": "warning",
+        "xyxy": [
+          153,
+          615,
+          223,
+          685
+        ]
+      },
+      {
+        "synthetic_kind": "parking",
+        "xyxy": [
+          633,
+          615,
+          703,
+          685
+        ]
+      },
+      {
+        "synthetic_kind": "speed_40",
+        "xyxy": [
+          1113,
+          615,
+          1183,
+          685
+        ]
+      },
+      {
+        "synthetic_kind": "warning",
+        "xyxy": [
+          1593,
+          615,
+          1663,
+          685
+        ]
+      }
+    ]
+  },
+  {
+    "file": "frames/dense_1080p_00050.png",
+    "clip": "dense_1080p",
+    "frame": 50,
+    "objects": [
+      {
+        "synthetic_kind": "speed_40",
+        "xyxy": [
+          153,
+          313,
+          244,
+          404
+        ]
+      },
+      {
+        "synthetic_kind": "warning",
+        "xyxy": [
+          633,
+          313,
+          724,
+          404
+        ]
+      },
+      {
+        "synthetic_kind": "parking",
+        "xyxy": [
+          1113,
+          313,
+          1204,
+          404
+        ]
+      },
+      {
+        "synthetic_kind": "speed_40",
+        "xyxy": [
+          1593,
+          313,
+          1684,
+          404
+        ]
+      },
+      {
+        "synthetic_kind": "warning",
+        "xyxy": [
+          153,
+          637,
+          244,
+          728
+        ]
+      },
+      {
+        "synthetic_kind": "parking",
+        "xyxy": [
+          633,
+          637,
+          724,
+          728
+        ]
+      },
+      {
+        "synthetic_kind": "speed_40",
+        "xyxy": [
+          1113,
+          637,
+          1204,
+          728
+        ]
+      },
+      {
+        "synthetic_kind": "warning",
+        "xyxy": [
+          1593,
+          637,
+          1684,
+          728
+        ]
+      }
+    ]
+  },
+  {
+    "file": "frames/dense_1080p_00075.png",
+    "clip": "dense_1080p",
+    "frame": 75,
+    "objects": [
+      {
+        "synthetic_kind": "speed_40",
+        "xyxy": [
+          153,
+          270,
+          201,
+          318
+        ]
+      },
+      {
+        "synthetic_kind": "warning",
+        "xyxy": [
+          633,
+          270,
+          681,
+          318
+        ]
+      },
+      {
+        "synthetic_kind": "parking",
+        "xyxy": [
+          1113,
+          270,
+          1161,
+          318
+        ]
+      },
+      {
+        "synthetic_kind": "speed_40",
+        "xyxy": [
+          1593,
+          270,
+          1641,
+          318
+        ]
+      },
+      {
+        "synthetic_kind": "warning",
+        "xyxy": [
+          153,
+          594,
+          201,
+          642
+        ]
+      },
+      {
+        "synthetic_kind": "parking",
+        "xyxy": [
+          633,
+          594,
+          681,
+          642
+        ]
+      },
+      {
+        "synthetic_kind": "speed_40",
+        "xyxy": [
+          1113,
+          594,
+          1161,
+          642
+        ]
+      },
+      {
+        "synthetic_kind": "warning",
+        "xyxy": [
+          1593,
+          594,
+          1641,
+          642
+        ]
+      }
+    ]
+  },
+  {
+    "file": "frames/dense_1080p_00100.png",
+    "clip": "dense_1080p",
+    "frame": 100,
+    "objects": [
+      {
+        "synthetic_kind": "speed_40",
+        "xyxy": [
+          153,
+          291,
+          223,
+          361
+        ]
+      },
+      {
+        "synthetic_kind": "warning",
+        "xyxy": [
+          633,
+          291,
+          703,
+          361
+        ]
+      },
+      {
+        "synthetic_kind": "parking",
+        "xyxy": [
+          1113,
+          291,
+          1183,
+          361
+        ]
+      },
+      {
+        "synthetic_kind": "speed_40",
+        "xyxy": [
+          1593,
+          291,
+          1663,
+          361
+        ]
+      },
+      {
+        "synthetic_kind": "warning",
+        "xyxy": [
+          153,
+          615,
+          223,
+          685
+        ]
+      },
+      {
+        "synthetic_kind": "parking",
+        "xyxy": [
+          633,
+          615,
+          703,
+          685
+        ]
+      },
+      {
+        "synthetic_kind": "speed_40",
+        "xyxy": [
+          1113,
+          615,
+          1183,
+          685
+        ]
+      },
+      {
+        "synthetic_kind": "warning",
+        "xyxy": [
+          1593,
+          615,
+          1663,
+          685
+        ]
+      }
+    ]
+  },
+  {
+    "file": "frames/dense_1080p_00125.png",
+    "clip": "dense_1080p",
+    "frame": 125,
+    "objects": [
+      {
+        "synthetic_kind": "speed_40",
+        "xyxy": [
+          153,
+          313,
+          244,
+          404
+        ]
+      },
+      {
+        "synthetic_kind": "warning",
+        "xyxy": [
+          633,
+          313,
+          724,
+          404
+        ]
+      },
+      {
+        "synthetic_kind": "parking",
+        "xyxy": [
+          1113,
+          313,
+          1204,
+          404
+        ]
+      },
+      {
+        "synthetic_kind": "speed_40",
+        "xyxy": [
+          1593,
+          313,
+          1684,
+          404
+        ]
+      },
+      {
+        "synthetic_kind": "warning",
+        "xyxy": [
+          153,
+          637,
+          244,
+          728
+        ]
+      },
+      {
+        "synthetic_kind": "parking",
+        "xyxy": [
+          633,
+          637,
+          724,
+          728
+        ]
+      },
+      {
+        "synthetic_kind": "speed_40",
+        "xyxy": [
+          1113,
+          637,
+          1204,
+          728
+        ]
+      },
+      {
+        "synthetic_kind": "warning",
+        "xyxy": [
+          1593,
+          637,
+          1684,
+          728
+        ]
+      }
+    ]
+  }
+]
