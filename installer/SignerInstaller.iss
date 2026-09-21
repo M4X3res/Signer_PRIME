@@ -994,6 +994,7 @@ begin
       if not FileExists(GetWorkDir('') + '\Signer_payload\Signer\Signer.exe') or
          not FileExists(GetWorkDir('') + '\Signer_payload\Signer\Updater.exe') or
          not FileExists(GetWorkDir('') + '\Signer_payload\Signer\version.json') or
+         not FileExists(GetWorkDir('') + '\Signer_payload\Signer\manifest.json') or
          not FileExists(GetWorkDir('') + '\Signer_payload\Signer\7z.exe') or
          not FileExists(GetWorkDir('') + '\Signer_payload\Signer\7z.dll') then
         RaiseException('В архиве отсутствуют обязательные файлы приложения или обновлятора. Установка не завершена.');

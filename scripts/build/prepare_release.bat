@@ -1,6 +1,10 @@
 @echo off
 chcp 65001 >nul
 setlocal enabledelayedexpansion
+cd /d "%~dp0\..\.."
+if errorlevel 1 exit /b 1
+set PYTHONIOENCODING=utf-8
+set YOLO_AUTOINSTALL=false
 
 echo.
 echo ================================================================
@@ -27,7 +31,7 @@ if not exist "build_config.json" (
     echo   "license_server_url": "https://your-license-server.run.app"
     echo }
     echo.
-    pause
+    if not defined SIGNER_NONINTERACTIVE pause
     exit /b 1
 )
 
@@ -41,7 +45,7 @@ if not errorlevel 1 (
     echo This is a placeholder URL. Replace it with your real license server URL.
     echo Example: https://your-license-server.run.app
     echo.
-    pause
+    if not defined SIGNER_NONINTERACTIVE pause
     exit /b 1
 )
 
@@ -53,7 +57,7 @@ if not errorlevel 1 (
     echo.
     echo Replace it with your REAL license server URL.
     echo.
-    pause
+    if not defined SIGNER_NONINTERACTIVE pause
     exit /b 1
 )
 
@@ -78,14 +82,14 @@ REM Use venv Python for consistency
 if not exist ".venv\Scripts\python.exe" (
     echo ERROR: Python not found in .venv\Scripts\
     echo Please create and activate virtual environment first
-    pause
+    if not defined SIGNER_NONINTERACTIVE pause
     exit /b 1
 )
 
 .venv\Scripts\python.exe --version >nul 2>&1
 if errorlevel 1 (
     echo ERROR: Python in .venv not working
-    pause
+    if not defined SIGNER_NONINTERACTIVE pause
     exit /b 1
 )
 
@@ -93,14 +97,16 @@ if errorlevel 1 (
 if errorlevel 1 (
     echo ERROR: PyInstaller not installed
     echo Run: .venv\Scripts\pip.exe install pyinstaller
-    pause
+    if not defined SIGNER_NONINTERACTIVE pause
     exit /b 1
 )
+
+if not exist "installer\7z.dll" exit /b 1
 
 if not exist "installer\7z.exe" (
     echo ERROR: 7z.exe not found in installer\
     echo Download: https://www.7-zip.org/
-    pause
+    if not defined SIGNER_NONINTERACTIVE pause
     exit /b 1
 )
 
@@ -112,10 +118,8 @@ REM [2/9] Clean old builds
 REM ================================================================
 
 echo [2/9] Cleaning old builds...
-rmdir /s /q "dist\Signer" 2>nul
-rmdir /s /q "dist\Updater" 2>nul
-rmdir /s /q "build" 2>nul
-rmdir /s /q "release" 2>nul
+.venv\Scripts\python.exe scripts\build\release_preflight.py
+if errorlevel 1 exit /b 1
 echo OK: Cleaned
 echo.
 
@@ -130,13 +134,13 @@ REM Check if venv python exists
 if not exist ".venv\Scripts\python.exe" (
     echo ERROR: Python not found in .venv\Scripts\
     echo Please create and activate virtual environment first
-    pause
+    if not defined SIGNER_NONINTERACTIVE pause
     exit /b 1
 )
 
 REM Export models (both formats at once)
 echo    Exporting models...
-.venv\Scripts\python.exe scripts\export_models_onnx.py --format all
+.venv\Scripts\python.exe scripts\export_models_onnx.py --format all --force
 if errorlevel 1 (
     echo.
     echo ERROR: Model export failed!
@@ -150,9 +154,13 @@ if errorlevel 1 (
     echo.
     echo Build aborted. Fix errors and try again.
     echo.
-    pause
+    if not defined SIGNER_NONINTERACTIVE pause
     exit /b 1
 )
+
+echo Preparing offline OCR weights...
+.venv\Scripts\python.exe scripts\build\prepare_ocr.py
+if errorlevel 1 exit /b 1
 
 echo OK: Models exported
 echo.
@@ -171,7 +179,7 @@ if exist ".venv\Scripts\pyarmor.exe" (
     .venv\Scripts\python.exe scripts\build\obfuscate_licensing.py
     if errorlevel 1 (
         echo ERROR: Obfuscation failed
-        pause
+        if not defined SIGNER_NONINTERACTIVE pause
         exit /b 1
     )
     echo OK: Obfuscation completed
@@ -221,7 +229,7 @@ if "%SKIP_OBFUSCATION%"=="0" (
 .venv\Scripts\pyinstaller.exe signer.spec --noconfirm
 if errorlevel 1 (
     echo ERROR: Failed to build Signer.exe
-    pause
+    if not defined SIGNER_NONINTERACTIVE pause
     exit /b 1
 )
 
@@ -229,7 +237,7 @@ echo    Building Updater.exe...
 .venv\Scripts\pyinstaller.exe updater.spec --noconfirm
 if errorlevel 1 (
     echo ERROR: Failed to build Updater.exe
-    pause
+    if not defined SIGNER_NONINTERACTIVE pause
     exit /b 1
 )
 
@@ -238,7 +246,7 @@ echo    Copying files...
 REM Check if files exist before copying
 if not exist "dist\Signer\Signer.exe" (
     echo ERROR: Signer.exe not found in dist\Signer\
-    pause
+    if not defined SIGNER_NONINTERACTIVE pause
     exit /b 1
 )
 
@@ -249,14 +257,14 @@ if exist "dist\Updater.exe" (
     set UPDATER_PATH=dist\Updater\Updater.exe
 ) else (
     echo ERROR: Updater.exe not found
-    pause
+    if not defined SIGNER_NONINTERACTIVE pause
     exit /b 1
 )
 
 copy /Y "%UPDATER_PATH%" "dist\Signer\Updater.exe" >nul
 if errorlevel 1 (
     echo ERROR: Failed to copy Updater.exe
-    pause
+    if not defined SIGNER_NONINTERACTIVE pause
     exit /b 1
 )
 
@@ -293,7 +301,7 @@ if errorlevel 1 (
     echo.
     echo Build aborted. Fix errors and try again.
     echo.
-    pause
+    if not defined SIGNER_NONINTERACTIVE pause
     exit /b 1
 )
 
@@ -308,6 +316,9 @@ echo [7/9] Creating archive...
 echo.
 
 mkdir release 2>nul
+REM The installed inventory must be inside the full archive.
+.venv\Scripts\python.exe scripts\build\build_delta.py
+if errorlevel 1 exit /b 1
 cd dist
 
 REM Remove old archives
@@ -318,7 +329,7 @@ REM Create multi-volume archive (100MB parts)
 if errorlevel 1 (
     echo ERROR: Failed to create archive
     cd ..
-    pause
+    if not defined SIGNER_NONINTERACTIVE pause
     exit /b 1
 )
 
@@ -337,7 +348,7 @@ powershell -Command "Get-ChildItem 'Signer.7z.*' | ForEach-Object { $hash = (Get
 if errorlevel 1 (
     echo ERROR: Failed to calculate checksums
     cd ..
-    pause
+    if not defined SIGNER_NONINTERACTIVE pause
     exit /b 1
 )
 
@@ -354,9 +365,6 @@ move /Y checksum.sha256 ..\release\ >nul
 
 cd ..
 
-REM Build manifests and deltas from preserved release_baselines/<version>/ trees.
-.venv\Scripts\python.exe scripts\build\build_delta.py
-if errorlevel 1 exit /b 1
 .venv\Scripts\python.exe scripts\build\installer_config.py
 if errorlevel 1 exit /b 1
 
@@ -381,6 +389,21 @@ if not exist "docs\release_notes.txt" (
 )
 copy /Y "docs\release_notes.txt" "release\release_notes.txt" >nul
 
+echo Compiling installer...
+set "ISCC=%ProgramFiles(x86)%\Inno Setup 6\ISCC.exe"
+if not exist "%ISCC%" set "ISCC=%ProgramFiles%\Inno Setup 6\ISCC.exe"
+if not exist "%ISCC%" (
+    echo ERROR: Inno Setup 6 is required to complete the release.
+    exit /b 1
+)
+"%ISCC%" "installer\SignerInstaller.iss"
+if errorlevel 1 exit /b 1
+copy /Y "installer\Output\SignerInstaller-%VERSION%.exe" "release\" >nul
+if errorlevel 1 exit /b 1
+.venv\Scripts\python.exe scripts\build\validate_release.py --version %VERSION% --current dist\Signer
+if errorlevel 1 exit /b 1
+
+del /q ".release-build-pending.json" 2>nul
 echo OK: Files prepared
 echo.
 
@@ -415,4 +438,4 @@ echo.
 echo ================================================================
 echo.
 
-pause
+if not defined SIGNER_NONINTERACTIVE pause

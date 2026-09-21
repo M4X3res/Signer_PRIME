@@ -27,6 +27,7 @@ a = Analysis(
     datas=[],
     hiddenimports=[
         'updater.transaction',
+        'updater.permissions',
         'psutil',  # Опционально, для корректной проверки процесса
         'app.version',  # Updater использует version для проверки
     ],
@@ -58,7 +59,7 @@ a = Analysis(
     noarchive=False,
 )
 
-pyz = PYZ(a.pure, a.zipped_data, cipher=block_cipher)
+pyz = PYZ(a.pure)
 
 # ═══════════════════════════════════════════════════════════════════
 # EXE (onefile mode)
@@ -67,7 +68,6 @@ exe = EXE(
     pyz,
     a.scripts,
     a.binaries,
-    a.zipfiles,
     a.datas,
     [],
     name='Updater',

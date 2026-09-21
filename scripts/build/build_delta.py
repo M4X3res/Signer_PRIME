@@ -9,14 +9,17 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 from updater.transaction import digest, inventory
 
 
-def build(current, output, bases):
+def build(current, output, bases, previous_inventories=None):
     bases = list(bases)
     output.mkdir(parents=True, exist_ok=True)
     version = json.loads((current/'version.json').read_text(encoding='utf-8-sig'))['version']
     target = inventory(current)
-    manifest = {'version': version, 'files': target, 'previous_files': {
+    previous = dict(previous_inventories or {})
+    previous.update({
         json.loads((base/'version.json').read_text(encoding='utf-8-sig'))['version']: inventory(base)
-        for base in bases}}
+        for base in bases})
+    manifest = {'version': version, 'files': target, 'previous_files': previous}
+    (current/'manifest.json').write_text(json.dumps({'version': version, 'files': target}, indent=2), encoding='utf-8')
     (output/'manifest.json').write_text(json.dumps(manifest, indent=2), encoding='utf-8')
     for base in bases:
         old_version = json.loads((base/'version.json').read_text(encoding='utf-8-sig'))['version']
@@ -42,6 +45,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--current', type=Path, default=Path('dist/Signer'))
     parser.add_argument('--output', type=Path, default=Path('release'))
+    parser.add_argument('--inventories', type=Path, default=Path('release_inventories'))
     parser.add_argument('--bases', type=Path, default=Path('release_baselines'))
     args = parser.parse_args()
     version = json.loads((args.current/'version.json').read_text(encoding='utf-8-sig'))['version']
@@ -52,7 +56,16 @@ if __name__ == '__main__':
     if snapshot.exists() and inventory(snapshot) != inventory(args.current):
         raise ValueError('This version already has a different build; increment version.json')
     bases = [p for p in args.bases.iterdir() if p != snapshot and p.is_dir() and (p/'version.json').exists()] if args.bases.exists() else []
-    build(args.current, args.output, bases)
+    previous = {}
+    if args.inventories.exists():
+        for path in args.inventories.glob('*.json'):
+            data = json.loads(path.read_text(encoding='utf-8-sig'))
+            if data['version'] == version:
+                if data['files'] != inventory(args.current):
+                    raise ValueError('Version already identifies another build; increment version.json')
+            else:
+                previous[data['version']] = data['files']
+    build(args.current, args.output, bases, previous)
     if not snapshot.exists():
         import shutil
         args.bases.mkdir(parents=True, exist_ok=True)

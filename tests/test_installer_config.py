@@ -11,7 +11,7 @@ class InstallerConfigTests(unittest.TestCase):
             root=Path(directory);current=root/'current';release=root/'release'
             current.mkdir();release.mkdir()
             (current/'version.json').write_text(json.dumps({'version':'2.3.4'}))
-            for name in ('Signer.exe','Updater.exe','7z.exe','7z.dll'):
+            for name in ('Signer.exe','Updater.exe','7z.exe','7z.dll','manifest.json'):
                 (current/name).write_bytes(b'fixture')
             (release/'Signer.7z.001').write_bytes(b'12345')
             (release/'Signer.7z.002').write_bytes(b'123')

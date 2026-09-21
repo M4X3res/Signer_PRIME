@@ -9,7 +9,7 @@ def generate(current: Path, release: Path):
     version = json.loads((current/'version.json').read_text(encoding='utf-8-sig'))['version']
     if not re.fullmatch(r'\d+\.\d+\.\d+(?:\.\d+)?', version):
         raise ValueError('Installer requires a numeric three/four-component version')
-    for name in ('Signer.exe', 'Updater.exe', '7z.exe', '7z.dll'):
+    for name in ('Signer.exe', 'Updater.exe', '7z.exe', '7z.dll', 'manifest.json'):
         if not (current/name).is_file():
             raise ValueError(f'Missing installation component: {name}')
     parts = sorted(release.glob('Signer.7z.*'))

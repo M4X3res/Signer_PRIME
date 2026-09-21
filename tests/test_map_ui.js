@@ -85,7 +85,64 @@ async function main() {
     assert.deepEqual(buttons.map(b=>b.classList.active),[false,true,false]);
     assert.equal(c.document.getElementById('map-video').playbackRate,2);
   }
+  {
+    // Holding a selected sign captures wheel outside its icon and always releases.
+    function target() {
+      const listeners = new Map();
+      return {style: {}, classList: {add(){}, remove(){}},
+        addEventListener(type, fn, options) {
+          if (!listeners.has(type)) listeners.set(type, new Map());
+          listeners.get(type).set(fn, options);
+        },
+        removeEventListener(type, fn) { listeners.get(type)?.delete(fn); },
+        emit(type, event = {}) { for (const fn of [...(listeners.get(type)?.keys() || [])]) fn(event); },
+        count(type) { return listeners.get(type)?.size || 0; },
+        listeners};
+    }
+    const {c} = environment();
+    const doc = target(), win = target(), marker = target(), handle = target();
+    handle.contains = value => value === handle;
+    marker.querySelector = () => handle;
+    doc.createElement = target; doc.body = {appendChild(){}};
+    const layer = target(); layer.on = layer.addEventListener; layer.off = layer.removeEventListener;
+    function toggle(initial) { let enabled = initial; return {
+      enabled: () => enabled, enable(){enabled = true;}, disable(){enabled = false;}
+    }; }
+    layer.dragging = toggle(true);
+    const zoom = toggle(true), saved = [];
+    Object.assign(c, {document: doc, window: win, map: {scrollWheelZoom: zoom},
+      selectedId: 'a', signsData: [{id:'a', azimuth:0}],
+      scheduleAzimuthSave: (id, angle) => saved.push(angle),
+      updateAzimuthVisuals: (id, el, angle) => c.signsData[0].azimuth = angle});
+    vm.runInContext('let azimuthBadge = null; let currentDragSignId = null;\n' +
+      section('function attachAzimuthControls(', '// Обновление визуальных элементов азимута'), c);
+    c.attachAzimuthControls('a', marker, layer);
+    c.attachAzimuthControls('a', marker, layer);
+    assert.equal(marker.count('mousedown'), 1);
+    assert.equal([...marker.listeners.get('mousedown').values()][0], true);
+    function press() { marker.emit('mousedown', {button:0, target:marker}); }
+    function wheel(deltaY, shiftKey = false) {
+      let blocked = 0;
+      doc.emit('wheel', {deltaY, shiftKey, buttons:0, clientX:100, clientY:100,
+        preventDefault(){blocked++;}, stopPropagation(){}, stopImmediatePropagation(){}});
+      return blocked;
+    }
+    assert.equal(wheel(1), 0);
+    press(); assert.equal(zoom.enabled(), false);
+    assert.equal(wheel(1), 1); assert.equal(c.signsData[0].azimuth, 5);
+    assert.equal(layer.dragging.enabled(), false);
+    wheel(-1, true); assert.equal(c.signsData[0].azimuth, 4);
+    wheel(0); assert.equal(saved.length, 2);
+    doc.emit('mouseup'); assert.equal(zoom.enabled(), true);
+    assert.equal(layer.dragging.enabled(), true); assert.equal(wheel(1), 0);
+    press(); win.emit('blur'); assert.equal(zoom.enabled(), true); assert.equal(doc.count('wheel'), 0);
+    press(); layer.emit('remove'); assert.equal(zoom.enabled(), true); assert.equal(doc.count('wheel'), 0);
+    zoom.disable(); layer.dragging.disable(); press(); wheel(1); doc.emit('mouseup');
+    assert.equal(zoom.enabled(), false); assert.equal(layer.dragging.enabled(), false);
+    c.selectedId = 'b'; press(); assert.equal(doc.count('wheel'), 0);
+    assert.match(section('function renderMarkers()', 'const azimuthSaveTimers'), /\.on\("add"/);
+  }
   assert.equal((html.match(/socket\.on\("processing_finished"/g)||[]).length,1);
-  console.log('6 UI regression scenarios passed');
+  console.log('7 UI regression scenarios passed');
 }
 main().catch(err=>{console.error(err);process.exitCode=1;});

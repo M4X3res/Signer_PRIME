@@ -47,3 +47,10 @@ build_config.json
 
 # Preserved release builds used to create incremental updates
 release_baselines/
+
+release_inventories/
+
+release_history/
+.release-build-pending.json
+
+.release_validation/

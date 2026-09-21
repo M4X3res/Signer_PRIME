@@ -141,88 +141,33 @@ def verify_in_built_exe(exe_path: Path) -> int:
     """
     import subprocess
     import json
-    
-    if not exe_path.exists():
-        logger.error(f"❌ Собранный .exe не найден: {exe_path}")
+    import tempfile
+    exe_path = exe_path.resolve()
+    if not exe_path.is_file():
+        logger.error("Missing executable: %s", exe_path)
         return 1
-    
-    logger.info(f"Проверка собранного приложения: {exe_path}")
-    logger.info("Запуск в headless режиме с --verify-backends...")
-    logger.info("")
-    
     try:
-        # Запускаем .exe с флагом --verify-backends
-        result = subprocess.run(
-            [str(exe_path), "--verify-backends"],
-            capture_output=True,
-            text=True,
-            timeout=120,  # 2 минуты на загрузку всех моделей
-            cwd=exe_path.parent  # Рабочая директория = директория .exe
-        )
-        
-        logger.info("=== Вывод программы ===")
-        logger.info(result.stdout)
-        
-        if result.stderr:
-            logger.warning("=== Ошибки/предупреждения ===")
-            logger.warning(result.stderr)
-        
-        # Ищем JSON результат в stdout
-        try:
-            # Ищем строку с JSON (после "=== VERIFICATION RESULT ===")
-            lines = result.stdout.split('\n')
-            json_started = False
-            json_lines = []
-            
-            for line in lines:
-                if "=== VERIFICATION RESULT ===" in line:
-                    json_started = True
-                    continue
-                if json_started and line.strip():
-                    json_lines.append(line)
-            
-            if json_lines:
-                json_text = '\n'.join(json_lines)
-                verification = json.loads(json_text)
-                
-                logger.info("")
-                logger.info("="*80)
-                logger.info("РЕЗУЛЬТАТЫ ВЕРИФИКАЦИИ")
-                logger.info("="*80)
-                
-                for backend_name, backend_result in verification.get("backends", {}).items():
-                    if backend_result["success"]:
-                        logger.info(f"✅ {backend_name.upper()}: все модели загружены")
-                    else:
-                        logger.error(f"❌ {backend_name.upper()}: обнаружены ошибки:")
-                        for error in backend_result["errors"]:
-                            logger.error(f"   {error}")
-                
-                if verification.get("success"):
-                    logger.info("")
-                    logger.info("="*80)
-                    logger.info("✅ ПРОВЕРКА ПРОЙДЕНА")
-                    logger.info("="*80)
-                    return 0
-                else:
-                    logger.error("")
-                    logger.error("="*80)
-                    logger.error("❌ ПРОВЕРКА НЕ ПРОЙДЕНА")
-                    logger.error("="*80)
-                    return 1
-            else:
-                logger.error("❌ Не удалось найти JSON результат в выводе программы")
+        with tempfile.TemporaryDirectory(prefix="signer-verify-") as directory:
+            report = Path(directory) / "verification.json"
+            result = subprocess.run(
+                [str(exe_path), "--verify-backends", "--verification-output", str(report)],
+                capture_output=True, text=True, encoding="utf-8", errors="replace",
+                timeout=600, cwd=exe_path.parent,
+                env={**os.environ, "YOLO_AUTOINSTALL": "false"},
+            )
+            if not report.is_file():
+                logger.error("No verification report; rebuild Signer.exe. %s %s", result.stdout, result.stderr)
                 return 1
-                
-        except json.JSONDecodeError as e:
-            logger.error(f"❌ Ошибка парсинга JSON результата: {e}")
-            return 1
-        
-    except subprocess.TimeoutExpired:
-        logger.error("❌ Таймаут при проверке (>120 секунд)")
-        return 1
-    except Exception as e:
-        logger.error(f"❌ Ошибка при запуске .exe: {e}", exc_info=True)
+            data = json.loads(report.read_text(encoding="utf-8"))
+            logger.info("Verification report: %s", json.dumps(data, ensure_ascii=True))
+            required = ("torch", "onnx", "openvino")
+            success = (result.returncode == 0 and data.get("success") is True
+                       and data.get("ocr", {}).get("success") is True
+                       and all(data.get("backends", {}).get(name, {}).get("success") is True
+                               for name in required))
+            return 0 if success else 1
+    except Exception:
+        logger.exception("Built executable verification failed")
         return 1
 
 

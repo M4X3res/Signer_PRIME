@@ -1456,6 +1456,10 @@ function renderMarkers() {
 
     // ЗАДАЧА 2 (P1): Делаем маркеры перетаскиваемыми
     const m = L.marker([sign.lat, sign.lon], { icon, draggable: true })
+      .on("add", (e) => {
+        const markerEl = e.target.getElement()?.querySelector('.sign-marker');
+        if (markerEl) attachAzimuthControls(sign.id, markerEl, e.target);
+      })
       .on("click", () => selectSign(sign.id))
       .on("dragstart", (e) => {
         // Визуальная индикация начала перетаскивания
@@ -1475,18 +1479,6 @@ function renderMarkers() {
   // Batch добавление маркеров в cluster group (F.1)
   if (markerCluster && markersToAdd.length > 0) {
     markerCluster.addLayers(markersToAdd);
-    
-    // REDESIGN: Добавление обработчиков для компаса после рендеринга
-    // Нужно подождать пока маркеры добавятся в DOM
-    setTimeout(() => {
-      signsData.forEach(sign => {
-        const markerEl = document.getElementById(`sm-${sign.id}`);
-        const leafletMarker = markers[sign.id];
-        if (markerEl && leafletMarker) {
-          attachAzimuthControls(sign.id, markerEl, leafletMarker);
-        }
-      });
-    }, 100);
   }
   
   console.log(`[renderMarkers] Отрендерено маркеров: ${filteredCount} (отфильтровано ${signsData.length - filteredCount})`);
@@ -1522,23 +1514,29 @@ let azimuthBadge = null;
 
 function attachAzimuthControls(signId, markerEl, leafletMarker) {
   const handle = markerEl.querySelector('.sign-marker-compass-handle');
-  if (!handle) return;
+  if (!handle || markerEl.azimuthControlsAttached) return;
+  markerEl.azimuthControlsAttached = true;
   
   let held = false;
   let restoreZoom = false;
+  let restoreDragging = false;
   markerEl.addEventListener("mousedown", (e) => {
-    if (e.button !== 0) return;
+    if (e.button !== 0 || selectedId !== signId || handle.contains(e.target) || held) return;
     held = true;
     restoreZoom = map.scrollWheelZoom.enabled();
     map.scrollWheelZoom.disable();
-    document.addEventListener("mouseup", releaseMarker);
+    document.addEventListener('wheel', rotateOnWheel, {passive: false, capture: true});
+    document.addEventListener("mouseup", releaseMarker, true);
     window.addEventListener("blur", releaseMarker);
-  });
+    leafletMarker.on("remove", releaseMarker);
+  }, true);
   let isRotationMode = false; // Режим вращения активируется при первом scroll с зажатой кнопкой
   
   // Отпускание кнопки мыши завершает режим вращения
   const releaseMarker = () => {
-    document.removeEventListener('mouseup', releaseMarker);
+    document.removeEventListener('wheel', rotateOnWheel, true);
+    document.removeEventListener('mouseup', releaseMarker, true);
+    leafletMarker.off('remove', releaseMarker);
     window.removeEventListener('blur', releaseMarker);
     held = false;
     if (restoreZoom) map.scrollWheelZoom.enable();
@@ -1548,43 +1546,38 @@ function attachAzimuthControls(signId, markerEl, leafletMarker) {
       markerEl.classList.remove('rotating');
       
       // Включаем обратно draggable
-      if (leafletMarker && !leafletMarker.dragging.enabled()) {
+      if (restoreDragging) {
         leafletMarker.dragging.enable();
       }
       
+      restoreDragging = false;
       console.log(`[azimuth] Режим вращения завершён для ${signId}`);
     }
   };
   
   
   // Scroll активирует режим вращения ТОЛЬКО если зажата левая кнопка мыши
-  markerEl.addEventListener('wheel', (e) => {
-    // Проверяем: зажата ли левая кнопка мыши?
-    const isMouseDown = held || ((e.buttons & 1) !== 0);
-    
-    if (!isMouseDown || selectedId !== signId) {
-      // Кнопка не зажата или знак не выбран — карта зумится как обычно
-      return;
-    }
-    
+  // Capture wheel throughout the hold, even when the pointer leaves the icon.
+  const rotateOnWheel = (e) => {
+    if (!held) return;
+    e.preventDefault();
+    e.stopPropagation();
+    e.stopImmediatePropagation();
+    if (!e.deltaY) return;
+
     // Кнопка зажата! Активируем режим вращения при первом scroll
     if (!isRotationMode) {
       isRotationMode = true;
-      document.addEventListener('mouseup', releaseMarker);
       markerEl.classList.add('rotating');
       
       // Отключаем dragging Leaflet-маркера
       if (leafletMarker && leafletMarker.dragging.enabled()) {
+        restoreDragging = true;
         leafletMarker.dragging.disable();
       }
       
       console.log(`[azimuth] Активирован режим вращения для ${signId}`);
     }
-    
-    // Блокируем зум карты
-    e.preventDefault();
-    e.stopPropagation();
-    e.stopImmediatePropagation();
     
     // Определяем шаг изменения азимута
     const step = e.shiftKey ? 1 : 5;
@@ -1615,7 +1608,7 @@ function attachAzimuthControls(signId, markerEl, leafletMarker) {
         azimuthBadge.classList.remove('active');
       }
     });
-  }, {passive: false, capture: true});
+  };
   
   // Drag-and-drop ручки компаса (альтернативный способ)
   let isDragging = false;

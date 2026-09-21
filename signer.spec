@@ -31,6 +31,7 @@ from PyInstaller.utils.hooks import (
     collect_submodules,
     collect_data_files,
     collect_dynamic_libs,
+    copy_metadata,
 )
 
 block_cipher = None
@@ -199,6 +200,16 @@ else:
 # ДАННЫЕ (не-код файлы, нужные во время выполнения)
 # ═══════════════════════════════════════════════════════════════════
 datas = []
+for package in ("onnx", "onnxruntime", "openvino", "ultralytics", "easyocr"):
+    datas += copy_metadata(package)
+
+ocr_dir = os.path.join(ROOT, "build", "ocr_models")
+for name in ("craft_mlt_25k.pth", "cyrillic_g2.pth"):
+    source = os.path.join(ocr_dir, name)
+    if not os.path.isfile(source):
+        raise RuntimeError("Run scripts/build/prepare_ocr.py before building: " + source)
+    datas.append((source, "ocr_models"))
+
 datas += collect_data_files('ultralytics')
 datas += collect_data_files('easyocr')          # шрифты/наборы символов OCR
 datas += collect_data_files('pyproj')            # proj.db — обязателен для core/converter.py
@@ -243,6 +254,25 @@ for src, dst in _project_dirs:
 
 # ── CPU-бэкенды: проверка наличия экспортированных моделей (v2.0.1+) ──
 import glob
+
+# Every runtime model is mandatory, not just one export of each format.
+import ast
+with open(os.path.join(ROOT, 'scripts', 'export_models_onnx.py'), encoding='utf-8-sig') as stream:
+    export_tree = ast.parse(stream.read())
+model_specs = next(ast.literal_eval(node.value) for node in export_tree.body
+                   if isinstance(node, ast.Assign) and any(isinstance(target, ast.Name)
+                   and target.id == 'MODELS' for target in node.targets))
+for relative, task, image_size in model_specs:
+    source = os.path.join(ROOT, relative)
+    base = os.path.splitext(source)[0]
+    required = [source, base + '.onnx', os.path.join(base + '_openvino_model', os.path.basename(base) + '.xml'),
+                os.path.join(base + '_openvino_model', os.path.basename(base) + '.bin')]
+    for path in required:
+        if not os.path.isfile(path) or os.path.getsize(path) == 0:
+            raise RuntimeError('Missing model component: ' + path)
+    with open(source, 'rb') as stream:
+        if stream.read(50).startswith(b'version https://git-lfs.github.com/spec/v1'):
+            raise RuntimeError('Git LFS pointer instead of model weights: ' + source)
 
 # Проверяем наличие .onnx файлов
 onnx_models = []
@@ -414,8 +444,11 @@ a = Analysis(
     datas=datas,
     hiddenimports=hiddenimports,
     excludes=['onnx.reference', 'tensorflow', 'keras'],
+    runtime_hooks=[os.path.join(ROOT, "scripts", "build", "frozen_runtime.py")],
     noarchive=False,
 )
+
+a.datas = [entry for entry in a.datas if not entry[0].endswith(".opt.onnx")]
 
 pyz = PYZ(a.pure, a.zipped_data)
 

@@ -51,6 +51,8 @@ def _get_ocr():
     """
     global _ocr_reader
     if _ocr_reader is None:
+        from app.model_resources import ocr_reader_options
+        reader_options = ocr_reader_options()
         try:
             from configs.settings import get_app_settings
             import torch
@@ -58,13 +60,13 @@ def _get_ocr():
             
             settings = get_app_settings()
             use_gpu = settings.use_cuda and torch.cuda.is_available()
-            _ocr_reader = easyocr.Reader(["be"], gpu=use_gpu)
+            _ocr_reader = easyocr.Reader(["be"], gpu=use_gpu, **reader_options)
             
         except Exception as e:
             # Фоллбэк на CPU в случае любой ошибки
             import easyocr
             print(f"[OCR] Ошибка инициализации с проверкой настроек: {e}, используем CPU")
-            _ocr_reader = easyocr.Reader(["be"], gpu=False)
+            _ocr_reader = easyocr.Reader(["be"], gpu=False, **reader_options)
     
     return _ocr_reader
 

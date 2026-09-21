@@ -21,8 +21,8 @@ TASK 4.1 — ONNX Runtime SessionOptions (применяются через monk
     - enable_cpu_mem_arena = True
 
 TASK 4.2 — Кэширование скомпилированных моделей:
-    - ONNX: optimized_model_filepath → <model>.opt.onnx (рядом с моделью)
-    - OpenVINO: CACHE_DIR → .kiro/model_cache/openvino/
+    - ONNX: optimized_model_filepath → пользовательский кеш Signer/model_cache/onnx
+    - OpenVINO: CACHE_DIR → пользовательский кеш Signer/model_cache/openvino
 
 TASK 4.4 — OpenVINO PERFORMANCE_HINT = THROUGHPUT:
     - Применяется через Core.__init__ monkey-patch (set_property)
@@ -146,7 +146,8 @@ def _patch_onnxruntime(intra_threads: int, inter_threads: int, disable_cuda_prov
         if isinstance(path_or_bytes, (str, os.PathLike)):
             try:
                 onnx_path = str(path_or_bytes)
-                opt_path = os.path.splitext(onnx_path)[0] + ".opt.onnx"
+                from app.model_resources import onnx_cache_path
+                opt_path = str(onnx_cache_path(onnx_path))
                 sess_options.optimized_model_filepath = opt_path
                 logger.debug(
                     f"[inference_threading] ORT optimized_model_filepath → "
@@ -285,11 +286,10 @@ def _patch_openvino(openvino_threads: int, performance_hint: str = "LATENCY") ->
 def _get_openvino_cache_dir() -> str:
     """
     Возвращает путь к директории кэша OpenVINO.
-    Кэш хранится в .kiro/model_cache/ относительно корня проекта.
+    Кэш хранится в пользовательском каталоге, вне файлов установки.
     """
-    # __file__ → configs/inference_threading.py → родитель → корень проекта
-    project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-    return os.path.join(project_root, ".kiro", "model_cache", "openvino")
+    from app.model_resources import model_cache_dir
+    return str(model_cache_dir("openvino"))
 
 
 def compute_safe_intra_threads(num_worker_processes: int = 1) -> int:

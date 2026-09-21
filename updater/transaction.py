@@ -30,7 +30,9 @@ def safe_path(root, name):
 
 def inventory(root):
     return {p.relative_to(root).as_posix(): digest(p) for p in sorted(root.rglob('*'))
-            if p.is_file() and p.name != 'manifest.json'}
+            if p.is_file() and p.name != 'manifest.json'
+            and not p.name.endswith(('.opt.onnx', '.log', '.pyc'))
+            and not {'.kiro', '__pycache__', '.signer-update-cache'}.intersection(p.relative_to(root).parts)}
 
 
 def validate_files(root, files):

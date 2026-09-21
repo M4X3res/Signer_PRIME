@@ -132,6 +132,9 @@ class SettingsPage(QWidget):
             self._settings = AppSettings()
             print("[SettingsPage] Используются дефолтные настройки")
 
+        # Draft value for the recommendation without a dedicated UI control.
+        self._preview_fps_limit = self._settings.preview_fps_limit
+
         outer = QVBoxLayout(self)
         outer.setContentsMargins(32, 28, 32, 28)
         outer.setSpacing(0)
@@ -1011,6 +1014,7 @@ class SettingsPage(QWidget):
             mode_idx = self._frame_mode_combo.currentIndex()
             self._settings.frame_step_mode = "auto" if mode_idx == 0 else "manual"
             self._settings.frame_step_manual = self._frame_step_spin.value()
+            self._settings.preview_fps_limit = self._preview_fps_limit
             
             # Confidence
             self._settings.conf_side = self._conf_side_spin.value()
@@ -1345,6 +1349,7 @@ class SettingsPage(QWidget):
         try:
             from configs.settings import AppSettings
             defaults = AppSettings()
+            self._preview_fps_limit = defaults.preview_fps_limit
             
             # Применяем defaults к UI (с проверкой существования виджетов)
             if hasattr(self, '_frame_mode_combo'):
@@ -1599,39 +1604,39 @@ class SettingsPage(QWidget):
         ЗАДАЧА 3: рефакторинг — использует общую функцию apply_recommended_settings
         из hardware_recommend.py, синхронизирует виджеты UI с обновлёнными значениями.
         """
+        from dataclasses import replace
         from configs.hardware_recommend import apply_recommended_settings
 
         try:
-            # Применяем рекомендации к настройкам (не сохраняем, только меняем объект)
-            rec = apply_recommended_settings(self._settings)
+            # Keep recommendations in the form until the user saves.
+            recommended = replace(self._settings)
+            rec = apply_recommended_settings(recommended)
 
             # ── Синхронизируем виджеты UI с обновлёнными настройками ──
             # Backend / CUDA
             if hasattr(self, '_cuda_toggle'):
-                self._cuda_toggle.set_checked(self._settings.use_cuda)
+                self._cuda_toggle.set_checked(recommended.use_cuda)
             if hasattr(self, '_cpu_backend_combo'):
                 backend_map_rev = {"torch": 0, "onnx": 1, "openvino": 2}
                 self._cpu_backend_combo.setCurrentIndex(
-                    backend_map_rev.get(self._settings.cpu_inference_backend, 0)
+                    backend_map_rev.get(recommended.cpu_inference_backend, 0)
                 )
-                # update_backend_enabled() уже подключён к toggled_state CUDA-тумблера,
-                # но сработает только если состояние тумблера реально ИЗМЕНИЛОСЬ —
-                # принудительно синхронизируем enabled-состояние комбобокса:
-                self._cpu_backend_combo.setEnabled(not self._settings.use_cuda)
+                # set_checked() blocks signals, so synchronize the combo explicitly.
+                self._cpu_backend_combo.setEnabled(not recommended.use_cuda)
 
             # Пороги качества/производительности
             if hasattr(self, '_conf_side_spin'):
-                self._conf_side_spin.setValue(self._settings.conf_side)
+                self._conf_side_spin.setValue(recommended.conf_side)
             if hasattr(self, '_iou_spin'):
-                self._iou_spin.setValue(self._settings.iou_threshold)
+                self._iou_spin.setValue(recommended.iou_threshold)
             if hasattr(self, '_dedup_track_spin'):
-                self._dedup_track_spin.setValue(self._settings.dedup_radius_track_m)
+                self._dedup_track_spin.setValue(int(recommended.dedup_radius_track_m))
             if hasattr(self, '_dedup_azimuth_spin'):
-                self._dedup_azimuth_spin.setValue(self._settings.dedup_azimuth_deg)
-            # preview_fps_limit уже применён в apply_recommended_settings
+                self._dedup_azimuth_spin.setValue(int(recommended.dedup_azimuth_deg))
+            self._preview_fps_limit = recommended.preview_fps_limit
 
             # ── Статус для пользователя ──────────────────────────────
-            status_lines = [rec["reason"]]
+            status_lines = [rec["reason"], "Рекомендации выставлены. Нажмите «Сохранить», чтобы применить их."]
 
             # Если рекомендован не-PyTorch backend, но он не готов — предупреждаем сразу
             if rec["cpu_inference_backend"] != "torch" and not rec["use_cuda"]:

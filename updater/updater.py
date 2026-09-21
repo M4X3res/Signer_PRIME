@@ -534,11 +534,16 @@ def launch_updater_and_exit(
         logger.info(f"Запуск Updater: {' '.join(args)}")
         
         # Запускаем Updater в фоне
-        subprocess.Popen(
-            args,
-            creationflags=subprocess.DETACHED_PROCESS | subprocess.CREATE_NEW_PROCESS_GROUP,
-            close_fds=True
-        )
+        from updater.permissions import installation_is_writable, launch_elevated
+        if installation_is_writable(install_dir):
+            subprocess.Popen(
+                args,
+                creationflags=subprocess.DETACHED_PROCESS | subprocess.CREATE_NEW_PROCESS_GROUP,
+                close_fds=True
+            )
+        else:
+            # UAC is requested before the UI closes; cancellation leaves Signer running.
+            launch_elevated(args, install_dir)
         
         logger.info("Updater запущен, завершение работы приложения...")
         
@@ -551,9 +556,12 @@ def launch_updater_and_exit(
 
 
 def get_update_temp_dir() -> Path:
-    """Keep downloads on the installation volume, with no system-temp fallback."""
+    """Prefer the installation volume; protected installations use a per-user cache."""
     import sys
     install = Path(sys.executable).resolve().parent if getattr(sys, 'frozen', False) else Path(__file__).resolve().parents[1]
+    from updater.permissions import installation_is_writable, user_update_cache
+    if install.exists() and not installation_is_writable(install):
+        return user_update_cache(install)
     return install / '.signer-update-cache'
 
 

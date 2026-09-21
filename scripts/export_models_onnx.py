@@ -104,7 +104,7 @@ def should_export(pt_path: str, export_path: str, force: bool) -> bool:
     if os.path.isdir(export_path):
         # OpenVINO - проверяем .xml файл внутри директории
         xml_file = os.path.join(export_path, os.path.basename(export_path).replace("_openvino_model", "") + ".xml")
-        if not os.path.exists(xml_file):
+        if not os.path.exists(xml_file) or not os.path.isfile(os.path.splitext(xml_file)[0] + ".bin"):
             return True
         export_mtime = os.path.getmtime(xml_file)
     else:
@@ -186,7 +186,8 @@ def export_one(pt_path: str, task: str, imgsz: int, fmt: str, force: bool = Fals
         pt_abs = resource_path(pt_path)
         
         # КРИТИЧЕСКАЯ ПРОВЕРКА: это не LFS pointer?
-        verify_lfs_file(pt_abs)
+        if not verify_lfs_file(pt_abs):
+            raise FileNotFoundError(f"Missing source model: {pt_abs}")
         
         export_path = get_export_path(pt_abs, fmt)
         
