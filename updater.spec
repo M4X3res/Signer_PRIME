@@ -17,6 +17,14 @@ import os
 block_cipher = None
 ROOT = os.path.dirname(os.path.abspath(SPEC))
 
+# Resolve native dependencies from the build interpreter and Windows only.
+# Unrelated tools on PATH can supply an incompatible ICU (breaking QtWidgets).
+import sys
+_windows = os.environ.get('SystemRoot', r'C:\Windows')
+os.environ['PATH'] = os.pathsep.join([os.path.join(sys.prefix, 'Scripts'), sys.base_prefix,
+    os.path.join(_windows, 'System32'), _windows,
+    os.path.join(_windows, 'System32', 'WindowsPowerShell', 'v1.0')])
+
 # ═══════════════════════════════════════════════════════════════════
 # ANALYSIS
 # ═══════════════════════════════════════════════════════════════════
