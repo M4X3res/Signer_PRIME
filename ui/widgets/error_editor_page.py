@@ -24,7 +24,7 @@ from PyQt6.QtCore import (
     Qt, pyqtSignal, QTimer, QSortFilterProxyModel,
     QAbstractListModel, QModelIndex
 )
-from PyQt6.QtGui import QPixmap, QImage, QColor, QPainter, QPen, QFont
+from PyQt6.QtGui import QColor, QPainter, QPen, QFont
 from PyQt6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel,
     QPushButton, QListView, QSplitter, QFrame,
@@ -37,6 +37,7 @@ from configs import config
 from configs.sign_data import CODES_SIGNS, TYPE_SIGNS_WITH_TEXT, NAMES_SIGNS_BY_TYPE
 from ui.themes.theme_manager import theme_manager
 from ui.widgets.utils import connect_combobox_theme_updates  # ЗАДАЧА 1
+from ui.widgets.frame_inspection_view import FrameInspectionView
 from ui.widgets.control_styles import compact_button_style, line_icon
 from app.utils import resource_path
 
@@ -99,6 +100,7 @@ class SignRecord:
         # Изменения пользователя
         self.new_type: str  = self.type
         self.new_text: str  = self.text
+        self.reviewed: bool = self.props.get("editor_reviewed") is True
         self.modified:  bool = False
         self.deleted:   bool = False
 
@@ -386,6 +388,11 @@ class SignItemDelegate(QStyledItemDelegate):
         )
         if rec.deleted:
             bg = QColor(t["error"]).darker(180)
+        elif rec.reviewed:
+            base, green = QColor(t["bg_secondary"]), QColor(t["success"])
+            mix = .24 if selected else .13
+            bg = QColor(*(round(base.getRgb()[i] * (1-mix) + green.getRgb()[i] * mix)
+                          for i in range(3)))
         elif rec.modified:
             bg = QColor(t["warning"]).darker(200)
         elif selected:
@@ -394,6 +401,9 @@ class SignItemDelegate(QStyledItemDelegate):
             bg = QColor(t["bg_secondary"])
 
         painter.fillRect(r, bg)
+        if rec.reviewed and selected and not rec.deleted:
+            painter.setPen(QPen(QColor(t["success"]), 1))
+            painter.drawRect(r.adjusted(1, 1, -1, -1))
 
         # ── Индикатор уверенности (левая полоса) ──────────────────
         bar_w = 4
@@ -404,6 +414,13 @@ class SignItemDelegate(QStyledItemDelegate):
             r.x(), r.y() + r.height() - conf_h,
             bar_w, conf_h, QColor(conf_color)
         )
+
+        if rec.reviewed and not rec.deleted:
+            painter.fillRect(r.x(), r.y(), bar_w, r.height(), QColor(t["success"]))
+            painter.setPen(QColor(t["success"]))
+            painter.setFont(QFont(QApplication.font().family(), 9, QFont.Weight.Medium))
+            painter.drawText(r.right() - 100, r.y() + 4, 92, 22,
+                             Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter, '✓ Проверен')
 
         # ── Текст ─────────────────────────────────────────────────
         pad = bar_w + 10
@@ -440,7 +457,8 @@ class SignItemDelegate(QStyledItemDelegate):
         f_conf = QFont(QApplication.font().family(), 11, QFont.Weight.Light)
         painter.setFont(f_conf)
         painter.drawText(
-            r.right() - 54, ty, 50, r.height(),
+            r.right() - 54, ty + (20 if rec.reviewed and not rec.deleted else 0),
+            50, r.height() - (20 if rec.reviewed and not rec.deleted else 0),
             Qt.AlignmentFlag.AlignVCenter | Qt.AlignmentFlag.AlignRight,
             f"{rec.confidence_pct}%",
         )
@@ -499,6 +517,23 @@ class ErrorEditorPage(QWidget):
         theme_manager.theme_changed.connect(self._on_theme_changed)
         self._restyle_list_panel()
 
+    def _restyle_inspection_controls(self):
+        t = theme_manager.tokens
+        self._inspection_bar.setStyleSheet(f"""
+            QFrame#InspectionBar {{ background: {t['bg_secondary']};
+                border: 1px solid {t['border_subtle']}; border-radius: 10px; }}
+            QLabel#InspectionTitle {{ color: {t['text_secondary']}; font-size: 10px;
+                font-weight: 600; border: none; background: transparent; }}
+            QLabel#InspectionState {{ color: {t['text_primary']}; font-size: 11px;
+                background: {t['bg_primary']}; border: 1px solid {t['border_subtle']};
+                border-radius: 6px; padding: 6px 10px; }}
+            QLabel#InspectionHint {{ color: {t['text_secondary']}; font-size: 11px;
+                border: none; background: transparent; padding: 2px 0; }}
+        """)
+        self._reset_view.setStyleSheet(compact_button_style(t))
+        self._reset_view.setIcon(line_icon('reload', t['text_secondary']))
+        self._reset_view.setCursor(Qt.CursorShape.PointingHandCursor)
+
     def _on_theme_changed(self, _theme_name: str) -> None:
         """
         Большая часть стилизации переведена на objectName + глобальный QSS
@@ -509,6 +544,7 @@ class ErrorEditorPage(QWidget):
         """
         self._restyle_badges()
         self._restyle_list_panel()
+        self._restyle_inspection_controls()
         if self._current_rec is not None:
             self._show_record(self._current_rec)
 
@@ -834,11 +870,41 @@ class ErrorEditorPage(QWidget):
         fh_lay.addWidget(self._lbl_frame_info)
         frame_lay.addWidget(fh)
 
-        self._frame_label = QLabel()
+        self._frame_label = FrameInspectionView()
         self._frame_label.setObjectName("VideoLabel")
         self._frame_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self._frame_label.setMinimumHeight(300)
         frame_lay.addWidget(self._frame_label)
+        self._inspection_bar = QFrame()
+        self._inspection_bar.setObjectName('InspectionBar')
+        tools = QVBoxLayout(self._inspection_bar)
+        tools.setContentsMargins(12, 10, 12, 10)
+        tools.setSpacing(8)
+        controls = QHBoxLayout()
+        title = QLabel('ПРОСМОТР КАДРА')
+        title.setObjectName('InspectionTitle')
+        controls.addWidget(title)
+        controls.addStretch()
+        self._inspection_state = QLabel('1.0× · Свет +0.0 · Контраст +0.0')
+        self._inspection_state.setObjectName('InspectionState')
+        self._frame_label.view_changed.connect(self._inspection_state.setText)
+        controls.addWidget(self._inspection_state)
+        self._reset_view = QPushButton('Сбросить')
+        self._reset_view.setToolTip('Сбросить масштаб, освещение и контраст. Также — двойной щелчок по кадру.')
+        self._reset_view.clicked.connect(self._frame_label.reset_view)
+        controls.addWidget(self._reset_view)
+        tools.addLayout(controls)
+        hints = QHBoxLayout()
+        hints.setSpacing(8)
+        for text in ('Колесо  ·  Масштаб', 'ЛКМ + колесо  ·  Освещение',
+                     'Shift + ЛКМ + колесо  ·  Контраст'):
+            hint = QLabel(text)
+            hint.setObjectName('InspectionHint')
+            hint.setWordWrap(True)
+            hints.addWidget(hint, 1)
+        tools.addLayout(hints)
+        frame_lay.addWidget(self._inspection_bar)
+        self._restyle_inspection_controls()
 
         lay.addWidget(frame_card, stretch=3)
 
@@ -1067,6 +1133,8 @@ class ErrorEditorPage(QWidget):
                 continue
             if rec.deleted:
                 continue   # пропускаем удалённые
+            if rec.reviewed:
+                feat["properties"]["editor_reviewed"] = True
             if rec.modified:
                 feat["properties"]["type"] = rec.new_type
                 if rec.new_type in CODES_SIGNS:
@@ -1209,14 +1277,14 @@ class ErrorEditorPage(QWidget):
         if mean_brightness < 5:
             print(f"[ErrorEditor] ВНИМАНИЕ: Кадр выглядит пустым (яркость={mean_brightness:.1f}) - возможно неверный индекс")
         
-        frame = cv2.resize(frame, (960, 540))
+        # Keep native resolution so zoom can reveal small sign details.
 
         # Рисуем bbox
         if rec.bbox:
             x, y, w, h = rec.bbox
-            # Масштабируем bbox под resize 960x540
-            sx = 960 / 1920
-            sy = 540 / 1080
+            # Detector coordinates use a 1920x1080 reference frame.
+            sx = frame.shape[1] / 1920
+            sy = frame.shape[0] / 1080
             cv2.rectangle(
                 frame,
                 (int(x * sx), int(y * sy)),
@@ -1236,19 +1304,7 @@ class ErrorEditorPage(QWidget):
                 2
             )
 
-        # BGR → RGB → QPixmap
-        rgb   = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-        h_, w_, ch = rgb.shape
-        qimg  = QImage(rgb.data, w_, h_, ch * w_, QImage.Format.Format_RGB888)
-        pixmap = QPixmap.fromImage(qimg)
-
-        self._frame_label.setPixmap(
-            pixmap.scaled(
-                self._frame_label.size(),
-                Qt.AspectRatioMode.KeepAspectRatio,
-                Qt.TransformationMode.SmoothTransformation,
-            )
-        )
+        self._frame_label.set_frame(frame)
         self._lbl_frame_info.setText(
             f"{config.VIDEOS[video_idx]}  ·  кадр {frame_num}"
         )
@@ -1379,6 +1435,7 @@ class ErrorEditorPage(QWidget):
         rec.new_type = code
         rec.new_text = self._text_input.text() if code in TYPE_SIGNS_WITH_TEXT else ""
         rec.modified = (rec.new_type != rec.type or rec.new_text != rec.text)
+        rec.reviewed = True
         self._model.update_record(self._current_row)
 
         # Обновляем мета

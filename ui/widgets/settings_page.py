@@ -2023,6 +2023,9 @@ class SettingsPage(QWidget):
         
         status_text = status_texts.get(status, "Неизвестный статус")
         status_color = status_colors.get(status, t["text_secondary"])
+        if status == LicenseStatus.VALID and not self._license_manager.has_online_access():
+            status_text = "⚠ Требуется проверка сервера"
+            status_color = t["warning"]
         
         self._license_status_label.setText(f"<b>Статус:</b> <span style='color:{status_color}'>{status_text}</span>")
         

@@ -45,24 +45,10 @@ class LicenseClient:
         self.base_url = self.settings.license_server_url.rstrip('/')
     
     def _post_with_retry(self, url: str, payload: dict) -> 'requests.Response':
-        """
-        Выполняет POST с несколькими попытками при сетевых ошибках (Timeout, ConnectionError).
-        НЕ повторяет попытки при получении ответа сервера с кодом ошибки (4xx/5xx с валидным JSON) —
-        это не сетевая проблема, а бизнес-ошибка (например INVALID_LICENSE), retry её не исправит.
-        
-        ЗАДАЧА 2: Добавлены скрытые ретраи для устранения проблемы "иногда подключается не с первого раза".
-        
-        Args:
-            url: URL для POST-запроса
-            payload: JSON payload
-            
-        Returns:
-            requests.Response при успехе
-            
-        Raises:
-            requests.exceptions.Timeout: Если все попытки исчерпаны (Timeout)
-            requests.exceptions.ConnectionError: Если все попытки исчерпаны (ConnectionError)
-            Exception: Другие ошибки (JSON parsing и т.п.)
+        """Retry connection failures and transient HTTP errors within one budget.
+
+        Definite license rejections (4xx other than 408/429) are not retried.
+        The same policy applies at startup and to checks during work.
         """
         import time
         
@@ -79,7 +65,14 @@ class LicenseClient:
                     timeout=REQUEST_TIMEOUT,
                     headers={"Content-Type": "application/json"}
                 )
-                return response  # Успех — возвращаем ответ
+                if response.status_code in (408, 429) or 500 <= response.status_code < 600:
+                    if attempt < attempts - 1:
+                        logger.warning('License server HTTP %s; retry %s/%s',
+                                       response.status_code, attempt + 2, attempts)
+                        response.close()
+                        time.sleep(backoff)
+                        continue
+                return response
                 
             except (requests.exceptions.Timeout, requests.exceptions.ConnectionError) as e:
                 last_exception = e

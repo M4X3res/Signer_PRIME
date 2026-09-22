@@ -9,6 +9,9 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 from updater.transaction import digest, inventory
 
 
+MAX_DELTA_BYTES = 1_900_000_000
+
+
 def build(current, output, bases, previous_inventories=None):
     bases = list(bases)
     output.mkdir(parents=True, exist_ok=True)
@@ -35,6 +38,11 @@ def build(current, output, bases, previous_inventories=None):
         with zipfile.ZipFile(archive, 'w', zipfile.ZIP_DEFLATED) as zf:
             for name in changed:
                 zf.write(current/name, name)
+        if archive.stat().st_size > MAX_DELTA_BYTES:
+            archive.unlink()
+            (output/f'delta-from-{old_version}.json').unlink(missing_ok=True)
+            print(f'Delta from {old_version} exceeds the asset budget; use the full update')
+            continue
         data = dict(from_version=old_version, to_version=version, source_files=source,
                     target_files=target, changed_or_added=changed, removed=removed,
                     archive_sha256=digest(archive))

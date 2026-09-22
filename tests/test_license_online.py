@@ -133,6 +133,70 @@ class OnlineLicenseTests(unittest.TestCase):
             callbacks.pop()(LicenseStatus.VALID, None)
             self.assertEqual(view.count, 2)
 
+    def test_renewed_expired_token_is_checked_online(self):
+        self.manager._save_token(self.token(current_period_end=int(time.time())-10))
+        self.assertEqual(self.manager.check_local_status(), LicenseStatus.EXPIRED)
+        self.assertEqual(self.manager._verify_access_internal()[0], LicenseStatus.VALID)
+        self.client.refresh.assert_called_once()
+        self.assertTrue(self.manager.has_online_access())
+
+    def test_future_issued_token_still_rejected(self):
+        self.manager._save_token(self.token(issued_at=int(time.time())+3600))
+        self.assertEqual(self.manager._verify_access_internal()[0], LicenseStatus.EXPIRED)
+        self.client.refresh.assert_not_called()
+        self.assertFalse(self.manager.has_online_access())
+
+    def test_runtime_check_retries_before_publishing_any_denial(self):
+        import requests
+        client = LicenseClient.__new__(LicenseClient)
+        client.settings = types.SimpleNamespace(license_connect_retry_attempts=3,
+                                               license_connect_retry_backoff_sec=0)
+        client.base_url = 'https://example.invalid'
+        self.manager.client = client
+        states = []
+        self.manager.access_changed.connect(states.append)
+        good = Mock(status_code=200, json=lambda: {'token':self.token()})
+        with patch('licensing.license_client.requests.post', side_effect=[
+                Mock(status_code=503), requests.exceptions.ConnectionError('temporary'), good]) as post:
+            self.assertEqual(self.manager._verify_access_internal()[0], LicenseStatus.VALID)
+            self.assertEqual(post.call_count, 3)
+        self.assertEqual(states, [LicenseStatus.VALID])
+        self.assertTrue(self.manager.has_online_access())
+
+    def test_exhausted_retries_then_successful_settings_refresh_recovers(self):
+        import requests
+        client = LicenseClient.__new__(LicenseClient)
+        client.settings = types.SimpleNamespace(license_connect_retry_attempts=3,
+                                               license_connect_retry_backoff_sec=0)
+        client.base_url = 'https://example.invalid'
+        self.manager.client = client
+        with patch('licensing.license_client.requests.post', side_effect=requests.exceptions.Timeout()) as post:
+            self.assertEqual(self.manager._verify_access_internal()[0], LicenseStatus.NETWORK_ERROR)
+            self.assertEqual(post.call_count, 3)
+        self.assertTrue(self.manager.token_path.exists())
+        loop = QEventLoop()
+        results = []
+        def done(ok):
+            results.append(ok)
+            loop.quit()
+        with patch('licensing.license_client.requests.post', return_value=Mock(
+                status_code=200, json=lambda: {'token':self.token()})):
+            self.manager.refresh_async(done)
+            QTimer.singleShot(3000, loop.quit)
+            loop.exec()
+            for worker in list(self.manager._verify_workers): worker.wait(3000)
+            self.app.processEvents()
+        self.assertEqual(results, [True])
+        self.assertTrue(self.manager.has_online_access())
+
+    def test_explicit_rejection_is_not_retried(self):
+        client = LicenseClient.__new__(LicenseClient)
+        client.settings = types.SimpleNamespace(license_connect_retry_attempts=3,
+                                               license_connect_retry_backoff_sec=0)
+        with patch('licensing.license_client.requests.post', return_value=Mock(status_code=403)) as post:
+            self.assertEqual(client._post_with_retry('https://example.invalid', {}).status_code, 403)
+            post.assert_called_once()
+
     def test_client_understands_fastapi_rejection(self):
         client = LicenseClient.__new__(LicenseClient)
         client.base_url = 'https://example.invalid'

@@ -789,54 +789,42 @@
     box-shadow: 0 0 0 4px rgba(47,93,138,0.15);
   }
 
-  /* BLOCK VIDEO-FS-1: Стили для fullscreen режима video-container */
-  #video-container:fullscreen {
-    display: flex;
-    flex-direction: column;
-    justify-content: center;
-    align-items: center;
-    background: #000;
+  #map-video {
+    display: block;
+    width: 100%;
+    height: 180px;
+    background: #0a0a0a;
+    object-fit: contain;
   }
 
-  #video-container:fullscreen #map-video {
-    max-width: 100%;
-    max-height: calc(100% - 90px); /* оставляем место под controls снизу */
-    width: auto;
-    height: auto;
-  }
-
-  #video-container:fullscreen #video-controls {
-    position: absolute;
-    bottom: 0;
-    left: 0;
-    right: 0;
-    background: rgba(20, 20, 20, 0.85);
-    z-index: 10;
-  }
-
-  /* Webkit-префикс для Chromium внутри QWebEngineView */
+  #video-container:fullscreen,
   #video-container:-webkit-full-screen {
     display: flex;
     flex-direction: column;
-    justify-content: center;
-    align-items: center;
+    width: 100%;
+    height: 100%;
+    min-width: 0;
+    min-height: 0;
     background: #000;
   }
 
+  #video-container:fullscreen #map-video,
   #video-container:-webkit-full-screen #map-video {
-    max-width: 100%;
-    max-height: calc(100% - 90px);
-    width: auto;
-    height: auto;
+    flex: 1 1 0;
+    width: 100%;
+    height: 0;
+    min-height: 0;
+    max-height: none;
+    object-fit: contain;
   }
 
+  #video-container:fullscreen #video-controls,
   #video-container:-webkit-full-screen #video-controls {
-    position: absolute;
-    bottom: 0;
-    left: 0;
-    right: 0;
+    flex: 0 0 auto;
+    margin: 0;
+    max-height: 40%;
+    overflow-y: auto;
     background: rgba(20, 20, 20, 0.85);
-    z-index: 10;
   }
 
   /* Shared compact controls for the map and video player. */
@@ -865,6 +853,26 @@
   #video-controls .control-segment .tb-btn.accent { background: var(--accent); color: #fff;
     box-shadow: 0 2px 5px rgba(0,0,0,.18); }
   #video-controls .fullscreen-action { width: 100%; min-height: 36px; }
+  .fullscreen-exit-label { display: none; }
+  #video-container:fullscreen .fullscreen-action,
+  #video-container:-webkit-full-screen .fullscreen-action {
+    position: fixed;
+    top: 16px;
+    right: 16px;
+    z-index: 100;
+    width: auto;
+    min-height: 40px;
+    padding: 10px 14px;
+    color: #fff;
+    background: rgba(20, 20, 20, 0.9);
+    border: 1px solid rgba(255, 255, 255, 0.5);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
+  }
+  #video-container:fullscreen .fullscreen-enter-label,
+  #video-container:-webkit-full-screen .fullscreen-enter-label { display: none; }
+  #video-container:fullscreen .fullscreen-exit-label,
+  #video-container:-webkit-full-screen .fullscreen-exit-label { display: inline; }
+
   @media (prefers-reduced-motion: reduce) { .tb-btn { transition: none; } }
 
 
@@ -967,7 +975,7 @@
         <span id="video-time-display" style="font-size: 10px; color: var(--text3); font-family: inherit;"></span>
       </div>
       <div id="video-container">
-        <video id="map-video" controls style="width: 100%; height: 180px; background: #0a0a0a; display: block;">
+        <video id="map-video" controls>
           <source src="" type="video/mp4">
           Ваш браузер не поддерживает видео HTML5.
         </video>
@@ -990,7 +998,7 @@
           
           <!-- Группа 3: Полноэкранный режим -->
           <div style="display: flex; gap: 4px;">
-            <button class="tb-btn fullscreen-action" onclick="toggleFullscreen()" title="Полный экран" style="flex: 1; min-height: 30px;"><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 3H3v6 M15 3h6v6 M21 15v6h-6 M9 21H3v-6"/></svg>На весь экран</button>
+            <button class="tb-btn fullscreen-action" onclick="toggleFullscreen()" title="Полный экран" style="flex: 1; min-height: 30px;"><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 3H3v6 M15 3h6v6 M21 15v6h-6 M9 21H3v-6"/></svg><span class="fullscreen-enter-label">На весь экран</span><span class="fullscreen-exit-label">Выйти из полного экрана</span></button>
           </div>
         </div>
         <div id="video-status" style="display: none; padding: 20px; text-align: center; color: var(--text3); font-size: 12px; white-space: pre-line;">
@@ -1345,7 +1353,7 @@ async function loadSigns() {
       return;
     }
     
-    signsData = Array.isArray(data) ? data : [];
+    applySignsSnapshot(Array.isArray(data) ? data : []);
     console.log(`[loadSigns] Обработано знаков: ${signsData.length}`);
     
     if (signsData.length > 0) {
@@ -1398,8 +1406,42 @@ async function loadSignTypes() {
   }
 }
 
+// Keep server echoes and cluster rebuilds out of an unfinished mouse gesture.
+let activeMarkerInteraction = null;
+let markerRenderPending = false;
+function applySignsSnapshot(data) {
+  // Keep the active gesture's optimistic angle/position; refresh other signs.
+  const local = activeMarkerInteraction === null ? null
+    : signsData.find(sign => sign.id === activeMarkerInteraction.signId);
+  signsData = data.map(sign => local && sign.id === local.id
+    ? {...sign, azimuth: local.azimuth, lat: local.lat, lon: local.lon} : sign);
+  if (activeMarkerInteraction !== null) markerRenderPending = true;
+}
+
+function beginMarkerInteraction(signId) {
+  activeMarkerInteraction = {signId};
+  return activeMarkerInteraction;
+}
+
+function endMarkerInteraction(interaction) {
+  // Let Leaflet finish mouseup/dragend before touching its cluster layers.
+  setTimeout(() => {
+    if (activeMarkerInteraction !== interaction) return;
+    activeMarkerInteraction = null;
+    if (markerRenderPending) {
+      markerRenderPending = false;
+      renderMarkers();
+    }
+  }, 0);
+}
+
 // ── Markers ─────────────────────────────────────────────────────────
 function renderMarkers() {
+  // A cluster rebuild removes the held DOM node and cancels its wheel capture.
+  if (activeMarkerInteraction !== null) {
+    markerRenderPending = true;
+    return;
+  }
   console.log(`[renderMarkers] Начинаем рендеринг, всего знаков: ${signsData.length}`);
   
   // Убрать старые (F.1: используем cluster group)
@@ -1446,7 +1488,7 @@ function renderMarkers() {
                  <div class="sign-marker-compass-handle" data-sign-id="${sign.id}"></div>
                </div>
                <span class="sign-marker-angle">${Math.round(azimuth)}°</span>
-               <img src="${imgSrc}" alt="${sign.type}"
+               <img src="${imgSrc}" alt="${sign.type}" draggable="false"
                     onerror="this.style.display='none'">
              </div>`,
       iconSize:   [36, 36],
@@ -1487,7 +1529,7 @@ function renderMarkers() {
   console.log(`[renderMarkers] Видимые границы карты:`, map.getBounds());
   
   // Центрируем карту на знаки если их больше 0 и нет трека
-  if (bounds.length > 0) {
+  if (bounds.length > 0 && oldCount === 0) {
     console.log(`[renderMarkers] Границы знаков: ${bounds[0]} - ${bounds[bounds.length-1]}`);
     if (!trackLine || !map.hasLayer(trackLine)) {
       console.log(`[renderMarkers] Центрируем карту на ${bounds.length} знаков`);
@@ -1519,13 +1561,16 @@ function attachAzimuthControls(signId, markerEl, leafletMarker) {
   
   let held = false;
   let restoreZoom = false;
-  let restoreDragging = false;
+  let interaction = null;
+  markerEl.addEventListener("dragstart", e => e.preventDefault());
   markerEl.addEventListener("mousedown", (e) => {
-    if (e.button !== 0 || selectedId !== signId || handle.contains(e.target) || held) return;
+    if (e.button !== 0 || handle.contains(e.target) || held) return;
     held = true;
+    interaction = beginMarkerInteraction(signId);
     restoreZoom = map.scrollWheelZoom.enabled();
     map.scrollWheelZoom.disable();
     document.addEventListener('wheel', rotateOnWheel, {passive: false, capture: true});
+    document.addEventListener('mousemove', freezeRotationDrag, true);
     document.addEventListener("mouseup", releaseMarker, true);
     window.addEventListener("blur", releaseMarker);
     leafletMarker.on("remove", releaseMarker);
@@ -1533,8 +1578,11 @@ function attachAzimuthControls(signId, markerEl, leafletMarker) {
   let isRotationMode = false; // Режим вращения активируется при первом scroll с зажатой кнопкой
   
   // Отпускание кнопки мыши завершает режим вращения
-  const releaseMarker = () => {
+  const releaseMarker = (e) => {
+    if (e?.type === 'mouseup' && e.button !== 0) return;
+    if (!held) return;
     document.removeEventListener('wheel', rotateOnWheel, true);
+    document.removeEventListener('mousemove', freezeRotationDrag, true);
     document.removeEventListener('mouseup', releaseMarker, true);
     leafletMarker.off('remove', releaseMarker);
     window.removeEventListener('blur', releaseMarker);
@@ -1545,17 +1593,18 @@ function attachAzimuthControls(signId, markerEl, leafletMarker) {
       isRotationMode = false;
       markerEl.classList.remove('rotating');
       
-      // Включаем обратно draggable
-      if (restoreDragging) {
-        leafletMarker.dragging.enable();
-      }
-      
-      restoreDragging = false;
+      if (azimuthBadge) azimuthBadge.classList.remove('active');
       console.log(`[azimuth] Режим вращения завершён для ${signId}`);
     }
+    endMarkerInteraction(interaction);
   };
-  
-  
+
+  const freezeRotationDrag = (e) => {
+    if (!held || !isRotationMode) return;
+    e.preventDefault();
+    e.stopImmediatePropagation();
+  };
+
   // Scroll активирует режим вращения ТОЛЬКО если зажата левая кнопка мыши
   // Capture wheel throughout the hold, even when the pointer leaves the icon.
   const rotateOnWheel = (e) => {
@@ -1568,13 +1617,11 @@ function attachAzimuthControls(signId, markerEl, leafletMarker) {
     // Кнопка зажата! Активируем режим вращения при первом scroll
     if (!isRotationMode) {
       isRotationMode = true;
+      if (selectedId !== signId) selectSign(signId);
       markerEl.classList.add('rotating');
       
-      // Отключаем dragging Leaflet-маркера
-      if (leafletMarker && leafletMarker.dragging.enabled()) {
-        restoreDragging = true;
-        leafletMarker.dragging.disable();
-      }
+      // Do not disable an active Leaflet drag: that emits dragend and can
+      // remove/reinsert this marker through MarkerCluster. Freeze moves instead.
       
       console.log(`[azimuth] Активирован режим вращения для ${signId}`);
     }
@@ -1614,10 +1661,15 @@ function attachAzimuthControls(signId, markerEl, leafletMarker) {
   let isDragging = false;
   
   handle.addEventListener('mousedown', (e) => {
+    if (e.button !== 0 || isDragging) return;
     e.preventDefault();
     e.stopPropagation();
     
     isDragging = true;
+    const handleInteraction = beginMarkerInteraction(signId);
+    const handleDragging = leafletMarker.dragging.enabled();
+    const handleZoom = map.scrollWheelZoom.enabled();
+    map.scrollWheelZoom.disable();
     currentDragSignId = signId;
     markerEl.classList.add('rotating');
     
@@ -1664,7 +1716,8 @@ function attachAzimuthControls(signId, markerEl, leafletMarker) {
       azimuthBadge.classList.add('active');
     };
     
-    const onMouseUp = () => {
+    const onMouseUp = (event) => {
+      if (event?.type === 'mouseup' && event.button !== 0) return;
       if (!isDragging) return;
       
       isDragging = false;
@@ -1672,9 +1725,8 @@ function attachAzimuthControls(signId, markerEl, leafletMarker) {
       markerEl.classList.remove('rotating');
       
       // Включаем обратно draggable
-      if (leafletMarker) {
-        leafletMarker.dragging.enable();
-      }
+      if (handleDragging) leafletMarker.dragging.enable();
+      if (handleZoom) map.scrollWheelZoom.enable();
       
       if (azimuthBadge) {
         azimuthBadge.classList.remove('active');
@@ -1688,10 +1740,15 @@ function attachAzimuthControls(signId, markerEl, leafletMarker) {
       
       document.removeEventListener('mousemove', onMouseMove);
       document.removeEventListener('mouseup', onMouseUp);
+      window.removeEventListener('blur', onMouseUp);
+      leafletMarker.off('remove', onMouseUp);
+      endMarkerInteraction(handleInteraction);
     };
     
     document.addEventListener('mousemove', onMouseMove);
     document.addEventListener('mouseup', onMouseUp);
+    window.addEventListener('blur', onMouseUp);
+    leafletMarker.on('remove', onMouseUp);
   });
 }
 
@@ -1797,6 +1854,11 @@ document.addEventListener('keydown', (e) => {
 
 // ЗАДАЧА 2 (P1): Обработчик перетаскивания маркера
 async function onMarkerDragEnd(id, latlng) {
+  const sign = signsData.find(s => s.id === id);
+  const originalPosition = sign ? {lat: sign.lat, lon: sign.lon} : null;
+  // A deferred cluster render must use the just-dropped position, even while
+  // the PATCH is still in flight.
+  if (sign) { sign.lat = latlng.lat; sign.lon = latlng.lng; }
   try {
     console.log(`[onMarkerDragEnd] Знак ${id} перемещён на lat=${latlng.lat}, lon=${latlng.lng}`);
     
@@ -1818,14 +1880,6 @@ async function onMarkerDragEnd(id, latlng) {
     const result = await r.json();
     if (result.error) throw new Error(result.error);
 
-    // Обновляем локальный кэш координат
-    const idx = signsData.findIndex(s => s.id === id);
-    if (idx !== -1) {
-      signsData[idx].lat = latlng.lat;
-      signsData[idx].lon = latlng.lng;
-      console.log(`[onMarkerDragEnd] Обновлён локальный кэш для знака ${id}`);
-    }
-    
     toast("Положение знака обновлено", "ok");
     
     // Если сейчас открыта деталка именно этого знака — не перезагружай видео/данные,
@@ -1837,8 +1891,9 @@ async function onMarkerDragEnd(id, latlng) {
     
     // Откатываем маркер на прежнее место
     const orig = signsData.find(s => s.id === id);
-    if (orig && markers[id]) {
-      markers[id].setLatLng([orig.lat, orig.lon]);
+    if (orig && originalPosition && orig.lat === latlng.lat && orig.lon === latlng.lng) {
+      Object.assign(orig, originalPosition);
+      if (markers[id]) markers[id].setLatLng([orig.lat, orig.lon]);
       console.log(`[onMarkerDragEnd] Маркер откачен на исходную позицию: lat=${orig.lat}, lon=${orig.lon}`);
     }
   }
@@ -2698,12 +2753,12 @@ function initSocket() {
         })
         .then(data => {
           if (data.error) throw new Error(data.error);
-          signsData = data;
+          applySignsSnapshot(data);
           document.getElementById("stat-signs").textContent = signsData.length;
           renderMarkers();
           toast("Знак обновлён", "ok");
           // Если обновлён выбранный знак — обновляем детали
-          if (selectedId === id) {
+          if (selectedId === id && activeMarkerInteraction === null) {
             selectSign(id);
           }
         })

@@ -12,10 +12,23 @@ from PyQt6.QtWidgets import (
     QLabel, QPushButton, QSizePolicy, QFrame, QDialog
 )
 from PyQt6.QtCore import Qt, QUrl, QTimer, pyqtSignal
+from PyQt6.QtGui import QKeySequence, QShortcut
 from ui.themes.theme_manager import theme_manager
 from ui.widgets.control_styles import compact_button_style, line_icon
 
 MAP_PORT = 3000
+
+
+class _VideoFullscreenWindow(QDialog):
+    exit_requested = pyqtSignal()
+
+    def reject(self):
+        # Escape must also leave the browser's Fullscreen API state.
+        self.exit_requested.emit()
+
+    def closeEvent(self, event):
+        event.ignore()
+        self.exit_requested.emit()
 
 
 class MapPage(QWidget):
@@ -25,6 +38,7 @@ class MapPage(QWidget):
         super().__init__(parent)
         self.setObjectName("ContentArea")
 
+        self._fullscreen_window = None
         self._server_thread = None
         self._server_ready  = False
         self._webview       = None  # создаётся лениво в _load_map()
@@ -259,23 +273,40 @@ class MapPage(QWidget):
             self._placeholder.set_status("Не удалось загрузить карту", error=True)
 
     def _on_fullscreen_requested(self, request):
-        """
-        ЗАДАЧА 5.2: Обработчик fullscreen запросов от видеоплеера.
-        
-        При нажатии кнопки fullscreen в видеоплеере разворачивает
-        всё главное окно приложения на весь экран. При выходе из fullscreen
-        (через Esc или повторное нажатие) возвращает нормальный размер.
-        """
-        request.accept()
-        
-        main_window = self.window()
-        
         if request.toggleOn():
-            # Включаем fullscreen
-            main_window.showFullScreen()
+            if self._fullscreen_window is None:
+                window = _VideoFullscreenWindow(self.window())
+                window.setWindowTitle("Видеоплеер — Signer")
+                layout = QVBoxLayout(window)
+                layout.setContentsMargins(0, 0, 0, 0)
+                layout.setSpacing(0)
+                self._content_layout.removeWidget(self._webview)
+                layout.addWidget(self._webview)
+                window.exit_requested.connect(self._exit_video_fullscreen)
+                QShortcut(QKeySequence(Qt.Key.Key_Escape), window,
+                          activated=self._exit_video_fullscreen)
+                self._fullscreen_window = window
+                window.showFullScreen()
+                window.activateWindow()
+                self._webview.setFocus()
+            request.accept()
         else:
-            # Выключаем fullscreen
-            main_window.showNormal()
+            request.accept()
+            window = self._fullscreen_window
+            if window is not None:
+                self._fullscreen_window = None
+                window.layout().removeWidget(self._webview)
+                self._content_layout.addWidget(self._webview)
+                self._webview.show()
+                window.hide()
+                self.window().activateWindow()
+                self._webview.setFocus()
+                window.deleteLater()
+
+    def _exit_video_fullscreen(self):
+        from PyQt6.QtWebEngineCore import QWebEnginePage
+        if self._webview is not None:
+            self._webview.page().triggerAction(QWebEnginePage.WebAction.ExitFullScreen)
 
     def _reload_map(self):
         if self._webview:

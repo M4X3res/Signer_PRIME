@@ -158,6 +158,7 @@ def verify_backend_active() -> dict[str, str]:
                 # Прогоняем инференс (с тем же imgsz, что будет использоваться в runtime)
                 _ = m.predict(dummy_img, imgsz=imgsz, verbose=False)
                 
+                backend = m._backend or "unknown"  # predict() may have fallen back to torch
                 result[name] = backend
                 logger.debug(f"[verify_backend_active] ✅ {name}: {backend} (dummy inference passed)")
                 

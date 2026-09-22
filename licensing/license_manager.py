@@ -442,14 +442,16 @@ class LicenseManager(QObject):
         # 2. Быстрая локальная проверка (подпись, даты, откат часов)
         local_status = self.check_local_status()
         
-        # Если локально токен явно невалиден (подделка, истёк, откат часов) → сразу отклоняем
-        if local_status in (LicenseStatus.NOT_ACTIVATED, LicenseStatus.EXPIRED, LicenseStatus.REVOKED):
-            logger.warning(f"[LicenseManager] Local check failed: {local_status.value}")
+        # An expired signed token may belong to a subscription renewed on the
+        # server. Ask for a fresh token; never grant access based on that cache.
+        if local_status == LicenseStatus.NOT_ACTIVATED:
             return local_status, None
-        
-        # 3. Локально токен выглядит валидным → ОБЯЗАТЕЛЬНАЯ проверка с сервером
-        logger.info("[LicenseManager] Local check passed, verifying with server...")
-        
+        if local_status in (LicenseStatus.EXPIRED, LicenseStatus.REVOKED):
+            valid, payload, _ = verify_token(token_str)
+            if not valid or payload.get('issued_at', 0) > time.time():
+                return local_status, None
+        logger.info("[LicenseManager] Verifying current subscription with server...")
+
         response = self.client.refresh(
             current_token=token_str,
             fingerprint_hash=self.fingerprint

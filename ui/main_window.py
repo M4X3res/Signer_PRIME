@@ -220,28 +220,39 @@ class MainWindow(QMainWindow):
 
     def on_license_access_changed(self, status):
         """Lock work immediately on a failed check; keep recovery UI available."""
-        valid = status == LicenseStatus.VALID and self.license_manager.has_online_access()
+        # Queued signals can arrive after a newer successful activation. The
+        # shared manager, not an outdated signal argument, is the authority.
+        valid = self.license_manager.has_online_access()
+        was_blocked = getattr(self, "_license_blocked", False)
         self._license_blocked = not valid
-        self._pages.setEnabled(valid)
-        self.sidebar.setEnabled(valid)
+        self.page_settings._update_license_display()
+        self._pages.setEnabled(True)
+        self.sidebar.setEnabled(True)
+        for index in range(self._pages.count()):
+            page = self._pages.widget(index)
+            page.setEnabled(valid or page is self.page_settings)
         if valid:
             dialog = getattr(self, '_license_access_dialog', None)
             if dialog:
                 dialog.close()
             self._license_access_dialog = None
+            if was_blocked:
+                self.status_bar.set_status('Лицензия подтверждена. Готов к работе')
             return
         controller = getattr(self, '_controller', None)
         if controller and controller.is_running:
             self._license_interrupted = True
             controller.finish_and_save()
         self.status_bar.set_status('Работа заблокирована: требуется онлайн-проверка лицензии', theme_manager.tokens['warning'])
+        self._switch_page('settings')
         if getattr(self, '_license_access_dialog', None):
             return
         dialog = QMessageBox(self)
         self._license_access_dialog = dialog
         dialog.setWindowTitle('Требуется проверка лицензии')
         dialog.setText('Связь с сервером не подтверждена или лицензия недействительна.\n'
-                       'Работа заблокирована. Текущая обработка останавливается с сохранением прогресса.')
+                       'Обработка останавливается с сохранением прогресса.\n'
+                       'Повторите проверку или закройте это сообщение и обновите лицензию в настройках.')
         dialog.setStandardButtons(QMessageBox.StandardButton.Retry | QMessageBox.StandardButton.Close)
         def respond(button):
             self._license_access_dialog = None
@@ -250,10 +261,9 @@ class MainWindow(QMainWindow):
                     from ui.widgets.license_dialog import LicenseDialog
                     LicenseDialog(self.license_manager).exec()
                 self.license_manager.verify_access_async(lambda status, error: None)
-            else:
-                self.close()
         dialog.buttonClicked.connect(respond)
-        dialog.open()
+        dialog.setWindowModality(Qt.WindowModality.NonModal)
+        dialog.show()
 
     # ── Processing wiring (to be connected to ButtonsHandler) ──
 

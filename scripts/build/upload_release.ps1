@@ -1,6 +1,7 @@
-# Publish only complete releases. Published versions are immutable.
+﻿# Publish only complete releases. Published versions are immutable.
 param(
     [string]$Version = "",
+    [string]$ReleaseDirectory = "release",
     [switch]$Draft,
     [switch]$PreRelease
 )
@@ -18,10 +19,10 @@ function Invoke-Gh {
 if (-not $Version) { $Version = (Get-Content version.json -Raw | ConvertFrom-Json).version }
 if ($Version -notmatch '^\d+\.\d+\.\d+(\.\d+)?$') { throw "Invalid version: $Version" }
 $python = Join-Path $PWD '.venv/Scripts/python.exe'
-& $python scripts/build/validate_release.py --version $Version
+& $python scripts/build/validate_release.py --version $Version --release $ReleaseDirectory
 if ($LASTEXITCODE -ne 0) { throw "Release validation failed; nothing was uploaded" }
 
-$files = @(Get-ChildItem release -File | Where-Object {
+$files = @(Get-ChildItem -LiteralPath $ReleaseDirectory -File | Where-Object {
     $_.Name -match '^Signer\.7z\.\d+$|^delta-from-.*\.(zip|json)$' -or
     $_.Name -in @('checksum.sha256', 'manifest.json', 'release_notes.txt', "SignerInstaller-$Version.exe")
 })
@@ -43,7 +44,7 @@ if ($existing.Count -eq 1 -and -not $existing[0].draft) {
     throw "Published release $tag is immutable. Increment version.json and prepare a new release."
 }
 if ($existing.Count -eq 0) {
-    $options = @('release', 'create', $tag, '--repo', $repository, '--draft', '--title', "Signer PRIME v$Version", '--notes-file', 'release/release_notes.txt')
+    $options = @('release', 'create', $tag, '--repo', $repository, '--draft', '--title', "Signer PRIME v$Version", '--notes-file', (Join-Path $ReleaseDirectory 'release_notes.txt'))
     if ($PreRelease) { $options += '--prerelease' }
     Invoke-Gh -Arguments $options
 }
@@ -68,7 +69,7 @@ foreach ($asset in $remote.assets) {
         throw "Remote size/hash mismatch: $($asset.name). Release remains a draft."
     }
 }
-$edit = @('release', 'edit', $tag, '--repo', $repository, '--notes-file', 'release/release_notes.txt', "--prerelease=$($PreRelease.IsPresent.ToString().ToLowerInvariant())")
+$edit = @('release', 'edit', $tag, '--repo', $repository, '--notes-file', (Join-Path $ReleaseDirectory 'release_notes.txt'), "--prerelease=$($PreRelease.IsPresent.ToString().ToLowerInvariant())")
 if (-not $Draft) { $edit += '--draft=false' }
 Invoke-Gh -Arguments $edit
 Write-Host "Release $tag ready (draft=$($Draft.IsPresent)): https://github.com/$repository/releases/tag/$tag"

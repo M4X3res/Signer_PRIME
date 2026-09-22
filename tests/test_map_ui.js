@@ -95,7 +95,7 @@ async function main() {
           listeners.get(type).set(fn, options);
         },
         removeEventListener(type, fn) { listeners.get(type)?.delete(fn); },
-        emit(type, event = {}) { for (const fn of [...(listeners.get(type)?.keys() || [])]) fn(event); },
+        emit(type, event = {}) { for (const fn of [...(listeners.get(type)?.keys() || [])]) fn({type, button:0, ...event}); },
         count(type) { return listeners.get(type)?.size || 0; },
         listeners};
     }
@@ -109,11 +109,15 @@ async function main() {
       enabled: () => enabled, enable(){enabled = true;}, disable(){enabled = false;}
     }; }
     layer.dragging = toggle(true);
-    const zoom = toggle(true), saved = [];
+    const zoom = toggle(true), saved = [], tasks = [];
     Object.assign(c, {document: doc, window: win, map: {scrollWheelZoom: zoom},
+      setTimeout: fn => tasks.push(fn), rebuilt: 0,
+      selectSign: id => {c.selectedId = id;},
       selectedId: 'a', signsData: [{id:'a', azimuth:0}],
       scheduleAzimuthSave: (id, angle) => saved.push(angle),
       updateAzimuthVisuals: (id, el, angle) => c.signsData[0].azimuth = angle});
+    vm.runInContext(section('// Keep server echoes', '// ── Markers'), c);
+    vm.runInContext(section('function renderMarkers() {', '  console.log(`[renderMarkers]') + '\n rebuilt++; }', c);
     vm.runInContext('let azimuthBadge = null; let currentDragSignId = null;\n' +
       section('function attachAzimuthControls(', '// Обновление визуальных элементов азимута'), c);
     c.attachAzimuthControls('a', marker, layer);
@@ -130,19 +134,52 @@ async function main() {
     assert.equal(wheel(1), 0);
     press(); assert.equal(zoom.enabled(), false);
     assert.equal(wheel(1), 1); assert.equal(c.signsData[0].azimuth, 5);
-    assert.equal(layer.dragging.enabled(), false);
+    // Disabling an active Leaflet drag here used to remove the clustered marker.
+    assert.equal(layer.dragging.enabled(), true);
+    let frozen = false;
+    doc.emit('mousemove', {preventDefault(){}, stopImmediatePropagation(){frozen=true;}});
+    assert.equal(frozen, true);
+    // A save echo after a pause in scrolling must not remove the held marker.
+    c.applySignsSnapshot([{id:'a', azimuth:0}, {id:'b', azimuth:90}]);
+    c.renderMarkers(); assert.equal(c.rebuilt, 0);
     wheel(-1, true); assert.equal(c.signsData[0].azimuth, 4);
     wheel(0); assert.equal(saved.length, 2);
-    doc.emit('mouseup'); assert.equal(zoom.enabled(), true);
+    doc.emit('mouseup', {button:2}); assert.equal(zoom.enabled(), false);
+    doc.emit('mouseup', {button:0}); assert.equal(zoom.enabled(), true);
+    tasks.splice(0).forEach(fn => fn());
+    assert.equal(c.rebuilt, 1);
+    assert.equal(c.signsData[0].azimuth, 4);
+    assert.equal(c.signsData[1].azimuth, 90);
     assert.equal(layer.dragging.enabled(), true); assert.equal(wheel(1), 0);
     press(); win.emit('blur'); assert.equal(zoom.enabled(), true); assert.equal(doc.count('wheel'), 0);
     press(); layer.emit('remove'); assert.equal(zoom.enabled(), true); assert.equal(doc.count('wheel'), 0);
     zoom.disable(); layer.dragging.disable(); press(); wheel(1); doc.emit('mouseup');
     assert.equal(zoom.enabled(), false); assert.equal(layer.dragging.enabled(), false);
-    c.selectedId = 'b'; press(); assert.equal(doc.count('wheel'), 0);
+    c.selectedId = 'b'; press(); wheel(1); assert.equal(c.selectedId, 'a');
+    doc.emit('mouseup', {button:0});
     assert.match(section('function renderMarkers()', 'const azimuthSaveTimers'), /\.on\("add"/);
   }
+  {
+    // Deferred redraws need the dropped coordinates before PATCH finishes.
+    const {c} = environment();
+    const requests = [];
+    c.signsData = [{id:'a', lat:1, lon:2}];
+    const positions = [];
+    c.markers = {a:{setLatLng: value => positions.push(value)}};
+    c.fetch = () => new Promise(resolve => requests.push(resolve));
+    vm.runInContext(section('async function onMarkerDragEnd(', '// ── Sign selection'), c);
+    const first = c.onMarkerDragEnd('a', {lat:3, lng:4});
+    assert.equal(c.signsData[0].lat, 3);
+    requests.shift()({ok:false, status:500}); await first;
+    assert.equal(c.signsData[0].lat, 1);
+    assert.equal(positions.length, 1);
+    const second = c.onMarkerDragEnd('a', {lat:5, lng:6});
+    const third = c.onMarkerDragEnd('a', {lat:7, lng:8});
+    requests.shift()({ok:true,json:async()=>({})}); await second;
+    assert.equal(c.signsData[0].lat, 7, 'Older acknowledgement must not undo a newer drag');
+    requests.shift()({ok:true,json:async()=>({})}); await third;
+  }
   assert.equal((html.match(/socket\.on\("processing_finished"/g)||[]).length,1);
-  console.log('7 UI regression scenarios passed');
+  console.log('8 UI regression scenarios passed');
 }
 main().catch(err=>{console.error(err);process.exitCode=1;});
