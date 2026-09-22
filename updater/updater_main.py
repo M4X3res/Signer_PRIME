@@ -330,6 +330,8 @@ def main():
         
         # Шаг 2: Применяем обновление (delta или full)
         success = False
+        logger.info("Проверка путей: install=%s exists=%s temp=%s",
+                    install_dir, install_dir.exists(), temp_dir)
         
         if args.mode == "delta":
             if not args.delta_manifest:
@@ -346,9 +348,12 @@ def main():
             success = extract_update(temp_dir, install_dir, seven_zip_exe)
         
         if not success:
+            logger.error("Обновление не применено: install=%s temp=%s mode=%s",
+                         install_dir, temp_dir, args.mode)
             show_error_messagebox(
                 "Signer — ошибка обновления",
-                "Не удалось применить обновление.\nПодробности в updater.log"
+                "Не удалось применить обновление.\n"
+                "Подробности в updater.log (рядом с Updater.exe или в кеше обновлений)."
             )
             logger.error("Обновление провалено, завершение с ошибкой")
             sys.exit(1)

@@ -543,7 +543,7 @@ def launch_updater_and_exit(
             )
         else:
             # UAC is requested before the UI closes; cancellation leaves Signer running.
-            launch_elevated(args, install_dir)
+            launch_elevated(args, runner_dir)
         
         logger.info("Updater запущен, завершение работы приложения...")
         
