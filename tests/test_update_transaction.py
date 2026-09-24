@@ -56,6 +56,44 @@ class UpdateTests(unittest.TestCase):
             apply_delta(self.release,self.release/'delta-from-1.0.0.json',self.old)
         self.assertEqual(before,inventory(self.old))
 
+    def test_legacy_manifest_argument_updates_installed_layout(self):
+        # Old frozen Signer passes this nonexistent name although the downloaded
+        # asset is delta-from-<version>.json.
+        apply_delta(self.release, self.release/'delta_manifest.json', self.old)
+        self.assertEqual(inventory(self.old), inventory(self.new))
+
+    def test_missing_delta_is_rejected_before_launch(self):
+        from updater.updater import launch_updater_and_exit
+        (self.release/'delta-from-1.0.0.json').unlink()
+        with patch('updater.updater.subprocess.Popen') as launch:
+            with self.assertRaises(FileNotFoundError):
+                launch_updater_and_exit(self.release, self.old, True,
+                                        self.release/'delta_manifest.json')
+            launch.assert_not_called()
+
+    def test_manifest_resolution_checks_installed_version(self):
+        from updater.transaction import resolve_delta_manifest
+        path = self.release/'delta-from-1.0.0.json'
+        data = json.loads(path.read_text())
+        data['from_version'] = '9.9.9'
+        path.write_text(json.dumps(data))
+        with self.assertRaises(ValueError):
+            resolve_delta_manifest(self.release, self.old, self.release/'delta_manifest.json')
+
+    def test_frozen_launcher_passes_the_downloaded_manifest(self):
+        from updater.updater import launch_updater_and_exit
+        (self.old/'Updater.exe').write_bytes(b'updater fixture')
+        with patch('sys.frozen', True, create=True), \
+                patch('sys.executable', str(self.old/'Signer.exe')), \
+                patch('updater.permissions.installation_is_writable', return_value=True), \
+                patch('updater.updater.subprocess.Popen') as launch:
+            launch_updater_and_exit(self.release, self.old, True,
+                                    self.release/'delta_manifest.json')
+        args = launch.call_args.args[0]
+        actual = Path(args[args.index('--delta-manifest') + 1])
+        self.assertEqual(actual, (self.release/'delta-from-1.0.0.json').resolve())
+        self.assertTrue(actual.is_file())
+
     def test_full_update_removes_only_old_release_files(self):
         (self.old/'user.geojson').write_text('user results')
         manifest = json.loads((self.release/'manifest.json').read_text())

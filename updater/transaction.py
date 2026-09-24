@@ -7,6 +7,11 @@ import tempfile
 import zipfile
 from pathlib import Path, PureWindowsPath
 
+# These shipped clients download delta-from-X.json but launch delta_manifest.json.
+# They must receive a full archive until their launcher has been replaced.
+FULL_UPDATE_ONLY_VERSIONS = frozenset(f'2.0.{patch}' for patch in range(5))
+REQUIRED_205_BASES = frozenset(('2.0.3', '2.0.4'))
+
 
 def digest(path):
     h = hashlib.sha256()
@@ -123,7 +128,25 @@ def apply_full(source, install, manifest):
     install_release(source, install, target, removed, target, version)
 
 
+def resolve_delta_manifest(temp, install, requested=None):
+    """Accept the legacy launch argument, but select only this installation's delta."""
+    temp, install = Path(temp).resolve(), Path(install).resolve()
+    current = json.loads((install / 'version.json').read_text(encoding='utf-8-sig'))['version']
+    candidate = Path(requested).resolve() if requested is not None else safe_path(temp, f'delta-from-{current}.json')
+    if candidate.parent != temp:
+        raise ValueError('Delta manifest must be in the update cache')
+    if not candidate.is_file() and candidate.name == 'delta_manifest.json':
+        candidate = safe_path(temp, f'delta-from-{current}.json')
+    if not candidate.is_file():
+        raise FileNotFoundError(f'Delta manifest not downloaded: {candidate}')
+    data = json.loads(candidate.read_text(encoding='utf-8-sig'))
+    if data.get('from_version') != current:
+        raise ValueError('Delta source version does not match installation')
+    return candidate
+
+
 def apply_delta(temp, manifest_path, install):
+    manifest_path = resolve_delta_manifest(temp, install, manifest_path)
     data = json.loads(manifest_path.read_text(encoding='utf-8-sig'))
     current = json.loads((install/'version.json').read_text(encoding='utf-8-sig'))['version']
     if current != data['from_version']:

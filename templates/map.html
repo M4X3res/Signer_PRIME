@@ -618,6 +618,24 @@
   }
 
   .sign-marker.selected .sign-marker-angle { display: block; }
+  .sign-marker-angle { pointer-events: auto; cursor: text; }
+  .sign-marker-angle:focus-within { border-color: var(--accent); }
+  .sign-marker-angle input { width: 38px; padding: 0; border: 0; outline: 0;
+    background: transparent; color: inherit; font: inherit; text-align: center; }
+  .sign-picker-trigger { display: flex; align-items: center; gap: 10px; width: 100%;
+    min-height: 48px; text-align: left; white-space: normal; }
+  .sign-picker-trigger img, .sign-picker-option img { width: 36px; height: 36px;
+    object-fit: contain; flex-shrink: 0; }
+  .sign-picker-popup { position: fixed; z-index: 12000; padding: 8px;
+    background: var(--bg2); border: 1px solid var(--border2); border-radius: 12px;
+    box-shadow: 0 12px 40px #0007; box-sizing: border-box; }
+  .sign-picker-list { overflow-y: auto; max-height: min(340px, 45vh); margin-top: 6px; }
+  .sign-picker-option { display: flex; align-items: center; gap: 12px; width: 100%;
+    min-height: 48px; padding: 6px 8px; border: 0; border-radius: 6px;
+    background: transparent; color: var(--text); text-align: left; cursor: pointer; }
+  .sign-picker-option:hover, .sign-picker-option:focus { background: var(--bg3); outline: 2px solid var(--accent); outline-offset: -2px; }
+  .sign-picker-option[aria-selected="true"] { background: var(--accent); color: white; }
+  .track-direction { color: white; font-size: 22px; text-shadow: 0 1px 3px #000; }
   .sign-marker.rotating .sign-marker-angle { color: var(--accent-h); border-color: var(--accent); }
   .sign-marker.rotating .sign-marker-compass {
     border-color: var(--accent-h);
@@ -921,6 +939,39 @@
   .edit-head { text-transform:none; letter-spacing:0; font-size:14px; font-weight:600; }
   .edit-select, .edit-input { min-height:38px; border-radius:10px; font-family:inherit; font-size:13px; }
 </style>
+<style>
+  #background-bar { display:flex; gap:8px; align-items:center; flex-wrap:wrap; padding:8px 15px; background:var(--bg2); border-bottom:1px solid var(--border); }
+  #background-bar .tb-btn { padding:6px 10px; }
+  #background-bar button:disabled { opacity:.4; cursor:default; }
+  #background-name { color:var(--text2); overflow:hidden; text-overflow:ellipsis; max-width:200px; white-space:nowrap; }
+  #background-opacity-wrap { color:var(--text2); }
+  #background-opacity { width:100px; vertical-align:middle; }
+  #local-background-dialog { margin:auto; width:min(560px, 90vw); max-height:85vh; overflow:auto; padding:24px; border:1px solid var(--border); border-radius:14px; background:var(--bg2); color:var(--text); }
+  #local-background-dialog::backdrop { background:#0009; }
+  #local-background-dialog h2 { margin:0 0 12px; font-size:18px; }
+  #local-background-dialog p { color:var(--text2); line-height:1.6; margin:8px 0 16px; }
+  #local-background-dialog label { display:block; margin-top:14px; }
+  #local-background-dialog input:not([type=file]) { width:100%; box-sizing:border-box; margin-top:6px; padding:9px; background:var(--bg); border:1px solid var(--border); border-radius:6px; color:var(--text); }
+  .local-bounds { display:grid; grid-template-columns:1fr 1fr; gap:0 12px; }
+  .local-dialog-actions { display:flex; justify-content:flex-end; gap:10px; margin-top:18px; }
+  #local-background-error { color:#ff827b; margin-top:12px; line-height:1.5; }
+  #local-layer-controls { padding:6px 15px; background:var(--bg2); border-bottom:1px solid var(--border); }
+  #local-background-layers { display:flex; flex-wrap:wrap; gap:10px 18px; max-height:120px; overflow:auto; padding-top:10px; }
+  #local-background-layers label { display:flex; align-items:center; gap:5px; color:var(--text2); }
+  #local-import-progress { padding:8px 15px; background:var(--bg2); }
+  #local-background-section[hidden] { display:none; }
+  .local-file-picker { display:flex; flex-direction:column; align-items:flex-start; gap:14px; padding:20px; margin:20px 0; border:1px dashed var(--border); border-radius:12px; background:var(--bg2); }
+  .local-file-picker small, .local-format-badge { color:var(--muted); line-height:1.5; }
+  #local-background-files { position:absolute; width:1px; height:1px; opacity:0; }
+  .local-file-button { cursor:pointer; padding:10px 18px; }
+  .local-file-picker:focus-within { outline:2px solid #398afa; }
+  #local-files-summary { overflow-wrap:anywhere; font-size:13px; }
+  #local-import-meter { width:130px; vertical-align:middle; }
+  #local-import-percent { font-variant-numeric:tabular-nums; font-weight:600; margin:0 8px; }
+  #local-background-library { max-width:240px; background:var(--bg); color:var(--text); padding:6px; border:1px solid var(--border); border-radius:6px; }
+</style>
+<script src="/static/background_renderer.js"></script>
+<script src="/static/local_background.js"></script>
 </head>
 <body>
 <div id="app">
@@ -938,6 +989,68 @@
       <a class="tb-btn accent" href="/api/geojson_export" download><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v12 M8 11l4 4 4-4 M5 16v5h14v-5"/></svg>GeoJSON</a>
     </div>
 
+    <section id="local-background-section" hidden>
+    <div id="background-bar" role="group" aria-label="Подложка карты">
+      <button class="tb-btn" onclick="openLocalBackgroundDialog()">Открыть подложку…</button>
+      <button class="tb-btn accent" id="background-server" aria-pressed="true" onclick="setBackgroundMode('server')">Серверная</button>
+      <button class="tb-btn" id="background-local" disabled aria-pressed="false" onclick="setBackgroundMode('local')">Локальная</button>
+      <button class="tb-btn" id="background-compare" disabled aria-pressed="false" onclick="setBackgroundMode('compare')">Наложение</button>
+      <label id="background-opacity-wrap" hidden>Видимость слоя
+        <input id="background-opacity" aria-label="Непрозрачность локальной подложки" type="range" min="0" max="100" value="65" oninput="updateBackgroundOpacity()">
+        <span id="background-opacity-value">65%</span>
+      </label>
+      <span id="background-renderer" title="Подготовка и создание тайлов выполняются на CPU">Авто</span>
+      <span id="background-name" title="Готовые подложки сохраняются на диске">Файл не выбран</span>
+      <select id="local-background-library" aria-label="Ранее загруженные подложки" hidden onchange="openCachedBackground(this.value)"></select>
+      <button class="tb-btn" id="background-fit" disabled onclick="fitLocalBackground()">К подложке</button>
+      <button class="tb-btn" id="background-delete" disabled onclick="deleteLocalBackground()">Удалить подложку</button>
+    </div>
+    <details id="local-layer-controls" hidden>
+      <summary>Слои локальной подложки</summary>
+      <div id="local-background-layers"></div>
+    </details>
+    <div id="local-import-progress" hidden role="status">
+      <progress id="local-import-meter" value="0" max="100"></progress>
+      <span id="local-import-percent">0%</span>
+      <span id="local-import-message"></span>
+      <button class="tb-btn" id="local-import-cancel" onclick="cancelLocalImport()">Отменить</button>
+    </div>
+    </section>
+    <dialog id="local-background-dialog">
+      <form onsubmit="uploadLocalBackground(event)">
+        <h2>Локальная подложка</h2>
+        <p>Добавьте изображение или набор слоёв для сравнения с картой. Подготовленные подложки сохраняются в библиотеке.</p>
+        <div class="local-file-picker">
+          <span class="local-format-badge">JPEG · TIF / GeoTIFF · SHP · ZIP</span>
+          <label class="tb-btn accent local-file-button" for="local-background-files">Выбрать файлы</label>
+          <input id="local-background-files" name="files" type="file" multiple accept=".jpg,.jpeg,.tif,.tiff,.tfw,.tifw,.jgw,.jpgw,.jpegw,.wld,.prj,.shp,.shx,.zip" onchange="showLocalFileSelection()">
+          <span id="local-files-summary" aria-live="polite">Файлы ещё не выбраны</span>
+          <small>До 8 ГБ. Для SHP выберите также PRJ. Несколько слоёв можно упаковать в ZIP.</small>
+        </div>
+        <label>Система координат, если нет PRJ
+          <input name="crs" placeholder="Например, EPSG:4326 или EPSG:3857">
+        </label>
+        <label style="margin-top:16px"><input type="checkbox" id="local-place-in-view" checked>
+          Разместить в текущей области карты, если нет геопривязки и границы не введены
+        </label>
+        <p>Для JPEG и TIFF без полной геопривязки автоматически используется система карты (Web Mercator) и текущая область просмотра. Это приблизительное размещение с сохранением пропорций, а не определение исходной проекции. Для точного совмещения укажите исходную систему координат или границы. Полная встроенная геопривязка и JGW/TFW имеют приоритет.</p>
+        <details style="margin-top:16px">
+          <summary>Растр без геопривязки — указать границы</summary>
+          <p>Картинка должна быть ориентирована севером вверх. Введите границы в градусах WGS84. GeoTIFF и файлы JGW/TFW используют свою геопривязку.</p>
+          <div class="local-bounds">
+            <label>Запад (долгота)<input name="bounds" type="number" step="any" min="-180" max="180" placeholder="27.50"></label>
+            <label>Юг (широта)<input name="bounds" type="number" step="any" min="-85.05" max="85.05" placeholder="53.85"></label>
+            <label>Восток (долгота)<input name="bounds" type="number" step="any" min="-180" max="180" placeholder="27.65"></label>
+            <label>Север (широта)<input name="bounds" type="number" step="any" min="-85.05" max="85.05" placeholder="53.95"></label>
+          </div>
+        </details>
+        <div id="local-background-error" role="alert"></div>
+        <div class="local-dialog-actions">
+          <button type="button" class="tb-btn" onclick="document.getElementById('local-background-dialog').close()">Закрыть</button>
+          <button type="submit" class="tb-btn accent" id="local-background-submit">Загрузить</button>
+        </div>
+      </form>
+    </dialog>
     <div id="filter-bar">
       <label class="map-search"><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M10.5 4a6.5 6.5 0 1 0 0 13a6.5 6.5 0 0 0 0-13 M16 16l4 4"/></svg>
         <input id="filter-input" type="search" aria-label="Поиск по типу знака" placeholder="Найти тип знака…" oninput="debouncedApplyFilter()">
@@ -1048,6 +1161,7 @@
             <span>Зажмите знак и прокрутите колесо</span>
             <small>Шаг 5° · <kbd>Shift</kbd> для точности 1°</small>
             <small>Также доступны ручка компаса и клавиши ← →</small>
+            <small>Нажмите на угол под знаком, чтобы ввести его с клавиатуры</small>
           </div>
           <div class="field-row">
             <span class="field-lbl">Сторона</span>
@@ -1094,6 +1208,8 @@ const API  = `${location.protocol}//${location.hostname}:${PORT}/api`;
 
 // ── State ───────────────────────────────────────────────────────────
 let map, trackLine, posMarker;
+let initialViewportSet = false;
+let editorFocusRequest = 0;
 let markers       = {};   // id → L.Marker
 let markerCluster = null; // Leaflet MarkerCluster group (F.1)
 let signsData     = [];   // raw array from /api/signs
@@ -1120,6 +1236,7 @@ function initMap() {
   });
 
   // Подложка загружается асинхронно из /api/map_config (см. loadTileLayer ниже)
+  map.setView([53.9, 27.56], 7);
   
   // Инициализация marker cluster group (F.1)
   markerCluster = L.markerClusterGroup({
@@ -1160,34 +1277,6 @@ async function loadTileLayer() {
     
     // Проверяем тип подложки: raster (по умолчанию) или vector
     if (cfg.tile_type === 'vector') {
-      // КРИТИЧЕСКАЯ ПРОВЕРКА: URL должен содержать плейсхолдеры {z}/{x}/{y}
-      // Без них Leaflet будет запрашивать разные координаты, но всегда получать
-      // один и тот же тайл → "мозаичный" паттерн из повторяющихся фигур
-      const hasPlaceholders = 
-        cfg.tile_url.includes('{z}') && 
-        cfg.tile_url.includes('{x}') && 
-        cfg.tile_url.includes('{y}');
-      
-      if (!hasPlaceholders) {
-        const errorMsg = 
-          '❌ КРИТИЧЕСКАЯ ОШИБКА: URL векторных тайлов не содержит плейсхолдеры {z}/{x}/{y}!\n\n' +
-          'Вы вставили ссылку на ОДИН КОНКРЕТНЫЙ тайл вместо ШАБЛОНА.\n' +
-          'Это приведёт к отображению мозаики из одинаковых фигур вместо карты.\n\n' +
-          'Перейдите в Настройки → Карта и исправьте URL, добавив {z}/{x}/{y}.';
-        
-        console.error('[loadTileLayer]', errorMsg);
-        console.error('[loadTileLayer] Invalid tile_url:', cfg.tile_url);
-        
-        toast(
-          'Векторные тайлы настроены некорректно: URL не содержит {z}/{x}/{y}. ' +
-          'Откройте Настройки → Карта и исправьте URL.',
-          'err'
-        );
-        
-        // Откатываемся на OSM растр вместо показа битой подложки
-        throw new Error('Vector tile URL missing placeholders {z}/{x}/{y}');
-      }
-      
       // Векторные тайлы через MapLibre GL + Leaflet integration
       if (typeof L.maplibreGL === 'undefined') {
         const err = new Error('MapLibre GL Leaflet plugin not loaded - check internet connection or CDN availability');
@@ -1200,7 +1289,8 @@ async function loadTileLayer() {
       // Загружаем полный style.json с сервера
       const styleResp = await fetch('/api/vector_tile_style');
       if (!styleResp.ok) {
-        throw new Error(`Failed to load vector tile style: HTTP ${styleResp.status}`);
+        const detail = await styleResp.json().catch(() => ({}));
+        throw new Error(detail.error || `Ошибка загрузки стиля: HTTP ${styleResp.status}`);
       }
       
       const styleJSON = await styleResp.json();
@@ -1214,18 +1304,26 @@ async function loadTileLayer() {
       // Этот плагин встраивает полноценный MapLibre GL движок в Leaflet-карту
       const glLayer = L.maplibreGL({
         style: styleJSON,  // Передаём полный style.json без урезания
+        maxZoom: 24, // Camera zoom is independent of each source's native tile limit.
       });
       
       glLayer.addTo(map);
+      serverBackground = glLayer;
       console.log('[loadTileLayer] ✅ MapLibre GL layer added to map');
       
       // Обработчики событий для диагностики
-      glLayer.on('load', function() {
+      const glMap = glLayer.getMaplibreMap();
+      glMap.on('load', function() {
         console.log('[MapLibre GL] Style loaded successfully');
       });
       
-      glLayer.on('error', function(e) {
+      let resourceErrorShown = false;
+      glMap.on('error', function(e) {
         console.error('[MapLibre GL] Error:', e.error);
+        if (!resourceErrorShown) {
+          resourceErrorShown = true;
+          toast('Не удалось загрузить ресурсы векторной карты. Проверьте URL стиля, ключ доступа и настройку прокси.', 'warn');
+        }
       });
       
     } else {
@@ -1238,7 +1336,7 @@ async function loadTileLayer() {
       // последний доступный тайл, растягивая (upscale) его программно на
       // клиенте, без дополнительных запросов к серверу.
       const RASTER_OVERZOOM_MAX = Math.max(cfg.max_zoom, 22);
-      L.tileLayer(cfg.tile_url, {
+      serverBackground = L.tileLayer(cfg.tile_url, {
         attribution: cfg.attribution,
         maxZoom: RASTER_OVERZOOM_MAX,
         maxNativeZoom: cfg.max_zoom,
@@ -1259,12 +1357,12 @@ async function loadTileLayer() {
     // Показываем понятное сообщение пользователю
     const userMsg = err.message.includes('maplibreGL') 
       ? 'Библиотека векторных тайлов не загрузилась. Проверьте подключение к интернету.'
-      : 'Не удалось загрузить настройки карты. Используется OpenStreetMap.';
+      : `${err.message} Используется OpenStreetMap.`;
     
     toast(userMsg, 'warn');
     
     // Безопасный fallback на OSM, если сервер недоступен или MapLibre не загружен
-    L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+    serverBackground = L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
       attribution: "© OpenStreetMap",
       maxZoom: Math.max(19, 22),
       maxNativeZoom: 19,
@@ -1318,6 +1416,10 @@ async function loadTrack() {
     document.getElementById("stat-pts").textContent = pts.length || 0;
     if (!pts || !pts.length) {
       console.log("No track points available");
+      if (trackLine) {
+        map.removeLayer(trackLine);
+        trackLine = null;
+      }
       return;
     }
 
@@ -1327,10 +1429,17 @@ async function loadTrack() {
       weight: 2.5,
       opacity: 0.7,
     }).addTo(map);
-    map.fitBounds(trackLine.getBounds(), { padding: [30, 30] });
+    if (!initialViewportSet) {
+      map.fitBounds(trackLine.getBounds(), { padding: [30, 30] });
+      initialViewportSet = true;
+    }
     console.log(`Track loaded: ${pts.length} points`);
   } catch (err) {
     console.warn("Track not available:", err.message);
+    if (trackLine) {
+      map.removeLayer(trackLine);
+      trackLine = null;
+    }
     // Не показываем ошибку - это нормально если обработка ещё не началась
   }
 }
@@ -1343,6 +1452,11 @@ async function loadSigns() {
     
     if (!r.ok) {
       console.warn(`[loadSigns] Signs API returned ${r.status}`);
+      if (r.status === 403) {
+        toast('Карта заблокирована: дождитесь проверки лицензии и обновите карту', 'err');
+      } else {
+        toast('Не удалось загрузить знаки из GeoJSON', 'err');
+      }
       return;
     }
     const data = await r.json();
@@ -1377,6 +1491,102 @@ async function loadSigns() {
   }
 }
 
+function enhanceSignPicker(select) {
+  if (select.signPicker) { select.signPicker.sync(); return; }
+  const trigger = document.createElement('button');
+  trigger.type = 'button';
+  trigger.className = 'edit-select sign-picker-trigger';
+  trigger.setAttribute('aria-label', 'Тип знака');
+  trigger.setAttribute('aria-haspopup', 'listbox');
+  trigger.setAttribute('aria-expanded', 'false');
+  select.hidden = true;
+  select.style.display = 'none';
+  select.after(trigger);
+  let popup = null;
+  function fill(row, value, label) {
+    row.replaceChildren();
+    if (value) {
+      const img = document.createElement('img');
+      img.src = `${API}/img/${encodeURIComponent(value)}`;
+      img.alt = value;
+      row.appendChild(img);
+    }
+    const text = document.createElement('span');
+    text.textContent = label || 'Выберите тип знака';
+    row.appendChild(text);
+  }
+  function sync() {
+    const option = select.selectedOptions[0];
+    fill(trigger, select.value, option?.textContent);
+  }
+  function close(restoreFocus = false) {
+    popup?.remove(); popup = null;
+    trigger.setAttribute('aria-expanded', 'false');
+    document.removeEventListener('mousedown', outside, true);
+    window.removeEventListener('resize', resized);
+    if (restoreFocus) trigger.focus();
+  }
+  function outside(e) { if (!popup?.contains(e.target) && !trigger.contains(e.target)) close(); }
+  function resized() { close(); }
+  trigger.addEventListener('click', () => {
+    if (popup) { close(); return; }
+    popup = document.createElement('div');
+    popup.className = 'sign-picker-popup';
+    const search = document.createElement('input');
+    search.className = 'edit-select'; search.placeholder = 'Код или название знака…';
+    search.setAttribute('aria-label', 'Поиск типа знака');
+    const list = document.createElement('div');
+    list.className = 'sign-picker-list'; list.setAttribute('role', 'listbox');
+    list.setAttribute('aria-label', 'Типы знаков');
+    function render() {
+      list.replaceChildren();
+      const query = search.value.trim().toLocaleLowerCase();
+      for (const option of select.options) {
+        if (query && !option.textContent.toLocaleLowerCase().includes(query)) continue;
+        const row = document.createElement('button'); row.type = 'button';
+        row.className = 'sign-picker-option'; row.setAttribute('role', 'option');
+        row.setAttribute('aria-selected', String(option.value === select.value));
+        fill(row, option.value, option.textContent);
+        row.addEventListener('click', () => {
+          select.value = option.value; sync(); close(true);
+          select.dispatchEvent(new Event('change', {bubbles: true}));
+        });
+        list.appendChild(row);
+      }
+      if (!list.children.length) list.textContent = 'Ничего не найдено';
+    }
+    search.addEventListener('input', render);
+    popup.addEventListener('keydown', e => {
+      e.stopPropagation();
+      if (e.key === 'Enter' && e.target === search) { e.preventDefault(); list.querySelector('button')?.click(); return; }
+      if (e.key === 'Escape') { e.preventDefault(); close(true); return; }
+      if (e.key === 'Tab') { close(); return; }
+      if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+        e.preventDefault();
+        const rows = [...list.querySelectorAll('button')];
+        const i = rows.indexOf(document.activeElement);
+        const next = i < 0 ? (e.key === 'ArrowDown' ? 0 : rows.length - 1) :
+          Math.max(0, Math.min(rows.length - 1, i + (e.key === 'ArrowDown' ? 1 : -1)));
+        rows[next]?.focus();
+      }
+    });
+    popup.append(search, list); document.body.appendChild(popup);
+    const rect = trigger.getBoundingClientRect();
+    const width = Math.min(Math.max(rect.width, 310), window.innerWidth - 16);
+    popup.style.width = `${width}px`;
+    popup.style.left = `${Math.max(8, Math.min(rect.left, window.innerWidth - width - 8))}px`;
+    render();
+    popup.style.top = `${Math.max(8, Math.min(rect.bottom + 4, window.innerHeight - popup.offsetHeight - 8))}px`;
+    trigger.setAttribute('aria-expanded', 'true');
+    document.addEventListener('mousedown', outside, true);
+    window.addEventListener('resize', resized);
+    search.focus();
+  });
+  select.addEventListener('change', sync);
+  select.signPicker = {sync, close};
+  sync();
+}
+
 async function loadSignTypes() {
   try {
     const r = await fetch(`${API}/sign_types`);
@@ -1398,6 +1608,7 @@ async function loadSignTypes() {
       sel.innerHTML = signTypes.map(t =>
         `<option value="${t.type}">${t.type} — ${t.name}</option>`
       ).join("");
+      enhanceSignPicker(sel);
       console.log(`Sign types loaded: ${signTypes.length}`);
     }
   } catch (err) {
@@ -1462,7 +1673,7 @@ function renderMarkers() {
     if (txt && !sign.type.toLowerCase().includes(txt)) return;
     // Фильтр по стороне
     if (filterSide !== "all") {
-      const isLeft = String(sign.side).includes("True");
+      const isLeft = sign.left === true || String(sign.left).toLowerCase() === "true";
       if (filterSide === "left"  && !isLeft) return;
       if (filterSide === "right" &&  isLeft) return;
     }
@@ -1487,7 +1698,7 @@ function renderMarkers() {
                <div class="sign-marker-compass">
                  <div class="sign-marker-compass-handle" data-sign-id="${sign.id}"></div>
                </div>
-               <span class="sign-marker-angle">${Math.round(azimuth)}°</span>
+               <label class="sign-marker-angle" title="Введите азимут. Enter — применить, Esc — отменить"><input aria-label="Азимут знака в градусах" inputmode="decimal" value="${Math.round(azimuth)}" autocomplete="off">°</label>
                <img src="${imgSrc}" alt="${sign.type}" draggable="false"
                     onerror="this.style.display='none'">
              </div>`,
@@ -1529,7 +1740,8 @@ function renderMarkers() {
   console.log(`[renderMarkers] Видимые границы карты:`, map.getBounds());
   
   // Центрируем карту на знаки если их больше 0 и нет трека
-  if (bounds.length > 0 && oldCount === 0) {
+  if (bounds.length > 0 && !initialViewportSet) {
+    initialViewportSet = true;
     console.log(`[renderMarkers] Границы знаков: ${bounds[0]} - ${bounds[bounds.length-1]}`);
     if (!trackLine || !map.hasLayer(trackLine)) {
       console.log(`[renderMarkers] Центрируем карту на ${bounds.length} знаков`);
@@ -1558,13 +1770,42 @@ function attachAzimuthControls(signId, markerEl, leafletMarker) {
   const handle = markerEl.querySelector('.sign-marker-compass-handle');
   if (!handle || markerEl.azimuthControlsAttached) return;
   markerEl.azimuthControlsAttached = true;
+  const angleInput = markerEl.querySelector('.sign-marker-angle input');
+  if (angleInput) {
+    let editInteraction = null;
+    let originalAngle = 0;
+    let cancelled = false;
+    for (const name of ['mousedown', 'dblclick', 'click', 'touchstart', 'keydown', 'keyup']) {
+      angleInput.parentElement.addEventListener(name, e => e.stopPropagation());
+    }
+    angleInput.addEventListener('wheel', e => { e.preventDefault(); e.stopPropagation(); }, {passive: false});
+    angleInput.addEventListener('focus', () => {
+      originalAngle = signsData.find(s => s.id === signId)?.azimuth || 0;
+      cancelled = false;
+      editInteraction = beginMarkerInteraction(signId);
+      angleInput.select();
+    });
+    angleInput.addEventListener('keydown', e => {
+      if (e.key === 'Escape') { cancelled = true; angleInput.blur(); }
+      if (e.key === 'Enter') { e.preventDefault(); angleInput.blur(); }
+    });
+    angleInput.addEventListener('blur', () => {
+      const raw = angleInput.value.trim().replace(',', '.');
+      const value = Number(raw);
+      const valid = raw !== '' && Number.isFinite(value);
+      const angle = cancelled || !valid ? originalAngle : ((value % 360) + 360) % 360;
+      updateAzimuthVisuals(signId, markerEl, angle);
+      if (!cancelled && valid && angle !== originalAngle) scheduleAzimuthSave(signId, angle);
+      endMarkerInteraction(editInteraction);
+    });
+  }
   
   let held = false;
   let restoreZoom = false;
   let interaction = null;
   markerEl.addEventListener("dragstart", e => e.preventDefault());
   markerEl.addEventListener("mousedown", (e) => {
-    if (e.button !== 0 || handle.contains(e.target) || held) return;
+    if (e.button !== 0 || angleInput?.parentElement.contains(e.target) || handle.contains(e.target) || held) return;
     held = true;
     interaction = beginMarkerInteraction(signId);
     restoreZoom = map.scrollWheelZoom.enabled();
@@ -1765,7 +2006,8 @@ function updateAzimuthVisuals(signId, markerEl, azimuth) {
   // Одна переменная синхронно поворачивает сектор, стрелку и ручку.
   markerEl.style.setProperty('--azimuth-angle', azimuth + 'deg');
   const angleLabel = markerEl.querySelector('.sign-marker-angle');
-  if (angleLabel) angleLabel.textContent = Math.round(azimuth) + '°';
+  const angleInput = angleLabel?.querySelector('input');
+  if (angleInput) angleInput.value = String(Math.round(azimuth * 10) / 10);
   
   // Обновляем поле в панели деталей
   const azimuthField = document.getElementById('df-azimuth');
@@ -1902,6 +2144,8 @@ async function onMarkerDragEnd(id, latlng) {
 // ── Sign selection ──────────────────────────────────────────────────
 async function selectSign(id) {
   const requestId = ++selectionRequest;
+  cancelVideoLoad();
+  clearSelectedTrack();
   try {
     console.log("[selectSign] Начало загрузки знака, id:", id);
     
@@ -1969,10 +2213,11 @@ async function selectSign(id) {
     document.getElementById("df-time").textContent    = p.time    || "—";
     document.getElementById("df-video").textContent   = p.name_video || "—";
     document.getElementById("df-azimuth").textContent = p.azimuth != null && p.azimuth !== '' ? `${Math.round(p.azimuth)}°` : "—";
-    document.getElementById("df-side").textContent    = parseSide(p.side);
+    document.getElementById("df-side").textContent    = parseSide(p.left);
 
     // Edit form
     document.getElementById("edit-type").value = p.type || "";
+    document.getElementById("edit-type").signPicker?.sync();
     document.getElementById("edit-desc").value = desc;
     toggleDescField(p.type);
     
@@ -1999,6 +2244,9 @@ function parseSide(raw) {
 
 function closeDetail() {
   ++selectionRequest;
+  cancelVideoLoad();
+  clearSelectedTrack();
+  document.getElementById('edit-type').signPicker?.close();
   if (selectedId) {
     const el = document.getElementById(`sm-${selectedId}`);
     if (el) el.classList.remove("selected");
@@ -2460,6 +2708,7 @@ function openCreateSignPanel(lat, lon) {
   document.getElementById('create-azimuth').value = '0';
   document.getElementById('create-side-right').checked = true;
   document.getElementById('create-type').value = '';
+  document.getElementById('create-type').signPicker?.sync();
   document.getElementById('create-desc').value = '';
   
   const descRow = document.getElementById('create-desc-row');
@@ -2545,7 +2794,19 @@ function createCreateSignPanel() {
     opt.textContent = `${st.type} — ${st.name}`;
     select.appendChild(opt);
   });
+  enhanceSignPicker(select);
 }
+
+// Leaflet, созданный в скрытой вкладке, получает размер 0x0. Вызывается
+// после показа страницы и после открытия нового GeoJSON.
+window.refreshMapViewport = function() {
+  if (!map) return;
+  map.invalidateSize({animate: false, pan: false});
+  if (!initialViewportSet && Object.keys(markers).length > 0 && !trackLine) {
+    initialViewportSet = true;
+    fitTrack();
+  }
+};
 
 function closeCreateSignPanel() {
   const panel = document.getElementById('create-sign-panel');
@@ -2829,6 +3090,7 @@ window.addEventListener('DOMContentLoaded', async () => {
 
     initMap();
     await loadTileLayer();  // BLOCK MAP-TILES: загрузить подложку из /api/map_config
+    restoreLocalBackground();
     initSocket();
     loadAll();
     console.log("Map initialized successfully");
@@ -2839,412 +3101,196 @@ window.addEventListener('DOMContentLoaded', async () => {
 });
 
 // ── Video player (ЗАДАЧА 3) ────────────────────────────────────
-let currentVideoIdx = -1;   // Текущий загруженный видеофайл
-let videoMetadata = {};      // Кеш метаданных видео {video_idx: {fps, duration, ...}}
-let currentPlaybackRate = 1; // ЗАДАЧА 5.4: Текущая выбранная скорость воспроизведения
-let isFullVideo = false;     // ЗАДАЧА 5.1: Флаг "загружено полное видео или клип"
+let currentVideoIdx = -1;
+let currentPlaybackRate = 1;
+let isFullVideo = false;
+let lastSignProps = null;
+let videoLoadController = null;
+let selectedTrackLayer = null;
+
+function clearSelectedTrack() {
+  if (selectedTrackLayer) map.removeLayer(selectedTrackLayer);
+  selectedTrackLayer = null;
+}
+
+function cancelVideoLoad() {
+  videoLoadController?.abort();
+  videoLoadController = null;
+  lastSignProps = null;
+  const video = document.getElementById('map-video');
+  video.pause();
+  video.removeAttribute('src');
+  video.replaceChildren();
+  video.load();
+}
+
+function signFrame(props) {
+  let frames = props.absolute_frame_numbers ?? props.abs_frame ?? [];
+  if (typeof frames === 'string') frames = frames.replace(/[\[\]]/g, '').split(',').filter(s => s.trim() !== '');
+  if (!Array.isArray(frames)) frames = [frames];
+  frames = frames.map(Number).filter(n => Number.isFinite(n) && n >= 0);
+  if (!frames.length) throw new Error('Нет данных о кадрах для этого знака');
+  return Math.floor(frames.reduce((a, b) => a + b, 0) / frames.length);
+}
+
+async function showSelectedTrack(seconds, signal) {
+  try {
+    const response = await fetch(`${API}/track_window?seconds=${seconds}`, {signal});
+    if (!response.ok) throw new Error('Трек недоступен');
+    const data = await response.json();
+    if (signal.aborted) return;
+    clearSelectedTrack();
+    if (!data.available) {
+      return;
+    }
+    selectedTrackLayer = L.layerGroup().addTo(map);
+    const draw = (segments, color, label) => {
+      for (const segment of segments) {
+        const coords = segment.map(p => [p[1], p[2]]);
+        L.polyline(coords, {color: '#101820', weight: 9, opacity: 0.85, interactive: false}).addTo(selectedTrackLayer);
+        L.polyline(coords, {color, weight: 5, opacity: 1, interactive: false}).addTo(selectedTrackLayer);
+        // Arrows use successive GPS samples, never the sign's orientation.
+        const stride = Math.max(1, Math.ceil((coords.length - 1) / 5));
+        for (let i = 0; i < coords.length - 1; i += stride) {
+          const a = coords[i], b = coords[Math.min(i + stride, coords.length - 1)];
+          const dy = b[0] - a[0], dx = (b[1] - a[1]) * Math.cos(a[0] * Math.PI / 180);
+          if (Math.abs(dx) + Math.abs(dy) < 0.000001) continue;
+          const angle = Math.atan2(dx, dy) * 180 / Math.PI;
+          L.marker([(a[0] + b[0]) / 2, (a[1] + b[1]) / 2], {
+            interactive: false, zIndexOffset: -500,
+            icon: L.divIcon({className: 'track-direction', iconSize: [24, 24], iconAnchor: [12, 12],
+              html: `<div style="width:24px;height:24px;text-align:center;transform:rotate(${angle}deg)">▲</div>`})
+          }).addTo(selectedTrackLayer);
+        }
+        L.circleMarker(coords[label === 'до' ? 0 : coords.length - 1], {
+          radius: 5, color: 'white', weight: 2, fillColor: color, fillOpacity: 1
+        }).bindTooltip(label === 'до' ? 'Начало участка до знака' : 'Конец участка после знака').addTo(selectedTrackLayer);
+      }
+    };
+    draw(data.before, '#26c6da', 'до');
+    draw(data.after, '#ffb74d', 'после');
+    if (data.position) {
+      L.circleMarker(data.position, {radius: 9, color: 'white', weight: 3, fillColor: '#7959ef', fillOpacity: 1})
+        .bindTooltip('Машина в момент обнаружения знака').addTo(selectedTrackLayer);
+    }
+  } catch (error) {
+    if (!signal.aborted) console.warn('Не удалось загрузить участок трека:', error);
+  }
+}
+
+function loadMediaSource(video, src, signal, timeout = 30000) {
+  return new Promise((resolve, reject) => {
+    let timer;
+    const cleanup = () => {
+      clearTimeout(timer);
+      video.removeEventListener('loadedmetadata', ready);
+      video.removeEventListener('error', failed);
+      signal.removeEventListener('abort', aborted);
+    };
+    const ready = () => { cleanup(); resolve(); };
+    const failed = () => { cleanup(); reject(new Error('Формат видео не поддерживается или файл недоступен')); };
+    const aborted = () => { cleanup(); reject(new DOMException('Cancelled', 'AbortError')); };
+    if (signal.aborted) { aborted(); return; }
+    video.addEventListener('loadedmetadata', ready);
+    video.addEventListener('error', failed);
+    signal.addEventListener('abort', aborted, {once: true});
+    timer = setTimeout(() => { cleanup(); reject(new Error('Превышено время загрузки видео')); }, timeout);
+    video.replaceChildren();
+    video.src = src;
+    video.load();
+  });
+}
+
+function waitForVideoPoll(signal) {
+  return new Promise((resolve, reject) => {
+    const abort = () => { clearTimeout(timer); reject(new DOMException('Cancelled', 'AbortError')); };
+    const timer = setTimeout(() => { signal.removeEventListener('abort', abort); resolve(); }, 1000);
+    signal.addEventListener('abort', abort, {once: true});
+    if (signal.aborted) abort();
+  });
+}
+
+async function prepareVideoSource(url, signal, duration) {
+  const deadline = Date.now() + Math.max(180000, (duration * 4 + 180) * 1000);
+  while (!signal.aborted) {
+    const response = await fetch(url + '&prepare=1', {signal});
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.error || 'Не удалось подготовить видео');
+    if (data.status === 'ready') return;
+    if (Date.now() > deadline) throw new Error('Подготовка видео занимает слишком долго. Повторите попытку.');
+    await waitForVideoPoll(signal);
+  }
+  throw new DOMException('Cancelled', 'AbortError');
+}
+
+async function loadVideoMode(props, full) {
+  videoLoadController?.abort();
+  const controller = new AbortController();
+  videoLoadController = controller;
+  const signal = controller.signal;
+  const video = document.getElementById('map-video');
+  const status = document.getElementById('video-status');
+  video.pause();
+  video.style.display = 'none';
+  status.style.display = 'block';
+  status.textContent = full ? 'Открываем полное видео…' : 'Подготовка клипа…';
+  try {
+    const response = await fetch(`${API}/video_position?frame=${signFrame(props)}`, {signal});
+    const position = await response.json();
+    if (!response.ok) throw new Error(position.error || 'Не удалось определить момент видео');
+    if (signal.aborted) return;
+    showSelectedTrack(position.total_seconds, signal);
+    const index = position.video_idx;
+    const start = full ? 0 : Math.max(0, position.seconds - 8);
+    const duration = full ? 0 : 16;
+    let originalLoaded = false;
+    if (full) {
+      try {
+        await loadMediaSource(video, `${API}/video/${index}`, signal, 12000);
+        originalLoaded = true;
+      } catch (error) {
+        if (signal.aborted) return;
+        status.textContent = 'Подготовка быстрого предпросмотра полного видео (до 720p)… При повторном открытии будет использована готовая копия.';
+      }
+    }
+    if (!originalLoaded) {
+      const url = `${API}/video_clip/${index}?start=${start}&duration=${duration}`;
+      await prepareVideoSource(url, signal, full ? position.duration : duration);
+      if (signal.aborted) return;
+      await loadMediaSource(video, url, signal);
+    }
+    if (signal.aborted) return;
+    video.currentTime = Math.max(0, Math.min(position.seconds - start, video.duration));
+    video.playbackRate = currentPlaybackRate;
+    document.getElementById('video-time-display').textContent =
+      `${formatTime(video.currentTime)} / ${formatTime(video.duration)}`;
+    currentVideoIdx = index;
+    isFullVideo = full;
+    document.getElementById('btn-clip-mode').classList.toggle('accent', !full);
+    document.getElementById('btn-full-mode').classList.toggle('accent', full);
+    status.style.display = 'none';
+    video.style.display = 'block';
+  } catch (error) {
+    if (signal.aborted) return;
+    status.textContent = error.message;
+    status.style.display = 'block';
+    video.style.display = 'none';
+  }
+}
 
 async function loadVideoForSign(signProps) {
-  /*
-   * ЗАДАЧА 3: Загружает и воспроизводит короткий WebM-клип знака.
-   * 
-   * Args:
-   *   signProps: properties знака из GeoJSON
-   */
-  try {
-    // ЗАДАЧА 5.1: Сохраняем props для переключения режимов
-    lastSignProps = signProps;
-    
-    console.log("[loadVideoForSign] Начало загрузки, props:", signProps);
-    
-    const video = document.getElementById("map-video");
-    const videoStatus = document.getElementById("video-status");
-    const videoTimeDisplay = document.getElementById("video-time-display");
-    
-    if (!video) {
-      console.error("[loadVideoForSign] Video element not found");
-      return;
-    }
-    
-    // Парсим absolute_frame_numbers
-    let rawFrames = signProps.absolute_frame_numbers || signProps.abs_frame || "";
-    console.log("[loadVideoForSign] rawFrames (до парсинга):", rawFrames, "тип:", typeof rawFrames);
-    
-    // Проверяем тип данных
-    if (Array.isArray(rawFrames)) {
-      // Новый формат: уже массив из GeoJSON
-      rawFrames = rawFrames.filter(n => typeof n === 'number' && !isNaN(n));
-    } else if (typeof rawFrames === 'string' && rawFrames.trim().length > 0) {
-      // Старый формат: строка вида "[123, 456, 789]"
-      rawFrames = rawFrames.replace(/[\[\]]/g, "").split(",").map(Number).filter(Boolean);
-    } else {
-      // Пустые данные
-      rawFrames = [];
-    }
-    
-    console.log("[loadVideoForSign] rawFrames (после парсинга):", rawFrames);
-    
-    if (!rawFrames || rawFrames.length === 0) {
-      console.log("[loadVideoForSign] Нет данных о кадрах");
-      // ЗАДАЧА 1 (P0): Явно переключаем видимость
-      video.style.display = "none";
-      videoStatus.style.display = "block";
-      videoStatus.textContent = "Нет данных о кадрах для этого знака";
-      return;
-    }
-    
-    // Берём средний кадр
-    const avgFrame = rawFrames.reduce((a, b) => a + b, 0) / rawFrames.length;
-    
-    // BLOCK FIX-4.2: Получаем FRAMES_PER_VIDEO с сервера вместо захардкоженного значения
-    // Сначала запрашиваем метаданные, чтобы узнать правильное значение
-    let framesPerVideo = 63600; // Fallback если сервер недоступен
-    
-    // Предварительный расчёт videoIdx для первого запроса метаданных
-    let videoIdx = Math.floor(avgFrame / framesPerVideo);
-    
-    // Получаем метаданные видео (FPS и frames_per_video_hint)
-    if (!videoMetadata[videoIdx]) {
-      try {
-        const metaResp = await fetch(`${API}/video_info/${videoIdx}`);
-        if (metaResp.ok) {
-          videoMetadata[videoIdx] = await metaResp.json();
-          // BLOCK FIX-4.2: используем frames_per_video_hint с сервера
-          if (videoMetadata[videoIdx].frames_per_video_hint) {
-            framesPerVideo = videoMetadata[videoIdx].frames_per_video_hint;
-          }
-        } else {
-          // Fallback: используем дефолтный FPS
-          videoMetadata[videoIdx] = {fps: 60, frame_count: framesPerVideo};
-        }
-      } catch (err) {
-        console.warn(`[loadVideoForSign] Не удалось загрузить метаданные видео ${videoIdx}:`, err);
-        videoMetadata[videoIdx] = {fps: 60, frame_count: framesPerVideo};
-      }
-    } else if (videoMetadata[videoIdx].frames_per_video_hint) {
-      framesPerVideo = videoMetadata[videoIdx].frames_per_video_hint;
-    }
-    
-    // Пересчитываем videoIdx и frameInVideo с правильным значением framesPerVideo
-    videoIdx = Math.floor(avgFrame / framesPerVideo);
-    const frameInVideo = Math.floor(avgFrame % framesPerVideo);
-    
-    console.log(`[loadVideoForSign] avgFrame=${avgFrame}, videoIdx=${videoIdx}, frameInVideo=${frameInVideo}, framesPerVideo=${framesPerVideo}`);
-    
-    const fps = videoMetadata[videoIdx].fps || 60;
-    const secondsInVideo = frameInVideo / fps;
-    
-    console.log(`[loadVideoForSign] FPS=${fps}, secondsInVideo=${secondsInVideo.toFixed(2)}`);
-    
-    // ЗАДАЧА 1 (P0): Показываем статус ожидания, СКРЫВАЕМ видео
-    video.style.display = "none";
-    videoStatus.style.display = "block";
-    videoStatus.textContent = "Подготовка видео... это может занять несколько секунд";
-    
-    // Task D: Запрашиваем короткий клип вокруг момента знака (не всё видео!)
-    // Транскод VP9 медленнее реального времени - полное видео не успевает за 10 сек
-    const clipBuffer = 8;  // секунд запаса до/после знака
-    const clipStart = Math.max(0, secondsInVideo - clipBuffer);
-    const clipDuration = clipBuffer * 2;  // ~16 секунд клипа
-    
-    const videoSrc = `${API}/video_clip/${videoIdx}?start=${clipStart}&duration=${clipDuration}`;
-    console.log(`[loadVideoForSign] Загрузка WebM-клипа: ${videoSrc} (${clipDuration}s вокруг момента ${secondsInVideo.toFixed(2)}s)`);
-    
-    // Проверяем доступность эндпоинта (ffmpeg может быть не установлен)
-    try {
-      const checkResp = await fetch(videoSrc, {method: 'HEAD'});
-      if (!checkResp.ok) {
-        // Пытаемся получить JSON с ошибкой
-        const errorResp = await fetch(videoSrc);
-        if (!errorResp.ok) {
-          const errorData = await errorResp.json().catch(() => null);
-          if (errorData && errorData.error === 'ffmpeg not found') {
-            // ЗАДАЧА 1 (P0): Явная синхронизация видимости
-            video.style.display = "none";
-            videoStatus.style.display = "block";
-            videoStatus.textContent = 
-              `Для воспроизведения видео требуется ffmpeg. ` +
-              `Установите ffmpeg и добавьте в PATH. ` +
-              `Инструкция: ${errorData.install_url || 'https://ffmpeg.org/download.html'}`;
-            return;
-          }
-        }
-      }
-    } catch (checkErr) {
-      console.warn(`[loadVideoForSign] Не удалось проверить доступность видео:`, checkErr);
-      // Продолжаем попытку загрузки
-    }
-    
-    // Очищаем старые source элементы
-    while (video.firstChild) {
-      video.removeChild(video.firstChild);
-    }
-    
-    // Создаём новый source элемент
-    const source = document.createElement('source');
-    source.src = videoSrc;
-    source.type = 'video/webm';  // WebM вместо MP4
-    video.appendChild(source);
-    
-    // Загружаем видео
-    video.load();
-    
-    // Ждём loadedmetadata перед перемоткой
-    const loadPromise = new Promise((resolve, reject) => {
-      const timeoutId = setTimeout(() => {
-        reject(new Error("Video loading timeout (30s)"));
-      }, 30000);  // Task D: Увеличен таймаут до 30 сек для коротких клипов с -deadline realtime
-      
-      video.addEventListener("loadedmetadata", () => {
-        clearTimeout(timeoutId);
-        resolve();
-      }, {once: true});
-      
-      video.addEventListener("error", () => {
-        clearTimeout(timeoutId);
-        const errorDetails = video.error ? {
-          code: video.error.code,
-          message: video.error.message,
-          MEDIA_ERR_ABORTED: video.error.MEDIA_ERR_ABORTED,
-          MEDIA_ERR_NETWORK: video.error.MEDIA_ERR_NETWORK,
-          MEDIA_ERR_DECODE: video.error.MEDIA_ERR_DECODE,
-          MEDIA_ERR_SRC_NOT_SUPPORTED: video.error.MEDIA_ERR_SRC_NOT_SUPPORTED
-        } : 'no error object';
-        console.error(`[loadVideoForSign] Video error details:`, errorDetails);
-        reject(new Error(`Video error: ${video.error?.code || 'unknown'}`));
-      }, {once: true});
-    });
-    
-    try {
-      await loadPromise;
-      console.log(`[loadVideoForSign] Метаданные загружены, duration=${video.duration}`);
-      
-      // Task D: Перематываем относительно начала клипа (не всего видео!)
-      const timeInClip = secondsInVideo - clipStart;
-      video.currentTime = Math.max(0, Math.min(timeInClip, video.duration));
-      videoTimeDisplay.textContent = `${formatTime(timeInClip)} / ${formatTime(video.duration)}`;
-      
-      // ЗАДАЧА 5.4: Переприменяем сохранённую скорость воспроизведения
-      video.playbackRate = currentPlaybackRate;
-      console.log(`[loadVideoForSign] Применена скорость ${currentPlaybackRate}x`);
-      
-      // ЗАДАЧА 1 (P0): Скрываем статус ожидания, ПОКАЗЫВАЕМ видео
-      videoStatus.style.display = "none";
-      video.style.display = "block";
-      
-      // Обновляем глобальный индекс
-      currentVideoIdx = videoIdx;
-      isFullVideo = false;  // ЗАДАЧА 5.1: Это клип, не полное видео
-      
-      // ЗАДАЧА 5.1: Обновляем кнопки режимов
-      document.getElementById('btn-clip-mode')?.classList.add('accent');
-      document.getElementById('btn-full-mode')?.classList.remove('accent');
-      
-      console.log(`[loadVideoForSign] Видео готово к просмотру, перемотано на ${timeInClip.toFixed(2)}s (в клипе)`);
-      
-    } catch (err) {
-      console.error("[loadVideoForSign] Ошибка загрузки видео:", err);
-      
-      // Проверяем специфичные ошибки
-      if (err.message.includes('timeout')) {
-        // Возможно, ffmpeg не установлен или транскодирование зависло
-        const testResp = await fetch(videoSrc);
-        if (!testResp.ok) {
-          const errorData = await testResp.json().catch(() => null);
-          if (errorData && errorData.error === 'ffmpeg not found') {
-            videoStatus.textContent = 
-              `Для воспроизведения видео требуется ffmpeg. ` +
-              `Установите ffmpeg и добавьте в PATH. ` +
-              `Загрузка: ${errorData.install_url || 'https://ffmpeg.org/download.html'}`;
-          } else {
-            videoStatus.textContent = `Ошибка транскодирования: ${errorData?.error || 'неизвестная ошибка'}`;
-          }
-        } else {
-          videoStatus.textContent = `Ошибка загрузки видео: ${err.message}`;
-        }
-      } else {
-        videoStatus.textContent = `Ошибка загрузки видео: ${err.message}`;
-      }
-      
-      videoStatus.style.display = "block";
-      video.style.display = "none";
-    }
-    
-  } catch (err) {
-    console.error("[loadVideoForSign] Unexpected error:", err);
-    toast("Ошибка загрузки видео", "err");
-  }
+  lastSignProps = signProps;
+  return loadVideoMode(signProps, false);
 }
-
-// ЗАДАЧА 5.1: Переключение на полное видео
-let lastSignProps = null;  // Сохраняем последние props для переключения режимов
 
 async function switchToFullVideo() {
-  /*
-   * ЗАДАЧА 5.1: Загружает ПОЛНОЕ видео вместо короткого клипа.
-   * Использует эндпоинт /api/video_clip с duration=0.
-   */
-  if (!lastSignProps) {
-    toast("Сначала выберите знак на карте", "warn");
-    return;
-  }
-  
-  try {
-    console.log("[switchToFullVideo] Начало загрузки полного видео");
-    
-    const video = document.getElementById("map-video");
-    const videoStatus = document.getElementById("video-status");
-    const videoTimeDisplay = document.getElementById("video-time-display");
-    
-    if (!video) {
-      console.error("[switchToFullVideo] Video element not found");
-      return;
-    }
-    
-    // Парсим кадры (копируем логику из loadVideoForSign)
-    let rawFrames = lastSignProps.absolute_frame_numbers || lastSignProps.abs_frame || "";
-    
-    if (Array.isArray(rawFrames)) {
-      rawFrames = rawFrames.filter(n => typeof n === 'number' && !isNaN(n));
-    } else if (typeof rawFrames === 'string' && rawFrames.trim().length > 0) {
-      rawFrames = rawFrames.replace(/[\[\]]/g, "").split(",").map(Number).filter(Boolean);
-    } else {
-      rawFrames = [];
-    }
-    
-    if (!rawFrames || rawFrames.length === 0) {
-      toast("Нет данных о кадрах для этого знака", "warn");
-      return;
-    }
-    
-    const avgFrame = rawFrames.reduce((a, b) => a + b, 0) / rawFrames.length;
-    
-    // Получаем frames_per_video с сервера
-    let framesPerVideo = 63600;
-    let videoIdx = Math.floor(avgFrame / framesPerVideo);
-    
-    if (!videoMetadata[videoIdx]) {
-      try {
-        const metaResp = await fetch(`${API}/video_info/${videoIdx}`);
-        if (metaResp.ok) {
-          videoMetadata[videoIdx] = await metaResp.json();
-          if (videoMetadata[videoIdx].frames_per_video_hint) {
-            framesPerVideo = videoMetadata[videoIdx].frames_per_video_hint;
-          }
-        } else {
-          videoMetadata[videoIdx] = {fps: 60, frame_count: framesPerVideo};
-        }
-      } catch (err) {
-        console.warn(`[switchToFullVideo] Не удалось загрузить метаданные видео ${videoIdx}:`, err);
-        videoMetadata[videoIdx] = {fps: 60, frame_count: framesPerVideo};
-      }
-    } else if (videoMetadata[videoIdx].frames_per_video_hint) {
-      framesPerVideo = videoMetadata[videoIdx].frames_per_video_hint;
-    }
-    
-    videoIdx = Math.floor(avgFrame / framesPerVideo);
-    const frameInVideo = Math.floor(avgFrame % framesPerVideo);
-    const fps = videoMetadata[videoIdx].fps || 60;
-    const secondsInVideo = frameInVideo / fps;
-    
-    console.log(`[switchToFullVideo] avgFrame=${avgFrame}, videoIdx=${videoIdx}, frameInVideo=${frameInVideo}, secondsInVideo=${secondsInVideo.toFixed(2)}`);
-    
-    // Показываем статус
-    videoStatus.textContent = "Подготовка полного видео...\nЭто может занять несколько минут для длинных записей.";
-    videoStatus.style.display = "block";
-    video.style.display = "none";
-    
-    // Запрашиваем ПОЛНОЕ видео (duration=0)
-    const videoSrc = `${API}/video_clip/${videoIdx}?start=0&duration=0`;
-    console.log(`[switchToFullVideo] Загрузка полного видео: ${videoSrc}`);
-    
-    // Очищаем старые source элементы
-    while (video.firstChild) {
-      video.removeChild(video.firstChild);
-    }
-    
-    const source = document.createElement('source');
-    source.src = videoSrc;
-    source.type = 'video/webm';
-    video.appendChild(source);
-    
-    video.load();
-    
-    // Увеличенный таймаут для полного видео (5 минут)
-    const loadPromise = new Promise((resolve, reject) => {
-      const timeoutId = setTimeout(() => {
-        reject(new Error("Таймаут загрузки видео (5 мин)"));
-      }, 300000);  // 5 минут
-      
-      video.addEventListener("loadedmetadata", () => {
-        clearTimeout(timeoutId);
-        resolve();
-      }, {once: true});
-      
-      video.addEventListener("error", () => {
-        clearTimeout(timeoutId);
-        reject(new Error(`Video error: ${video.error?.code || 'unknown'}`));
-      }, {once: true});
-    });
-    
-    try {
-      await loadPromise;
-      console.log(`[switchToFullVideo] Метаданные загружены, duration=${video.duration}`);
-      
-      // Перематываем на момент знака напрямую (полная временная шкала)
-      video.currentTime = Math.max(0, Math.min(secondsInVideo, video.duration));
-      videoTimeDisplay.textContent = `${formatTime(secondsInVideo)} / ${formatTime(video.duration)}`;
-      
-      // Переприменяем скорость
-      video.playbackRate = currentPlaybackRate;
-      
-      // Скрываем статус
-      videoStatus.style.display = "none";
-      video.style.display = "block";
-      
-      // Обновляем флаги
-      currentVideoIdx = videoIdx;
-      isFullVideo = true;
-      
-      // Обновляем кнопки режимов
-      document.getElementById('btn-clip-mode').classList.remove('accent');
-      document.getElementById('btn-full-mode').classList.add('accent');
-      
-      console.log(`[switchToFullVideo] Полное видео готово, перемотано на ${secondsInVideo.toFixed(2)}s`);
-      toast("Полное видео загружено", "ok");
-      
-    } catch (err) {
-      console.error("[switchToFullVideo] Ошибка загрузки:", err);
-      videoStatus.textContent = `Ошибка: ${err.message}`;
-      videoStatus.style.display = "block";
-      video.style.display = "none";
-      toast("Ошибка загрузки полного видео", "err");
-    }
-    
-  } catch (err) {
-    console.error("[switchToFullVideo] Unexpected error:", err);
-    toast("Ошибка загрузки полного видео", "err");
-  }
+  if (!lastSignProps) { toast('Сначала выберите знак на карте', 'warn'); return; }
+  return loadVideoMode(lastSignProps, true);
 }
 
-// ЗАДАЧА 5.1: Возврат к короткому клипу
 function switchToClipMode() {
-  /*
-   * ЗАДАЧА 5.1: Возвращает к короткому клипу (повторный вызов loadVideoForSign).
-   */
-  if (!lastSignProps) {
-    toast("Сначала выберите знак на карте", "warn");
-    return;
-  }
-  
-  console.log("[switchToClipMode] Возврат к клипу");
-  
-  // Обновляем кнопки режимов
-  document.getElementById('btn-clip-mode').classList.add('accent');
-  document.getElementById('btn-full-mode').classList.remove('accent');
-  
-  // Перезагружаем клип
-  loadVideoForSign(lastSignProps);
+  if (!lastSignProps) { toast('Сначала выберите знак на карте', 'warn'); return; }
+  return loadVideoMode(lastSignProps, false);
 }
 
 function formatTime(seconds) {
@@ -3483,6 +3529,7 @@ document.addEventListener('DOMContentLoaded', () => {
 // ── ЗАДАЧА 4 (P2): Фокусировка знака из редактора ошибок ────────────
 
 window.focusSignFromEditor = async function(signId) {
+  const focusRequest = ++editorFocusRequest;
   /*
    * Вызывается из MapPage.focus_sign() через runJavaScript.
    * Центрирует карту на знаке и открывает его панель деталей.
@@ -3490,35 +3537,39 @@ window.focusSignFromEditor = async function(signId) {
   try {
     console.log(`[focusSignFromEditor] Фокусировка на знаке ${signId}`);
     
-    // Если данные ещё не загружены (карта только что открылась) — ждём
-    if (!signsData || signsData.length === 0) {
-      console.log("[focusSignFromEditor] Данные не загружены, ждём loadAll()...");
-      await loadAll();
+    // Карта может ещё получать GeoJSON после открытия редактора. Делаем
+    // несколько коротких запросов и сравниваем идентификаторы как строки.
+    let sign = null;
+    for (let attempt = 0; attempt < 5 && !sign; attempt++) {
+      if (attempt === 0 || !signsData || signsData.length === 0) {
+        await loadSigns();
+      }
+      sign = (signsData || []).find(s => String(s.id) === String(signId));
+      if (!sign) {
+        await new Promise(resolve => setTimeout(resolve, 250));
+      }
     }
-
-    const sign = signsData.find(s => s.id === signId);
+    if (focusRequest !== editorFocusRequest) return;
     if (!sign) {
-      toast("Знак не найден на карте (возможно, GeoJSON устарел)", "err");
+      toast("Не удалось найти знак в выбранном GeoJSON", "err");
       console.warn(`[focusSignFromEditor] Знак ${signId} не найден в signsData`);
       return;
     }
 
     console.log(`[focusSignFromEditor] Знак найден: lat=${sign.lat}, lon=${sign.lon}`);
     
-    const marker = markers[signId];
-    if (marker && markerCluster && markerCluster.hasLayer(marker)) {
-      // Знак в кластере — разворачиваем кластер и центрируем
-      console.log("[focusSignFromEditor] Знак в кластере, разворачиваем...");
-      markerCluster.zoomToShowLayer(marker, () => {
-        map.setView([sign.lat, sign.lon], Math.max(map.getZoom(), 17));
-        selectSign(signId);
-      });
-    } else {
-      // Знак уже на карте отдельно — просто центрируем
-      console.log("[focusSignFromEditor] Знак вне кластера, центрируем карту");
-      map.setView([sign.lat, sign.lon], 17);
-      selectSign(signId);
-    }
+    const mapSignId = String(sign.id);
+    // Не зависим от callback MarkerClusterGroup: после первого раскрытия
+    // кластера он может не прийти для следующего знака. Детали загружаются
+    // по ID напрямую, поэтому достаточно центрировать карту и выбрать знак.
+    const targetZoom = Math.max(map.getZoom(), 17);
+    map.stop();
+    map.flyTo([sign.lat, sign.lon], targetZoom, {
+      animate: true,
+      duration: 0.8,
+      easeLinearity: 0.25,
+    });
+    selectSign(mapSignId);
   } catch (err) {
     console.error("[focusSignFromEditor] Ошибка:", err);
     toast("Ошибка при переходе к знаку", "err");

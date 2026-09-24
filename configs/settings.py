@@ -32,6 +32,7 @@ class AppSettings:
     dedup_radius_track_m: float = 10.0   # SignHandler.NEARBY_SIGN_RADIUS_M [рекомендовано 8-15]
     dedup_radius_final_m: float = 20.0  # FinalHandler.DEDUP_RADIUS_M
     dedup_azimuth_deg: float = 40.0     # FinalHandler.DEDUP_AZIMUTH_DEG [рекомендовано 35-45]
+    panorama_perpendicular_azimuth: bool = False  # Наружу от дороги относительно движения
     
     # ── Определение стороны знака и полосы (TASK 1) ───────────────
     # Ширина дороги и полос учитывается при группировке знаков
@@ -107,6 +108,8 @@ class AppSettings:
     
     # ── Карта (подложка) ──────────────────────────────────────────
     map_tile_url: str = "https://api.maps.by/api/wmts/noLabel/QGIS/{z}/{y}/{x}?apiKey=$2a$10$xZuvOAkmzOG0ShxJ0b.HieJz8AaPdMMhghCxFqemJOMkyfWBOo/h2*$2a$10$xZuvOAkmzOG0ShxJ0b.HieMeAAWpdW4pjfIOBjpUp3afqkCugXGFu"
+    map_local_background_enabled: bool = True
+    map_vector_style_url: str = ""  # MapLibre Style JSON; empty enables provider discovery
     map_tile_attribution: str = "© maps.by"
     # BLOCK SETTINGS-1: map_tile_max_zoom зафиксирован на 17 (согласован с disableClusteringAtZoom в templates/map.html)
     # Не редактируется из UI. Для пользователей с сохранёнными старыми значениями (19) применяется min(value, 17) в api_map_config.

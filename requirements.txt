@@ -31,8 +31,10 @@ gpxpy>=1.6.2
 geopy>=2.4.1
 geojson>=3.1.0
 pyproj>=3.6.1
+pyshp==2.3.1  # Local SHP reference layers
+rasterio==1.4.3  # Streaming raster preparation and local tiles (GDAL)
 requests>=2.31.0
-shapely>=2.0.0  # Опционально, улучшает точность геометрии пересечений
+shapely>=2.1.0  # Опционально, улучшает точность геометрии пересечений
 
 # ── Licensing ─────────────────────────────────────────────────────
 cryptography>=41.0.0  # Ed25519 для проверки подписи токенов лицензии

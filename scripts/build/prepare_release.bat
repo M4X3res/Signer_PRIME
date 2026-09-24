@@ -110,6 +110,14 @@ if not exist "installer\7z.exe" (
     exit /b 1
 )
 
+.venv\Scripts\python.exe -c "import rasterio, shapefile; from server.raster_environment import raster_environment; ctx = raster_environment(); ctx.__enter__(); print(rasterio.crs.CRS.from_epsg(3857)); ctx.__exit__(None, None, None)"
+if errorlevel 1 (
+    echo ERROR: Local background dependencies are missing or incompatible.
+    echo Run: .venv\Scripts\python.exe -m pip install -r requirements.txt
+    if not defined SIGNER_NONINTERACTIVE pause
+    exit /b 1
+)
+
 echo OK: All dependencies ready
 echo.
 

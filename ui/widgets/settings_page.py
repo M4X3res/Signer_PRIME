@@ -311,6 +311,19 @@ class SettingsPage(QWidget):
             self._map_tile_url_edit,
         )
 
+        self._map_vector_style_edit = QLineEdit(self._settings.map_vector_style_url)
+        self._map_vector_style_edit.setFixedWidth(400)
+        self._map_vector_style_edit.setPlaceholderText("https://provider.example/styles/style.json")
+        self._map_vector_style_edit.setEnabled(self._map_tile_type_combo.currentIndex() == 1)
+        self._map_tile_type_combo.currentIndexChanged.connect(
+            lambda index: self._map_vector_style_edit.setEnabled(index == 1))
+        map_group.add_row(
+            "Стиль векторной карты",
+            "URL стиля JSON со слоями, цветами и подписями. Для ArcGIS можно оставить пустым. "
+            "Если указан стиль, источники тайлов берутся из него.",
+            self._map_vector_style_edit,
+        )
+
         self._map_attribution_edit = QLineEdit()
         self._map_attribution_edit.setFixedWidth(300)
         self._map_attribution_edit.setText(self._settings.map_tile_attribution)
@@ -511,6 +524,17 @@ class SettingsPage(QWidget):
             self._dedup_azimuth_spin,
         )
 
+        self._panorama_azimuth_toggle = ToggleButton(self._settings.panorama_perpendicular_azimuth)
+        self._panorama_azimuth_toggle.setToolTip(
+            "Для ГИС «Панорама»: азимут направлен перпендикулярно дороге наружу.\n"
+            "По ходу движения: справа +90°, слева −90° к направлению дороги.\n"
+            "Применяется при новой обработке видео; сохранённые результаты не меняются."
+        )
+        gps_group.add_row(
+            "Азимут перпендикулярно дороге (ГИС «Панорама»)",
+            "Наружу от дороги: вправо для правых знаков, влево для левых",
+            self._panorama_azimuth_toggle,
+        )
         content_layout.addWidget(gps_group)
 
         # ── Task E: Группа "Многопоточность" УДАЛЕНА ────
@@ -893,6 +917,13 @@ class SettingsPage(QWidget):
         )
         
         content_layout.addWidget(export_group)
+
+        local_background_group = SettingsGroup("Локальные подложки карты")
+        self._local_background_toggle = ToggleButton(self._settings.map_local_background_enabled)
+        local_background_group.add_row("Включить локальные подложки",
+            "JPEG, TIF/GeoTIFF и SHP: загрузка, сравнение и библиотека. Отключение скрывает панель, сохраняя файлы.",
+            self._local_background_toggle)
+        content_layout.addWidget(local_background_group)
         
         content_layout.addStretch()
 
@@ -936,6 +967,7 @@ class SettingsPage(QWidget):
         
         # BLOCK SETTINGS-UX: список групп, скрываемых в Простом режиме
         self._advanced_only_widgets = [
+            local_background_group,
             ui_group,              # Интерфейс / тема
             proc_group,            # Обработка видео
             gps_group,             # GPS и координаты
@@ -1026,10 +1058,13 @@ class SettingsPage(QWidget):
             self._settings.dedup_radius_track_m = float(self._dedup_track_spin.value())
             self._settings.dedup_radius_final_m = float(self._dedup_final_spin.value())
             self._settings.dedup_azimuth_deg = float(self._dedup_azimuth_spin.value())
+            self._settings.panorama_perpendicular_azimuth = self._panorama_azimuth_toggle.is_checked()
             
             # Task E: processing_mode, process_pool_workers, ocr_* УДАЛЕНЫ (не собираем из UI)
             # processing_mode всегда будет "single_thread" (устанавливается в ProcessingController)
             
+            self._settings.map_local_background_enabled = self._local_background_toggle.isChecked()
+            self._settings.map_vector_style_url = self._map_vector_style_edit.text().strip()
             # Map tile configuration (BLOCK MAP-TILES)
             if hasattr(self, '_map_tile_type_combo'):
                 type_idx = self._map_tile_type_combo.currentIndex()
@@ -1166,6 +1201,9 @@ class SettingsPage(QWidget):
         
         tile_type = "vector" if self._map_tile_type_combo.currentIndex() == 1 else "raster"
         tile_url = self._map_tile_url_edit.text().strip()
+        style_url = self._map_vector_style_edit.text().strip()
+        from urllib.parse import urlsplit
+        style_in_tile_field = urlsplit(tile_url).path.lower().endswith('.json')
         tile_url_lower = tile_url.lower()
         
         # БЛОКИРУЮЩИЕ ошибки (критичные, не дают сохранить)
@@ -1177,7 +1215,7 @@ class SettingsPage(QWidget):
             has_x = '{x}' in tile_url
             has_y = '{y}' in tile_url
             
-            if not (has_z and has_x and has_y):
+            if not (has_z and has_x and has_y) and not style_url and not style_in_tile_field:
                 blocking_errors.append(
                     "❌ КРИТИЧЕСКАЯ ОШИБКА: URL не содержит обязательные плейсхолдеры {z}, {x}, {y}\n\n"
                     "Вы вставили ссылку на ОДИН КОНКРЕТНЫЙ тайл вместо ШАБЛОНА.\n\n"
@@ -1199,6 +1237,8 @@ class SettingsPage(QWidget):
                     "Проверьте и вставьте полный URL."
                 )
         
+        if tile_type == "vector" and style_url and urlsplit(style_url).scheme not in ("http", "https"):
+            blocking_errors.append("URL стиля должен начинаться с http:// или https://")
         # Показываем блокирующие ошибки первыми (с критичностью)
         if blocking_errors:
             combined_msg = "\n\n═══════════════════\n\n".join(blocking_errors)
@@ -1370,6 +1410,7 @@ class SettingsPage(QWidget):
                 self._dedup_final_spin.setValue(int(defaults.dedup_radius_final_m))
             if hasattr(self, '_dedup_azimuth_spin'):
                 self._dedup_azimuth_spin.setValue(int(defaults.dedup_azimuth_deg))
+            self._panorama_azimuth_toggle.set_checked(defaults.panorama_perpendicular_azimuth)
             
             # Task E: processing_mode, workers, ocr_* виджеты УДАЛЕНЫ (пропускаем)
             
@@ -1410,7 +1451,10 @@ class SettingsPage(QWidget):
                 self._turn_ray_dist_spin.setValue(int(defaults.turn_ray_max_distance_m))
             # BLOCK N.3: turn_radius_spin удалён
             
+            self._local_background_toggle.set_checked(defaults.map_local_background_enabled)
+            self._settings.map_vector_style_url = self._map_vector_style_edit.text().strip()
             # Map tile configuration (BLOCK MAP-TILES)
+            self._map_vector_style_edit.setText(defaults.map_vector_style_url)
             if hasattr(self, '_map_tile_type_combo'):
                 self._map_tile_type_combo.setCurrentIndex(0 if defaults.map_tile_type == "raster" else 1)
             if hasattr(self, '_map_tile_url_edit'):
@@ -1871,6 +1915,7 @@ class SettingsPage(QWidget):
             self._dedup_track_spin.setValue(int(settings_dict.get("dedup_radius_track_m", 8)))
             self._dedup_final_spin.setValue(int(settings_dict.get("dedup_radius_final_m", 20)))
             self._dedup_azimuth_spin.setValue(int(settings_dict.get("dedup_azimuth_deg", 45)))
+            self._panorama_azimuth_toggle.set_checked(settings_dict.get("panorama_perpendicular_azimuth", False))
             
             # Task E: processing_mode, workers, ocr_* виджеты УДАЛЕНЫ (пропускаем с hasattr)
             if hasattr(self, '_processing_mode_combo'):
@@ -1900,8 +1945,11 @@ class SettingsPage(QWidget):
                 self._turn_ray_dist_spin.setValue(int(settings_dict.get("turn_ray_max_distance_m", 40)))
             # BLOCK N.3: turn_radius_spin удалён
             
+            self._local_background_toggle.set_checked(settings_dict.get("map_local_background_enabled", True))
+            self._settings.map_vector_style_url = self._map_vector_style_edit.text().strip()
             # Map tile configuration (BLOCK MAP-TILES)
             if hasattr(self, '_map_tile_type_combo'):
+                self._map_vector_style_edit.setText(settings_dict.get("map_vector_style_url", ""))
                 map_tile_type = settings_dict.get("map_tile_type", "raster")
                 self._map_tile_type_combo.setCurrentIndex(0 if map_tile_type == "raster" else 1)
             if hasattr(self, '_map_tile_url_edit'):

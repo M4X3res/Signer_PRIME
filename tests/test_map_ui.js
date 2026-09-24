@@ -18,7 +18,8 @@ function environment() {
   const c = {console: {log(){}, error(){}}, API: '/api', selectedId: null,
     selectionRequest: 0, signsData: [], signTypes: [],
     document: {getElementById: element}, toast(){}, toggleDescField(){},
-    parseSide: () => 'left', loadVideoForSign: async () => {}, renderMarkers(){}};
+    parseSide: () => 'left', loadVideoForSign: async () => {}, renderMarkers(){},
+    cancelVideoLoad(){}, clearSelectedTrack(){}};
   vm.createContext(c);
   return {c, element};
 }
@@ -102,7 +103,7 @@ async function main() {
     const {c} = environment();
     const doc = target(), win = target(), marker = target(), handle = target();
     handle.contains = value => value === handle;
-    marker.querySelector = () => handle;
+    marker.querySelector = selector => selector === '.sign-marker-compass-handle' ? handle : null;
     doc.createElement = target; doc.body = {appendChild(){}};
     const layer = target(); layer.on = layer.addEventListener; layer.off = layer.removeEventListener;
     function toggle(initial) { let enabled = initial; return {
@@ -179,7 +180,77 @@ async function main() {
     assert.equal(c.signsData[0].lat, 7, 'Older acknowledgement must not undo a newer drag');
     requests.shift()({ok:true,json:async()=>({})}); await third;
   }
+  {
+    const {c} = environment();
+    Object.assign(c, {AbortController, DOMException, setTimeout, clearTimeout});
+    vm.runInContext(section('let currentVideoIdx =', '// Диагностика видео-кодеков'), c);
+    assert.equal(c.signFrame({absolute_frame_numbers:'[0, 2]'}), 1);
+    assert.equal(c.signFrame({abs_frame:[0]}), 0);
+    assert.throws(() => c.signFrame({abs_frame:''}));
+    const listeners = new Map();
+    const video = {
+      addEventListener: (name, fn) => listeners.set(name, fn),
+      removeEventListener: name => listeners.delete(name), replaceChildren(){},
+      load(){listeners.get('loadedmetadata')?.();}
+    };
+    // Metadata can arrive synchronously from cache: subscribe before load().
+    await c.loadMediaSource(video, '/cached', new AbortController().signal);
+    assert.equal(listeners.size, 0);
+    video.load = () => {};
+    const controller = new AbortController();
+    const loading = c.loadMediaSource(video, '/slow', controller.signal);
+    controller.abort();
+    await assert.rejects(loading, {name:'AbortError'});
+    assert.equal(listeners.size, 0);
+  }
+  {
+    const {c, element} = environment();
+    Object.assign(c, {AbortController, DOMException, setTimeout, clearTimeout});
+    vm.runInContext(section('let currentVideoIdx =', '// Диагностика видео-кодеков'), c);
+    element('map-video').pause = () => {};
+    for (const id of ['btn-clip-mode', 'btn-full-mode']) element(id).classList.toggle = () => {};
+    const sources = [];
+    let finishOld;
+    c.showSelectedTrack = () => {};
+    c.fetch = url => {
+      if (url.endsWith('frame=10')) return new Promise(resolve => finishOld = resolve);
+      return Promise.resolve({ok:true, json:async()=>({video_idx:1,seconds:20,total_seconds:100,duration:50})});
+    };
+    c.loadMediaSource = async (video, src) => {
+      sources.push(src);
+      if (src === '/api/video/1') throw new Error('unsupported');
+      video.duration = 50;
+    };
+    c.prepareVideoSource = async () => {};
+    const old = c.loadVideoMode({abs_frame:[10]}, false);
+    await c.loadVideoMode({abs_frame:[20]}, true);
+    finishOld({ok:true,json:async()=>({video_idx:0,seconds:5,total_seconds:5,duration:10})});
+    await old;
+    assert.deepEqual(sources, ['/api/video/1', '/api/video_clip/1?start=0&duration=0']);
+    assert.equal(element('map-video').currentTime, 20);
+    assert.equal(element('map-video').style.display, 'block');
+    assert.equal(vm.runInContext('isFullVideo', c), true);
+  }
   assert.equal((html.match(/socket\.on\("processing_finished"/g)||[]).length,1);
-  console.log('8 UI regression scenarios passed');
+  {
+    const {c} = environment();
+    const selected = [], flights = [];
+    let finishFirst;
+    let calls = 0;
+    Object.assign(c, {window:{}, editorFocusRequest:0,
+      signsData:[{id:'a',lat:53,lon:27},{id:'b',lat:54,lon:28}],
+      loadSigns:()=> ++calls === 1 ? new Promise(resolve=>finishFirst=resolve) : Promise.resolve(),
+      map:{getZoom:()=>17,stop(){},flyTo:(coords)=>flights.push(coords)},
+      selectSign:id=>selected.push(id),setTimeout});
+    vm.runInContext(section('window.focusSignFromEditor =', '// ── Обработка ошибок'),c);
+    const first = c.window.focusSignFromEditor('a');
+    await c.window.focusSignFromEditor('b');
+    finishFirst(); await first;
+    assert.deepEqual(selected,['b']);
+    assert.equal(flights.length,1);
+    await c.window.focusSignFromEditor('a');
+    assert.deepEqual(selected,['b','a']);
+  }
+  console.log('11 UI regression scenarios passed');
 }
 main().catch(err=>{console.error(err);process.exitCode=1;});

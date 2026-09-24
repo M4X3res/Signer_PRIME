@@ -42,6 +42,7 @@ class MapPage(QWidget):
         self._server_thread = None
         self._server_ready  = False
         self._webview       = None  # создаётся лениво в _load_map()
+        self._page_loaded   = False
         self._pending_focus_sign_id = None  # ЗАДАЧА 4 (P2): Отложенный фокус знака
 
         root = QVBoxLayout(self)
@@ -105,6 +106,14 @@ class MapPage(QWidget):
         theme_manager.theme_changed.connect(self._restyle_topbar)
         theme_manager.theme_changed.connect(self._on_theme_changed)
 
+    def showEvent(self, event):
+        super().showEvent(event)
+        if self._webview is not None and self._page_loaded:
+            QTimer.singleShot(100, lambda: self._webview.page().runJavaScript(
+                "(async()=>{if(typeof loadSigns==='function') await loadSigns(); "
+                "if(window.refreshMapViewport) window.refreshMapViewport();})();"
+            ))
+
     # ── Theme ───────────────────────────────────────────────────
 
     def _restyle_topbar(self) -> None:
@@ -165,6 +174,7 @@ class MapPage(QWidget):
 
     def _load_map(self):
         """Создаёт QWebEngineView лениво — только здесь."""
+        self._page_loaded = False
         if self._webview is None:
             # Импорт ЗДЕСЬ, не на уровне модуля
             from PyQt6.QtWebEngineWidgets import QWebEngineView
@@ -214,6 +224,10 @@ class MapPage(QWidget):
             page = MapWebEnginePage(profile, self._webview)
             self._webview.setPage(page)
             
+            # Chromium selects the available graphics adapter and retains its driver blocklist.
+            self._webview.settings().setAttribute(QWebEngineSettings.WebAttribute.WebGLEnabled, True)
+            self._webview.settings().setAttribute(QWebEngineSettings.WebAttribute.Accelerated2dCanvasEnabled, True)
+
             # Настройки для работы с медиа
             settings = self._webview.settings()
             settings.setAttribute(
@@ -258,11 +272,15 @@ class MapPage(QWidget):
         self._webview.setUrl(url)
 
     def _on_load_finished(self, ok: bool):
+        self._page_loaded = bool(ok)
         if ok:
             self._placeholder.setVisible(False)
             self._webview.setVisible(True)
             self._reload_btn.setEnabled(True)
             self._open_btn.setEnabled(True)
+            QTimer.singleShot(250, lambda: self._webview.page().runJavaScript(
+                "if (window.refreshMapViewport) window.refreshMapViewport();"
+            ))
             
             # ЗАДАЧА 4 (P2): Если был отложенный фокус знака — выполняем его
             pending = getattr(self, "_pending_focus_sign_id", None)
@@ -310,6 +328,7 @@ class MapPage(QWidget):
 
     def _reload_map(self):
         if self._webview:
+            self._page_loaded = False
             self._webview.reload()
 
     def _open_in_browser(self):
@@ -337,11 +356,18 @@ class MapPage(QWidget):
         ЗАДАЧА 4 (P2): Просит веб-страницу карты выбрать и отцентрировать знак по id.
         Если страница ещё не загружена — откладывает вызов до loadFinished.
         """
-        if self._webview is None or not self._server_ready:
+        if self._webview is None or not self._server_ready or not self._page_loaded:
             self._pending_focus_sign_id = sign_id
             return
         self._pending_focus_sign_id = None
-        js = f'if (window.focusSignFromEditor) window.focusSignFromEditor("{sign_id}");'
+        self._invoke_focus(sign_id)
+
+    def _invoke_focus(self, sign_id: str) -> None:
+        if self._webview is None or not self._page_loaded:
+            return
+        import json
+        encoded_id = json.dumps(str(sign_id))
+        js = f'if (window.focusSignFromEditor) window.focusSignFromEditor({encoded_id});'
         self._webview.page().runJavaScript(js)
 
     def stop_server(self):

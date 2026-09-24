@@ -5,6 +5,11 @@ import sys
 import os
 import logging
 
+# Isolate raster preparation from Qt and model initialization.
+if __name__ == '__main__' and '--prepare-local-background' in sys.argv:
+    from server.background_worker import main as prepare_background
+    raise SystemExit(prepare_background(sys.argv[sys.argv.index('--prepare-local-background') + 1]))
+
 # Frozen applications must never run pip against a user Python installation.
 if getattr(sys, "frozen", False):
     os.environ["YOLO_AUTOINSTALL"] = "false"
@@ -440,7 +445,7 @@ def main():
                                 is_delta = dialog.update_info.is_delta
                                 delta_manifest_path = None
                                 if is_delta:
-                                    delta_manifest_path = dialog.temp_dir / "delta_manifest.json"
+                                    delta_manifest_path = dialog.temp_dir / f"delta-from-{APP_VERSION}.json"
                                 
                                 # Запускаем Updater и закрываем приложение
                                 updater.launch_updater_and_exit(

@@ -487,6 +487,10 @@ def launch_updater_and_exit(
     """
     try:
         # Определяем путь к Updater.exe
+        temp_dir, install_dir = Path(temp_dir).resolve(), Path(install_dir).resolve()
+        if is_delta:
+            from updater.transaction import resolve_delta_manifest
+            delta_manifest_path = resolve_delta_manifest(temp_dir, install_dir, delta_manifest_path)
         if getattr(sys, "frozen", False):
             # Frozen build: Updater.exe лежит рядом с Signer.exe
             updater_exe = Path(sys.executable).parent / "Updater.exe"

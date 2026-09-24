@@ -222,6 +222,7 @@ class DashboardPage(QWidget):
     # Сигналы для ButtonsHandler
     start_requested = pyqtSignal()
     multiple_requested = pyqtSignal()
+    existing_geojson_requested = pyqtSignal(str)
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -338,7 +339,7 @@ class DashboardPage(QWidget):
 
         # Extra layer (optional)
         self._pick_extra = FilePickerRow(
-            "Дополнительный слой (опционально)",
+            "Существующие знаки для сверки (опционально)",
             "Не выбран",
             mode="file",
             file_filter="GeoJSON / JSON (*.geojson *.json)",
@@ -349,6 +350,12 @@ class DashboardPage(QWidget):
         files_layout.addWidget(self._pick_gpx)
         files_layout.addWidget(self._pick_geojson)
         files_layout.addWidget(self._pick_extra)
+
+        self._open_existing_btn = QPushButton("Открыть обработанный GeoJSON")
+        self._open_existing_btn.setObjectName("BtnSecondary")
+        self._open_existing_btn.setMinimumHeight(36)
+        self._open_existing_btn.clicked.connect(self._open_existing_geojson)
+        files_layout.addWidget(self._open_existing_btn)
 
         root.addWidget(files_card)
         root.addSpacing(16)
@@ -454,6 +461,13 @@ class DashboardPage(QWidget):
         config.PATH_TO_GEOJSON = path
         self._check_ready()
 
+    def _open_existing_geojson(self):
+        path, _ = QFileDialog.getOpenFileName(
+            self, "Открыть обработанный GeoJSON", "", "GeoJSON (*.geojson *.json)"
+        )
+        if path:
+            self.existing_geojson_requested.emit(path.replace("/", "\\"))
+
     def _on_extra_changed(self, path: str):
         config.PATH_TO_EXTRA_LAYERS = path.replace("/", "\\")
 
@@ -530,6 +544,7 @@ class DashboardPage(QWidget):
         self._pick_video.setEnabled(not active)
         self._pick_gpx.setEnabled(not active)
         self._pick_geojson.setEnabled(not active)
+        self._open_existing_btn.setEnabled(not active)
         
         # Сбрасываем флаги при завершении обработки
         if not active:

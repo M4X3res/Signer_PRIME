@@ -48,6 +48,7 @@ class FinalHandler:
         # Применяем настройки дедупликации
         self.DEDUP_RADIUS_M = settings.dedup_radius_final_m
         self.DEDUP_AZIMUTH_DEG = settings.dedup_azimuth_deg
+        self._panorama_perpendicular = settings.panorama_perpendicular_azimuth
         
         # BLOCK N.1: Размер ячейки сетки не больше половины радиуса дедупликации
         # Гарантирует, что окно поиска соседних ячеек покрывает весь заявленный радиус
@@ -88,6 +89,13 @@ class FinalHandler:
             logger.error("[FinalHandler] ERROR: PATH_TO_GEOJSON пустой!")
             raise ValueError("PATH_TO_GEOJSON не установлен")
         
+        output_path = config.PATH_TO_GEOJSON
+        from core.inventory_comparison import load_inventory, compare_signs
+        inventory = load_inventory(config.PATH_TO_EXTRA_LAYERS, output_path) if config.PATH_TO_EXTRA_LAYERS else None
+        # Export mutates side/azimuth while snapping. Keep processing records
+        # intact so a repeated export starts from the original travel heading.
+        import copy
+        result_signs, turns = copy.deepcopy((result_signs, turns))
         total_signs = len(result_signs) + len(turns)
         
         try:
@@ -129,8 +137,18 @@ class FinalHandler:
 
         try:
             logger.info("[FinalHandler] Сохраняем GeoJSON...")
+            # Меняем только итоговый азимут, сохраняя прежнюю логику дедупликации.
+            for feature in features:
+                props = feature["properties"]
+                panorama_azimuth = props.pop("_panorama_azimuth", None)
+                if panorama_azimuth is not None:
+                    props["azimuth"] = str(panorama_azimuth)
+            if inventory is not None:
+                if progress_cb:
+                    progress_cb(total_signs, total_signs, 'Сверка с существующими знаками...')
+                features = compare_signs(inventory, features, self.DEDUP_RADIUS_M, self.DEDUP_AZIMUTH_DEG)
             collection = FeatureCollection(features)
-            atomic_write_json(config.PATH_TO_GEOJSON, collection)
+            atomic_write_json(output_path, collection)
             logger.info(f"[FinalHandler] Сохранено {len(features)} знаков → {config.PATH_TO_GEOJSON}")
         except Exception as e:
             logger.exception("[FinalHandler] ОШИБКА при сохранении файла")
@@ -460,6 +478,7 @@ class FinalHandler:
         
         # Мержим данные из остальных
         for sign in signs[1:]:
+            result.is_overhead_lane_sign |= sign.is_overhead_lane_sign
             result.pixel_x.extend(sign.pixel_x)
             result.pixel_y.extend(sign.pixel_y)
             result.widths.extend(sign.widths)
@@ -658,13 +677,15 @@ class FinalHandler:
         if effective_coefficient != coefficient:
             logger.debug(f"[FinalHandler] Офсет ограничен: {coefficient} → {effective_coefficient} (road_width={road_width_m:.1f}m)")
         
+        travel_azimuth = sign.azimuth
         # Используем результат batch snap
         if snap_result and snap_result.snapped:
             gpx_azimuth = sign.azimuth  # Сохраняем оригинальный
             sign.azimuth = snap_result.azimuth
             
             # BLOCK I.1.4: Пересчитываем is_left геометрически через OSM snap
-            if snap_result.side_relative_to_way is not None:
+            if (snap_result.side_relative_to_way is not None
+                    and not self._panorama_perpendicular):
                 # Определяем направление движения автомобиля относительно way
                 # Сравниваем GPX-азимут машины и азимут way
                 azimuth_diff = abs(gpx_azimuth - snap_result.azimuth)
@@ -712,6 +733,7 @@ class FinalHandler:
             logger.info(f"[FinalHandler] get_line error: {e}")
             return None
 
+        panorama_azimuth = self._panorama_azimuth(sign, travel_azimuth)
         # Корректируем азимут для боковых знаков
         if sign.best_side:
             sign.azimuth = (
@@ -721,7 +743,7 @@ class FinalHandler:
             )
 
         # Строим Feature
-        return self._build_feature(x1, y1, x2, y2, sign)
+        return self._build_feature(x1, y1, x2, y2, sign, panorama_azimuth)
     
     def _estimate_road_width(self, snap_result, settings) -> float:
         """
@@ -770,6 +792,9 @@ class FinalHandler:
         (напр. '4.1.1-4.1.2'). Разворачиваем в отдельные знаки.
         """
         import copy
+        # Сохраняем происхождение даже после замены YOLO-класса у составного знака.
+        # Координата машины относительно оси OSM не определяет сторону его полосы.
+        sign.is_overhead_lane_sign = True
         type_str = sign.best_cnn
         if "-" not in type_str:
             sign.is_left = False
@@ -835,6 +860,7 @@ class FinalHandler:
         self, sign: TrackedSign, coefficient: int
     ) -> Optional[Feature]:
         """Строит GeoJSON Feature для одного знака."""
+        travel_azimuth = sign.azimuth
         self._snap_sign_coords(sign)
         try:
             x1, y1, x2, y2 = self._calc.get_line(sign, coefficient)
@@ -842,6 +868,7 @@ class FinalHandler:
             logger.info(f"[FinalHandler] get_line error: {e}")
             return None
 
+        panorama_azimuth = self._panorama_azimuth(sign, travel_azimuth)
         # Корректируем азимут для боковых знаков
         if sign.best_side:
             sign.azimuth = (
@@ -850,7 +877,7 @@ class FinalHandler:
                 else (sign.azimuth + 90) % 360
             )
 
-        return self._build_feature(x1, y1, x2, y2, sign)
+        return self._build_feature(x1, y1, x2, y2, sign, panorama_azimuth)
 
     # ── Знаки на поворотах ────────────────────────────────────────
 
@@ -970,6 +997,7 @@ class FinalHandler:
                     continue
                 
                 # Вычисляем bearing для каждого наблюдения
+                gpx_azimuth = sign.azimuth
                 hits = []
                 for i in range(len(sign.bbox_centers_x)):
                     try:
@@ -1038,6 +1066,7 @@ class FinalHandler:
                     coefficient = 2
                     x1, y1, x2, y2 = self._calc.get_line(sign, coefficient)
                     
+                    panorama_azimuth = self._panorama_azimuth(sign, gpx_azimuth)
                     # Корректируем азимут для боковых знаков
                     if sign.best_side:
                         sign.azimuth = (
@@ -1046,7 +1075,7 @@ class FinalHandler:
                             else (sign.azimuth + 90) % 360
                         )
                     
-                    feat = self._build_feature(x1, y1, x2, y2, sign)
+                    feat = self._build_feature(x1, y1, x2, y2, sign, panorama_azimuth)
                     if feat:
                         features.append(feat)
                     
@@ -1132,7 +1161,9 @@ class FinalHandler:
                     x2, y2 = self._converter.coordinateConverter(
                         x2, y2, "epsg:32635", "epsg:4326"
                     )
-                    feat = self._build_feature(sign, x1, y1, x2, y2)
+                    feat = self._build_feature(
+                        x1, y1, x2, y2, sign, self._panorama_azimuth(sign, azimuth)
+                    )
                     if feat:
                         features.append(feat)
                     coefficient += 1
@@ -1164,7 +1195,7 @@ class FinalHandler:
         TIMEOUT_SECONDS = 60
         
         # Словарь: (cell_x, cell_y, type, side) → Feature
-        grid: dict[tuple, Feature] = {}
+        grid: dict[tuple, list[int]] = {}
         result: list[Feature] = []
 
         for idx, feat in enumerate(features):
@@ -1214,32 +1245,31 @@ class FinalHandler:
                     key = (cell_x + dx, cell_y + dy, ftype, side)
                     if key not in grid:
                         continue
-                    existing = grid[key]
-                    ep       = existing["properties"]
-
-                    # Проверяем расстояние точно
-                    dist = self._feature_distance_m(feat, existing)
-                    if dist > self.DEDUP_RADIUS_M:
-                        continue
-
-                    # Проверяем азимут
-                    az_diff = abs(
-                        float(p.get("azimuth", 0))
-                        - float(ep.get("azimuth", 0))
-                    )
-                    if az_diff > self.DEDUP_AZIMUTH_DEG:
-                        continue
-
-                    # Дубль — оставляем длиннее
-                    if self._feature_length(feat) > self._feature_length(existing):
-                        grid[key] = feat
-                    is_dup = True
-                    break
+                    for result_index in grid[key]:
+                        existing = result[result_index]
+                        ep = existing["properties"]
+                        dist = self._feature_distance_m(feat, existing)
+                        if dist > self.DEDUP_RADIUS_M:
+                            continue
+                        az_diff = abs((float(p.get("azimuth", 0)) - float(ep.get("azimuth", 0)) + 180) % 360 - 180)
+                        if az_diff > self.DEDUP_AZIMUTH_DEG:
+                            continue
+                        if self._feature_length(feat) > self._feature_length(existing):
+                            result[result_index] = feat
+                            # Move the index if the better observation has another cell.
+                            new_key = (cell_x, cell_y, ftype, side)
+                            if new_key != key:
+                                grid[key].remove(result_index)
+                                grid.setdefault(new_key, []).append(result_index)
+                        is_dup = True
+                        break
+                    if is_dup:
+                        break
                 if is_dup:
                     break
 
             if not is_dup:
-                grid[(cell_x, cell_y, ftype, side)] = feat
+                grid.setdefault((cell_x, cell_y, ftype, side), []).append(len(result))
                 result.append(feat)
 
         elapsed = __import__('time').time() - start_time
@@ -1270,11 +1300,23 @@ class FinalHandler:
 
     # ── Построение Feature ────────────────────────────────────────
 
+    def _panorama_azimuth(self, sign: TrackedSign, travel_azimuth: float) -> Optional[float]:
+        """Нормаль наружу от дороги; OSM way ориентируем по ходу машины."""
+        if not self._panorama_perpendicular:
+            return None
+        road_azimuth = sign.azimuth
+        difference = (road_azimuth - travel_azimuth + 180) % 360 - 180
+        if abs(difference) > 90:
+            road_azimuth += 180
+        sign.road_azimuth = road_azimuth % 360
+        return (road_azimuth + (-90 if sign.is_left else 90)) % 360
+
     def _build_feature(
         self,
         x1: float, y1: float,
         x2: float, y2: float,
         sign: TrackedSign,
+        panorama_azimuth: Optional[float] = None,
     ) -> Optional[Feature]:
         """
         Task C: Создаёт GeoJSON Feature из знака и координат линии.
@@ -1346,6 +1388,13 @@ class FinalHandler:
             "name_video":            video_name,
             "code":                  int(CODES_SIGNS[type_sign]),
         }
+
+        if panorama_azimuth is not None:
+            props["_panorama_azimuth"] = panorama_azimuth
+            props["azimuth_mode"] = "panorama-perpendicular"
+            props["road_azimuth"] = (panorama_azimuth + (90 if sign.is_left else -90)) % 360
+        if getattr(sign, "is_overhead_lane_sign", False):
+            props["overhead_lane"] = True
 
         if type_sign in TYPE_SIGNS_WITH_TEXT:
             props["MVALUE"] = text

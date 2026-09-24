@@ -6,7 +6,7 @@ import zipfile
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
-from updater.transaction import digest, inventory
+from updater.transaction import digest, inventory, FULL_UPDATE_ONLY_VERSIONS, REQUIRED_205_BASES
 
 
 MAX_DELTA_BYTES = 1_900_000_000
@@ -21,6 +21,8 @@ def build(current, output, bases, previous_inventories=None):
     previous.update({
         json.loads((base/'version.json').read_text(encoding='utf-8-sig'))['version']: inventory(base)
         for base in bases})
+    if version == '2.0.5' and not REQUIRED_205_BASES.issubset(previous):
+        raise ValueError('Release 2.0.5 requires preserved inventories for 2.0.3 and 2.0.4')
     manifest = {'version': version, 'files': target, 'previous_files': previous}
     (current/'manifest.json').write_text(json.dumps({'version': version, 'files': target}, indent=2), encoding='utf-8')
     (output/'manifest.json').write_text(json.dumps(manifest, indent=2), encoding='utf-8')
@@ -31,6 +33,13 @@ def build(current, output, bases, previous_inventories=None):
         import re
         if not re.fullmatch(r'[0-9]+(?:\.[0-9]+)*', old_version):
             raise ValueError('Invalid source version')
+        if old_version in FULL_UPDATE_ONLY_VERSIONS:
+            # Keep its inventory in manifest.previous_files for apply_full,
+            # but remove stale delta assets that would trigger the broken client path.
+            for suffix in ('.zip', '.json'):
+                (output / f'delta-from-{old_version}{suffix}').unlink(missing_ok=True)
+            print(f'{old_version}: full automatic update required by legacy launcher')
+            continue
         source = inventory(base)
         changed = sorted(n for n,h in target.items() if source.get(n) != h)
         removed = sorted(set(source)-set(target))

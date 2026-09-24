@@ -26,6 +26,55 @@ logger = logging.getLogger(__name__)
 REQUEST_TIMEOUT = 8.0  # секунды (как в промпте)
 
 
+def _response_data(response):
+    """Decode only JSON objects; gateway pages are not license rejections."""
+    try:
+        data = response.json()
+    except ValueError:
+        return None
+    if isinstance(data, dict) and isinstance(data.get('detail'), dict):
+        data = data['detail']
+    return data if isinstance(data, dict) else None
+
+
+def _response_error(response):
+    status = response.status_code
+    logger.warning('License server returned an unusable response: HTTP %s', status)
+    if status in (401, 403):
+        return LicenseResponse(False, error_code='INVALID_RESPONSE', error_message=(
+            f'Доступ к серверу проверки лицензий отклонён (HTTP {status}). '
+            'Сервер не вернул результат проверки лицензии. '
+            'Проверьте сеть/VPN и адрес сервера в настройках приложения. '
+            'Сохранённая лицензия не удалена.'))
+    if status == 429:
+        code = 'RATE_LIMITED'
+    elif status == 408 or status >= 500:
+        code = 'SERVER_ERROR'
+    else:
+        code = 'INVALID_RESPONSE'
+    return LicenseResponse(False, error_code=code, error_message=(
+        f'Сервер лицензий вернул некорректный или временно недоступный ответ (HTTP {status}). '
+        'Повторите проверку позже. Сохранённая лицензия не удалена.'))
+
+
+def _parse_response(response, *, deactivate=False):
+    try:
+        data = _response_data(response)
+        if response.status_code in (408, 429) or response.status_code >= 500:
+            return _response_error(response)
+        if response.status_code == 200:
+            if data and (data.get('success') is True if deactivate else
+                         isinstance(data.get('token'), str) and bool(data['token'].strip())):
+                return LicenseResponse(True, token=data.get('token'), plan=data.get('plan'),
+                                       current_period_end=data.get('current_period_end'))
+        elif data and isinstance(data.get('error_code'), str) and data['error_code']:
+            return LicenseResponse(False, error_code=data['error_code'],
+                                   error_message=str(data.get('error', 'Ошибка проверки лицензии')))
+        return _response_error(response)
+    finally:
+        response.close()
+
+
 @dataclass
 class LicenseResponse:
     """Ответ от сервера лицензий."""
@@ -47,7 +96,7 @@ class LicenseClient:
     def _post_with_retry(self, url: str, payload: dict) -> 'requests.Response':
         """Retry connection failures and transient HTTP errors within one budget.
 
-        Definite license rejections (4xx other than 408/429) are not retried.
+        Structured license rejections are not retried; gateway pages are.
         The same policy applies at startup and to checks during work.
         """
         import time
@@ -65,9 +114,15 @@ class LicenseClient:
                     timeout=REQUEST_TIMEOUT,
                     headers={"Content-Type": "application/json"}
                 )
-                if response.status_code in (408, 429) or 500 <= response.status_code < 600:
+                data = _response_data(response)
+                invalid_error = response.status_code != 200 and not (
+                    data and isinstance(data.get('error_code'), str) and data['error_code'])
+                invalid_success = response.status_code == 200 and not (
+                    data and (data.get('success') is True if url.endswith('/deactivate') else
+                              isinstance(data.get('token'), str) and bool(data['token'].strip())))
+                if invalid_success or invalid_error or response.status_code in (408, 429) or 500 <= response.status_code < 600:
                     if attempt < attempts - 1:
-                        logger.warning('License server HTTP %s; retry %s/%s',
+                        logger.warning('Unusable license server response (HTTP %s); retry %s/%s',
                                        response.status_code, attempt + 2, attempts)
                         response.close()
                         time.sleep(backoff)
@@ -128,32 +183,12 @@ class LicenseClient:
                 "app_version": app_version
             }
             
-            logger.info(f"[LicenseClient] Activating license: {license_key[:10]}...")
+            logger.info("[LicenseClient] Activating license...")
             
             # ЗАДАЧА 2: используем _post_with_retry вместо прямого requests.post
             response = self._post_with_retry(url, payload)
             
-            data = response.json()
-            # FastAPI HTTPException wraps structured errors in detail.
-            if isinstance(data, dict) and isinstance(data.get("detail"), dict):
-                data = data["detail"]
-            
-            if response.status_code == 200:
-                return LicenseResponse(
-                    success=True,
-                    token=data.get("token"),
-                    plan=data.get("plan"),
-                    current_period_end=data.get("current_period_end")
-                )
-            else:
-                error_code = data.get("error_code", "UNKNOWN")
-                error_message = data.get("error", "Unknown error")
-                logger.warning(f"[LicenseClient] Activation failed: {error_code} - {error_message}")
-                return LicenseResponse(
-                    success=False,
-                    error_code=error_code,
-                    error_message=error_message
-                )
+            return _parse_response(response)
         
         except requests.exceptions.Timeout:
             logger.warning("[LicenseClient] Activation request timeout (after retries)")
@@ -206,27 +241,7 @@ class LicenseClient:
             # ЗАДАЧА 2: используем _post_with_retry
             response = self._post_with_retry(url, payload)
             
-            data = response.json()
-            # FastAPI HTTPException wraps structured errors in detail.
-            if isinstance(data, dict) and isinstance(data.get("detail"), dict):
-                data = data["detail"]
-            
-            if response.status_code == 200:
-                return LicenseResponse(
-                    success=True,
-                    token=data.get("token"),
-                    plan=data.get("plan"),
-                    current_period_end=data.get("current_period_end")
-                )
-            else:
-                error_code = data.get("error_code", "UNKNOWN")
-                error_message = data.get("error", "Unknown error")
-                logger.warning(f"[LicenseClient] Refresh failed: {error_code} - {error_message}")
-                return LicenseResponse(
-                    success=False,
-                    error_code=error_code,
-                    error_message=error_message
-                )
+            return _parse_response(response)
         
         except requests.exceptions.Timeout:
             logger.warning("[LicenseClient] Refresh request timeout (after retries)")
@@ -277,23 +292,14 @@ class LicenseClient:
             # ЗАДАЧА 2: используем _post_with_retry
             response = self._post_with_retry(url, payload)
             
-            data = response.json()
-            # FastAPI HTTPException wraps structured errors in detail.
-            if isinstance(data, dict) and isinstance(data.get("detail"), dict):
-                data = data["detail"]
-            
-            if response.status_code == 200:
-                return LicenseResponse(success=True)
-            else:
-                error_code = data.get("error_code", "UNKNOWN")
-                error_message = data.get("error", "Unknown error")
-                logger.warning(f"[LicenseClient] Deactivation failed: {error_code} - {error_message}")
-                return LicenseResponse(
-                    success=False,
-                    error_code=error_code,
-                    error_message=error_message
-                )
+            return _parse_response(response, deactivate=True)
         
+        except requests.exceptions.Timeout:
+            return LicenseResponse(False, error_code='TIMEOUT',
+                                   error_message='Сервер лицензий не ответил вовремя.')
+        except requests.exceptions.ConnectionError:
+            return LicenseResponse(False, error_code='CONNECTION_ERROR',
+                                   error_message='Не удалось подключиться к серверу лицензий.')
         except Exception as e:
             logger.error(f"[LicenseClient] Deactivation error: {e}", exc_info=True)
             return LicenseResponse(

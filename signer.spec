@@ -32,6 +32,7 @@ from PyInstaller.utils.hooks import (
     collect_data_files,
     collect_dynamic_libs,
     copy_metadata,
+    collect_delvewheel_libs_directory,
 )
 
 block_cipher = None
@@ -392,6 +393,11 @@ hiddenimports += collect_submodules('PyQt6')
 hiddenimports += collect_submodules('joblib')
 hiddenimports += collect_submodules('shapely')
 hiddenimports += collect_submodules('pyproj')
+hiddenimports += ['shapefile']
+hiddenimports += collect_submodules('rasterio')
+datas += collect_data_files('rasterio')
+binaries += collect_dynamic_libs('rasterio')
+datas, binaries = collect_delvewheel_libs_directory('rasterio', datas=datas, binaries=binaries)
 hiddenimports += collect_submodules('geopy')
 hiddenimports += collect_submodules('gpxpy')
 hiddenimports += collect_submodules('geojson')

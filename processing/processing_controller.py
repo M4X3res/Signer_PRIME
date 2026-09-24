@@ -86,6 +86,15 @@ class ProcessingController(QObject):
     def start(self) -> None:
         if self._running:
             return
+
+        if config.PATH_TO_EXTRA_LAYERS:
+            try:
+                from core.inventory_comparison import load_inventory
+                load_inventory(config.PATH_TO_EXTRA_LAYERS, config.PATH_TO_GEOJSON)
+            except (OSError, ValueError, TypeError) as exc:
+                self.error.emit('Не удалось открыть существующие знаки: ' + str(exc))
+                self.finished.emit()
+                return
         
         self._reset_config()
         
@@ -453,6 +462,7 @@ class ProcessingController(QObject):
                     'PATH_TO_VIDEO': config.PATH_TO_VIDEO,
                     'PATH_TO_GPX': config.PATH_TO_GPX,
                     'PATH_TO_GEOJSON': config.PATH_TO_GEOJSON,
+                    'PATH_TO_EXTRA_LAYERS': config.PATH_TO_EXTRA_LAYERS,
                 },
                 'signs': {
                     'result_signs': result_signs,
@@ -503,6 +513,7 @@ class ProcessingController(QObject):
                     'INDEX_OF_GPS', 'FRAME_STEP', 'VIDEOS', 'PATH_TO_VIDEO',
                     'PATH_TO_GPX', 'PATH_TO_GEOJSON')
             restored = {key: cfg[key] for key in keys}
+            restored['PATH_TO_EXTRA_LAYERS'] = cfg.get('PATH_TO_EXTRA_LAYERS', '')
             for key in keys[:5]:
                 if type(restored[key]) is not int or restored[key] < 0:
                     raise ValueError('Invalid checkpoint index: ' + key)

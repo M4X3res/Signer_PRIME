@@ -193,7 +193,8 @@ class OnlineLicenseTests(unittest.TestCase):
         client = LicenseClient.__new__(LicenseClient)
         client.settings = types.SimpleNamespace(license_connect_retry_attempts=3,
                                                license_connect_retry_backoff_sec=0)
-        with patch('licensing.license_client.requests.post', return_value=Mock(status_code=403)) as post:
+        with patch('licensing.license_client.requests.post', return_value=Mock(status_code=403,
+                json=lambda: {'error_code': 'LICENSE_REVOKED', 'error': 'revoked'})) as post:
             self.assertEqual(client._post_with_retry('https://example.invalid', {}).status_code, 403)
             post.assert_called_once()
 

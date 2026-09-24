@@ -62,6 +62,7 @@ class LicenseManager(QObject):
         self._access_status = LicenseStatus.NOT_ACTIVATED
         self._verify_callbacks = []
         self._verify_running = False
+        self._closing = threading.Event()
         self.client = LicenseClient()
         self.token_path = self._get_token_path()
         self.fingerprint = get_device_fingerprint()
@@ -157,6 +158,8 @@ class LicenseManager(QObject):
                 time.monotonic() < self._online_until)
 
     def _record_access(self, status):
+        if self._closing.is_set():
+            return
         self._access_status = status
         if status != LicenseStatus.VALID:
             self._online_until = 0.0
@@ -229,6 +232,8 @@ class LicenseManager(QObject):
         Args:
             on_result: callback(status: LicenseStatus, error_msg: Optional[str])
         """
+        if self._closing.is_set():
+            return
         self._verify_callbacks.append(on_result)
         if self._verify_running:
             return
@@ -244,6 +249,8 @@ class LicenseManager(QObject):
 
     @pyqtSlot(object, object)
     def _deliver_verification(self, status, error):
+        if self._closing.is_set():
+            return
         self._verify_running = False
         callbacks, self._verify_callbacks = self._verify_callbacks, []
         for callback in callbacks:
@@ -251,6 +258,11 @@ class LicenseManager(QObject):
                 callback(status, error)
             except Exception:
                 logger.exception('License verification callback failed')
+
+    def shutdown(self):
+        """Detach UI callbacks; pending HTTP checks must not hold up application exit."""
+        self._closing.set()
+        self._verify_callbacks.clear()
 
     @pyqtSlot()
     def _release_verify_worker(self):
@@ -480,7 +492,7 @@ class LicenseManager(QObject):
                 return LicenseStatus.REVOKED, error_msg
         
         # Сетевые ошибки → NETWORK_ERROR (блокирует запуск)
-        if error_code in ("TIMEOUT", "CONNECTION_ERROR"):
+        if error_code in ("TIMEOUT", "CONNECTION_ERROR", "SERVER_ERROR", "INVALID_RESPONSE", "RATE_LIMITED"):
             logger.error(f"[LicenseManager] Network error during startup verification: {error_msg}")
             return LicenseStatus.NETWORK_ERROR, error_msg
         
@@ -523,20 +535,34 @@ class RefreshWorker(QThread):
             self.finished.emit(False)
 
 
-class VerifyAccessWorker(QThread):
+class VerifyAccessWorker(QObject):
     """Воркер для проверки доступа при старте (ЗАДАЧА 2)."""
     
     result = pyqtSignal(object, object)
+    finished = pyqtSignal()
     
     def __init__(self, manager: LicenseManager):
         super().__init__()
         self.manager = manager
+        self._thread = threading.Thread(target=self.run, name='license-check', daemon=True)
+
+    def start(self):
+        self._thread.start()
+
+    def wait(self, milliseconds=3000):
+        self._thread.join(milliseconds / 1000)
+        return not self._thread.is_alive()
     
     def run(self):
         """Выполняется в отдельном потоке."""
         try:
             status, error_msg = self.manager._verify_access_internal()
-            self.result.emit(status, error_msg)
+            if not self.manager._closing.is_set():
+                self.result.emit(status, error_msg)
         except Exception as e:
             logger.error(f"[VerifyAccessWorker] Error: {e}", exc_info=True)
-            self.result.emit(LicenseStatus.NETWORK_ERROR, str(e))
+            if not self.manager._closing.is_set():
+                self.result.emit(LicenseStatus.NETWORK_ERROR, str(e))
+        finally:
+            if not self.manager._closing.is_set():
+                self.finished.emit()

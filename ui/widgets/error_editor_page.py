@@ -14,6 +14,7 @@ from licensing.access import online_action
 from app.json_store import atomic_write_json, serialized_edit
 
 import json
+import logging
 import os
 import re
 from typing import Optional
@@ -22,15 +23,15 @@ import cv2
 import geojson
 from PyQt6.QtCore import (
     Qt, pyqtSignal, QTimer, QSortFilterProxyModel,
-    QAbstractListModel, QModelIndex
+    QAbstractListModel, QModelIndex, QSize
 )
-from PyQt6.QtGui import QColor, QPainter, QPen, QFont
+from PyQt6.QtGui import QColor, QPainter, QPen, QFont, QIcon
 from PyQt6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel,
     QPushButton, QListView, QSplitter, QFrame,
     QLineEdit, QComboBox, QSizePolicy, QScrollArea,
     QAbstractItemView, QStyledItemDelegate, QStyleOptionViewItem,
-    QApplication, QCheckBox
+    QApplication, QCheckBox, QMessageBox
 )
 
 from configs import config
@@ -57,7 +58,9 @@ class SignRecord:
         self.time: str  = self.props.get("time", "")
         self.video: str = self.props.get("name_video", "")
         self.text: str  = self.props.get("SEM250", "")
-        self.is_left    = str(self.props.get("left", "")).lower() == "true"
+        # side contains classifier observations, left is the road side.
+        from core.sign_orientation import is_left
+        self.is_left = is_left(self.props)
 
         # Координаты кадра (нужны для расчёта уверенности)
         self._abs_frames: list[int] = self._parse_int_list(
@@ -308,6 +311,8 @@ class SignListModel(QAbstractListModel):
             )
             print(f"[SignListModel] Загружено {len(self._records)} записей (criteria=confidence, ascending={ascending})")
         
+        # Possible inventory duplicates stay visible at the head of the review list.
+        self._records.sort(key=lambda record: record.props.get('comparison_status') != 'review')
         if self._records:
             if criteria == "chrono":
                 # Показываем диапазон времени
@@ -481,6 +486,7 @@ class SignItemDelegate(QStyledItemDelegate):
 class ErrorEditorPage(QWidget):
     jump_to_frame = pyqtSignal(int, int)  # video_idx, frame_in_video
     show_on_map = pyqtSignal(str)  # ЗАДАЧА 4 (P2): sign_id
+    geojson_loaded = pyqtSignal(str)
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -600,7 +606,7 @@ class ErrorEditorPage(QWidget):
         self._btn_save.setFixedHeight(36)
         self._btn_save.setCursor(Qt.CursorShape.PointingHandCursor)
         self._btn_save.setEnabled(False)
-        self._btn_save.clicked.connect(self.save_geojson)
+        self._btn_save.clicked.connect(self._on_save_clicked)
 
         lay.addWidget(self._btn_load)
         lay.addWidget(self._btn_save)
@@ -964,6 +970,10 @@ class ErrorEditorPage(QWidget):
         edit_col.addWidget(self._type_search)
 
         self._type_combo = QComboBox()
+        self._type_combo.setIconSize(QSize(36, 36))
+        self._type_combo.setView(QListView())
+        self._type_combo.view().setIconSize(QSize(36, 36))
+        self._type_combo.view().setSpacing(3)
         self._type_combo.setMaxVisibleItems(10)
         self._type_combo.currentTextChanged.connect(self._on_type_selected)
         # ЗАДАЧА 1: Стилизация popup для корректного отображения темы
@@ -1062,6 +1072,10 @@ class ErrorEditorPage(QWidget):
 
     def load_geojson(self, path: str = "") -> None:
         """Загружает GeoJSON и строит список знаков."""
+        owner = self.window()
+        controller = getattr(owner, '_controller', None)
+        if getattr(owner, '_saving_results', False) or (controller and controller.is_running):
+            return
         try:
             target = path or config.PATH_TO_GEOJSON
             print(f"[ErrorEditor] load_geojson вызван, target = {target}")
@@ -1073,9 +1087,16 @@ class ErrorEditorPage(QWidget):
                 print(f"[ErrorEditor] Файл не существует: {target}")
                 return
 
+            # Explicitly opened files must become the active data source for
+            # the map as well as for this editor.
+
             print(f"[ErrorEditor] Загружаем GeoJSON из {target}")
-            with open(target, encoding="utf-8") as f:
+            with open(target, encoding="utf-8-sig") as f:
                 data = geojson.load(f)
+
+            if data.get("type") != "FeatureCollection" or not isinstance(data.get("features"), list):
+                raise ValueError("Ожидается GeoJSON FeatureCollection")
+            config.PATH_TO_GEOJSON = os.path.normpath(target)
 
             features = data.get("features", [])
             print(f"[ErrorEditor] Найдено {len(features)} features в GeoJSON")
@@ -1097,6 +1118,7 @@ class ErrorEditorPage(QWidget):
             self._populate_type_combo("")
             self._update_counters()
             self._btn_save.setEnabled(True)
+            self.geojson_loaded.emit(config.PATH_TO_GEOJSON)
 
             # Выбрать первый элемент
             if records:
@@ -1109,6 +1131,19 @@ class ErrorEditorPage(QWidget):
             print(f"[ErrorEditor] КРИТИЧЕСКАЯ ОШИБКА в load_geojson: {e}")
             import traceback
             traceback.print_exc()
+
+    def _on_save_clicked(self, _checked: bool = False) -> None:
+        # Do not forward clicked(bool) through the variadic license/locking wrappers.
+        try:
+            self.save_geojson()
+        except Exception as error:
+            logging.getLogger(__name__).exception("Не удалось сохранить изменения редактора")
+            QMessageBox.critical(
+                self, "Ошибка сохранения",
+                "Не удалось завершить сохранение. Изменения остаются в редакторе.\n"
+                "Проверьте доступ к файлу и повторите попытку.\n\n"
+                f"{error}",
+            )
 
     @online_action
     @serialized_edit
@@ -1135,6 +1170,9 @@ class ErrorEditorPage(QWidget):
                 continue   # пропускаем удалённые
             if rec.reviewed:
                 feat["properties"]["editor_reviewed"] = True
+                if feat["properties"].get("comparison_status") == "review":
+                    feat["properties"]["comparison_status"] = "reviewed"
+                    feat["properties"].pop("comparison_candidates", None)
             if rec.modified:
                 feat["properties"]["type"] = rec.new_type
                 if rec.new_type in CODES_SIGNS:
@@ -1204,6 +1242,11 @@ class ErrorEditorPage(QWidget):
         
         self._lbl_type.setText(rec.new_type)
         self._lbl_name.setText(NAMES_SIGNS_BY_TYPE.get(rec.new_type, "—"))
+        comparison = rec.props.get('comparison_status')
+        if comparison == 'review':
+            self._lbl_name.setText(self._lbl_name.text() + '\n⚠ Требуется сверка с существующим знаком: возможный дубль')
+        elif comparison == 'confirmed':
+            self._lbl_name.setText(self._lbl_name.text() + '\nПодтверждён новым проездом')
         self._lbl_time.setText(f"{rec.time}  ·  {rec.video}")
         self._lbl_side.setText("Левая" if rec.is_left else "Правая")
 
@@ -1394,7 +1437,8 @@ class ErrorEditorPage(QWidget):
             key=lambda x: x[0],
         )
         for code, label in items:
-            self._type_combo.addItem(label, userData=code)
+            icon = QIcon(resource_path(f"sings/V{code}.png"))
+            self._type_combo.addItem(icon, label, userData=code)
 
         # Установить текущий
         for i in range(self._type_combo.count()):
@@ -1436,6 +1480,9 @@ class ErrorEditorPage(QWidget):
         rec.new_text = self._text_input.text() if code in TYPE_SIGNS_WITH_TEXT else ""
         rec.modified = (rec.new_type != rec.type or rec.new_text != rec.text)
         rec.reviewed = True
+        if rec.props.get('comparison_status') == 'review':
+            rec.props['comparison_status'] = 'reviewed'
+            rec.props.pop('comparison_candidates', None)
         self._model.update_record(self._current_row)
 
         # Обновляем мета

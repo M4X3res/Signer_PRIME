@@ -29,6 +29,13 @@ from app.utils import resource_path
 
 logger = logging.getLogger(__name__)
 
+
+def _map_azimuth(props: dict):
+    from configs.settings import get_app_settings
+    from core.sign_orientation import display_azimuth
+    return display_azimuth(props, get_app_settings().panorama_perpendicular_azimuth)
+
+
 # ── Константы кэша видео-клипов ────────────────────────────────────────────
 CLIP_CACHE_DIRNAME = ".signer_clip_cache"
 
@@ -99,6 +106,8 @@ SIGNS_TEXT_DIR = resource_path("sings_text")
 
 # ── Приложение ─────────────────────────────────────────────────────────────
 app = Flask(__name__, template_folder=TEMPLATES_DIR, static_folder=STATIC_DIR)
+from server.local_background_routes import blueprint as local_background_blueprint
+app.register_blueprint(local_background_blueprint)
 
 
 @app.before_request
@@ -179,7 +188,7 @@ def notify_data_ready():
 # ── Утилиты ────────────────────────────────────────────────────────────────
 
 def _load_geojson() -> dict:
-    with open(config.PATH_TO_GEOJSON, encoding="utf-8") as f:
+    with open(config.PATH_TO_GEOJSON, encoding="utf-8-sig") as f:
         return geojson.load(f)
 
 
@@ -349,6 +358,7 @@ def api_map_config():
         
         # BLOCK SETTINGS-1: Ограничение max_zoom до 17 (для пользователей со старыми сохранёнными значениями)
         return jsonify({
+            "local_background_enabled": settings.map_local_background_enabled,
             "tile_url": tile_url,
             "attribution": settings.map_tile_attribution,
             "max_zoom": min(settings.map_tile_max_zoom, 17),
@@ -452,146 +462,37 @@ def api_vector_tile_proxy(z, x, y):
 
 @app.route("/api/vector_tile_style")
 def api_vector_tile_style():
-    """
-    Прокси для загрузки стилей векторных тайлов.
-    
-    Загружает полный Mapbox GL Style spec от провайдера (ArcGIS/Esri и т.д.)
-    и подменяет только sources.tiles на наш локальный прокси.
-    
-    MapLibre GL на клиенте получает полный style.json со всеми layers, paint,
-    sprite, glyphs — всё как есть, без ручного парсинга.
-    """
+    from configs.settings import get_app_settings
+    from server.vector_styles import load_style
+    settings = get_app_settings()
+    if settings.map_tile_type != "vector":
+        return jsonify(error="Векторная подложка не выбрана"), 400
     try:
-        from configs.settings import get_app_settings
-        import requests as req
-        
-        settings = get_app_settings()
-        
-        # Проверяем, что векторные тайлы настроены
-        if settings.map_tile_type != "vector":
-            logger.warning(f"[vector_tile_style] Called but map_tile_type={settings.map_tile_type}")
-            return jsonify({"error": "vector tiles not configured"}), 400
-        
-        tile_url = settings.map_tile_url
-        logger.info(f"[vector_tile_style] Original tile_url: {_mask_token_for_log(tile_url)}")
-        
-        # Извлекаем query string (токен)
-        query_string = ''
-        if '?' in tile_url:
-            query_string = '?' + tile_url.split('?', 1)[1]
-        
-        # Определяем возможные пути к style.json на основе tile URL
-        style_paths = []
-        
-        # Вариант 1: Esri/ArcGIS - убираем /VectorTileServer/tile/ → /resources/styles
-        if '/VectorTileServer/tile/' in tile_url:
-            base_url = tile_url.split('/VectorTileServer/tile/')[0]
-            logger.info(f"[vector_tile_style] Detected ArcGIS VectorTileServer")
-            style_paths.append(f"{base_url}/resources/styles{query_string}")
-            style_paths.append(f"{base_url}/VectorTileServer/resources/styles{query_string}")
-        
-        # Вариант 2: Общий случай /tile/{z}/{x}/{y}
-        elif '/tile/' in tile_url:
-            base_url = tile_url.split('/tile/')[0]
-            logger.info(f"[vector_tile_style] Generic tile server detected")
-            style_paths.append(f"{base_url}/resources/styles{query_string}")
-            style_paths.append(f"{base_url}/styles/root.json{query_string}")
-            style_paths.append(f"{base_url}/style.json{query_string}")
-        else:
-            logger.error(f"[vector_tile_style] Cannot extract base URL from tile_url")
-            return jsonify({"error": "Cannot determine style URL"}), 400
-        
-        logger.info(f"[vector_tile_style] Will try {len(style_paths)} style endpoints")
-        
-        # Headers для запросов
-        headers = {
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
-            'Accept': 'application/json, */*'
-        }
-        
-        # Пробуем загрузить стили по очереди
-        for idx, style_url in enumerate(style_paths, 1):
-            masked = _mask_token_for_log(style_url)
-            
-            try:
-                logger.info(f"[vector_tile_style] [{idx}/{len(style_paths)}] Trying: {masked}")
-                resp = req.get(style_url, timeout=10, headers=headers)
-                
-                if resp.status_code != 200:
-                    logger.info(f"[vector_tile_style] HTTP {resp.status_code} at {masked}")
-                    continue
-                
-                # Парсим JSON
-                data = resp.json()
-                
-                # Валидация базовой структуры
-                if not isinstance(data, dict):
-                    logger.warning(f"[vector_tile_style] Response is not a dict at {masked}")
-                    continue
-                
-                has_layers = 'layers' in data
-                has_sources = 'sources' in data
-                
-                if not (has_layers or has_sources or len(data) > 0):
-                    logger.warning(f"[vector_tile_style] Empty or invalid style at {masked}")
-                    continue
-                
-                logger.info(f"[vector_tile_style] ✅ Style loaded from {masked}")
-                logger.info(f"[vector_tile_style] Style keys: {list(data.keys())}")
-                
-                # КЛЮЧЕВОЕ ИЗМЕНЕНИЕ: подменяем только sources.tiles на наш прокси
-                # Всё остальное (layers, paint, sprite, glyphs) остаётся как есть
-                if 'sources' in data:
-                    for source_id, source in data['sources'].items():
-                        if source.get('type') == 'vector':
-                            # Сохраняем все параметры источника, заменяя только tiles/url
-                            logger.info(f"[vector_tile_style] Patching source '{source_id}' to use proxy")
-                            
-                            data['sources'][source_id] = {
-                                'type': 'vector',
-                                'tiles': [f'{request.host_url.rstrip("/")}/api/vector_tile_proxy/{{z}}/{{x}}/{{y}}'],
-                                'minzoom': source.get('minzoom', 0),
-                                'maxzoom': source.get('maxzoom', 22),
-                                'bounds': source.get('bounds'),
-                                'scheme': source.get('scheme', 'xyz'),
-                            }
-                
-                # sprite и glyphs оставляем как есть — это URL к иконкам/шрифтам,
-                # обычно они доступны напрямую (не блокируются CORS для <img>)
-                # Если нужно, можно добавить прокси позже
-                
-                logger.info(f"[vector_tile_style] Returning patched style.json")
-                return Response(
-                    json.dumps(data),
-                    mimetype="application/json",
-                    headers={
-                        "Access-Control-Allow-Origin": "*",
-                        "Cache-Control": "public, max-age=3600",
-                    }
-                )
-                
-            except req.exceptions.Timeout:
-                logger.warning(f"[vector_tile_style] Timeout at {masked}")
-                continue
-            except req.exceptions.RequestException as e:
-                logger.warning(f"[vector_tile_style] Request failed for {masked}: {e}")
-                continue
-            except Exception as e:
-                logger.warning(f"[vector_tile_style] Failed to process {masked}: {e}")
-                continue
-        
-        # Не нашли стили ни по одному пути
-        logger.warning(f"[vector_tile_style] ⚠️ Styles not found at any known endpoint")
-        return jsonify({
-            "error": "Styles not found at any known endpoint",
-            "tried_count": len(style_paths)
-        }), 404
-    
-    except Exception as e:
-        logger.error(f"[vector_tile_style] Unexpected error: {e}")
-        import traceback
-        traceback.print_exc()
-        return jsonify({"error": str(e)}), 502
+        return jsonify(load_style(
+            settings.map_tile_url, settings.map_vector_style_url,
+            request.host_url.rstrip('/') + '/api/vector_resource/',
+            settings.map_tile_use_proxy,
+            native_max_zoom=settings.map_tile_max_zoom,
+        ))
+    except ValueError as exc:
+        return jsonify(error=str(exc)), 502
+
+
+@app.route("/api/vector_resource/<ident>/<filename>")
+def api_vector_resource(ident, filename):
+    import requests
+    from server.vector_styles import resource_url
+    try:
+        url = resource_url(ident, filename, request.args)
+    except ValueError:
+        return jsonify(error="Unknown style resource"), 404
+    try:
+        upstream = requests.get(url, timeout=20)
+        upstream.raise_for_status()
+        return Response(upstream.content, content_type=upstream.headers.get('Content-Type', 'application/octet-stream'),
+                        headers={'Cache-Control': 'private, max-age=3600'})
+    except requests.RequestException:
+        return jsonify(error="Не удалось загрузить ресурс векторной карты"), 502
 
 
 @app.route("/api/signs")
@@ -654,9 +555,10 @@ def api_signs():
                 "id":          props.get("id", str(uuid.uuid4())),
                 "type":        props.get("type", ""),
                 "code":        props.get("code", ""),
-                "azimuth":     props.get("azimuth", 0),
+                "azimuth":     _map_azimuth(props),
                 "description": props.get("SEM250", ""),
                 "side":        side_bool,  # Теперь bool
+                "left":        str(props.get("left", "False")).strip().lower() in ("true", "1", "yes"),
                 "time":        props.get("time", ""),
                 "name_video":  props.get("name_video", ""),
                 "abs_frame":   props.get("absolute_frame_numbers", ""),
@@ -698,6 +600,10 @@ def api_sign_detail(sign_id: str):
             feat_id = feat.get("properties", {}).get("id")
             if feat_id == sign_id:
                 logger.info(f"[API /api/sign/{sign_id}] Знак найден")
+                # Keep the detail panel consistent with marker rendering.
+                feat = dict(feat)
+                feat["properties"] = dict(feat.get("properties", {}))
+                feat["properties"]["azimuth"] = _map_azimuth(feat["properties"])
                 return jsonify(feat)
         
         logger.warning(f"[API /api/sign/{sign_id}] Знак не найден в GeoJSON")
@@ -829,6 +735,18 @@ def api_sign_update(sign_id: str):
     if not os.path.exists(config.PATH_TO_GEOJSON):
         return jsonify({"error": "no geojson"}), 404
 
+    import math
+    try:
+        for field in ('lat', 'lon', 'azimuth'):
+            if field in body and not math.isfinite(float(body[field])):
+                raise ValueError()
+        if ('lat' in body) != ('lon' in body):
+            raise ValueError()
+        if 'lat' in body and not (-90 <= float(body['lat']) <= 90 and -180 <= float(body['lon']) <= 180):
+            raise ValueError()
+    except (TypeError, ValueError, OverflowError):
+        return jsonify(error='Некорректные координаты или азимут'), 400
+
     data    = _load_geojson()
     updated = False
     for feat in data.get("features", []):
@@ -852,6 +770,11 @@ def api_sign_update(sign_id: str):
                 new_lat = float(body["lat"])
                 new_lon = float(body["lon"])
                 
+                if feat["geometry"]["type"] == "Point":
+                    feat["geometry"]["coordinates"][:2] = [new_lon, new_lat]
+                    if "azimuth" in body:
+                        feat["properties"]["azimuth"] = float(body["azimuth"]) % 360
+
                 # Обновляем геометрию (LineString с двумя точками)
                 if feat["geometry"]["type"] == "LineString":
                     coords = feat["geometry"]["coordinates"]
@@ -862,7 +785,7 @@ def api_sign_update(sign_id: str):
                         
                         # Если есть азимут, пересчитываем вторую точку
                         if "azimuth" in body or "azimuth" in feat["properties"]:
-                            azimuth = float(body.get("azimuth", feat["properties"].get("azimuth", 0)))
+                            azimuth = float(body["azimuth"]) if "azimuth" in body else _map_azimuth(feat["properties"])
                             # Используем CoordinateCalculation для точного расчёта
                             from core.coordinate_calculation import CoordinateCalculation
                             calc = CoordinateCalculation()
@@ -888,6 +811,8 @@ def api_sign_update(sign_id: str):
                         coords[1][0] = new_lon2
                         coords[1][1] = new_lat2
             
+            if "azimuth" in body:
+                feat["properties"]["azimuth_mode"] = "manual"
             updated = True
             break
 
@@ -968,139 +893,51 @@ def api_img(image_id: str):
     return send_file(path, mimetype="image/png")
 
 
+@app.route("/api/video_position")
+def api_video_position():
+    from server.map_media import video_position
+    try:
+        paths = [os.path.join(config.PATH_TO_VIDEO, name) for name in config.VIDEOS]
+        return jsonify(video_position(paths, float(request.args.get("frame", "nan"))))
+    except (ValueError, OSError) as error:
+        return jsonify(error=str(error)), 400
+
+
+@app.route("/api/track_window")
+def api_track_window():
+    from server.map_media import track_window
+    try:
+        if not config.PATH_TO_GPX:
+            return jsonify(before=[], after=[], position=None, available=False)
+        return jsonify(track_window(config.PATH_TO_GPX, float(request.args.get("seconds", "nan"))))
+    except (ValueError, OSError) as error:
+        return jsonify(error=str(error)), 400
+
+
 @app.route("/api/video_clip/<int:video_idx>")
 def api_video_clip(video_idx: int):
-    """
-    ЗАДАЧА 3 (Путь A): Раздача короткого WebM-клипа для плеера на карте.
-    Транскодирует H.264 → VP9+Opus через ffmpeg с кэшированием на диске.
-    
-    Query params:
-        start (float): секунда начала клипа (default: 0)
-        duration (float): длина клипа в секундах (default: 15)
-    """
-    import shutil
-    import subprocess
-    import sys
-    
-    start = float(request.args.get('start', 0))
-    duration = float(request.args.get('duration', 15))
-    
-    logger.info(f"[API /api/video_clip/{video_idx}] start={start}, duration={duration}")
-    
-    # Проверяем индекс видео
+    from server.map_media import prepare_video
     if not config.VIDEOS or video_idx >= len(config.VIDEOS):
-        return jsonify({"error": "video not found"}), 404
-    
-    # Получаем путь к исходному видео
-    if config.PATH_TO_VIDEO:
-        video_path = os.path.join(config.PATH_TO_VIDEO, config.VIDEOS[video_idx])
-    else:
-        video_path = config.VIDEOS[video_idx]
-    
-    video_path = os.path.normpath(os.path.abspath(video_path))
-    
-    if not os.path.exists(video_path):
-        return jsonify({"error": "video file not found"}), 404
-    
-    # Проверяем наличие ffmpeg
-    if not shutil.which("ffmpeg"):
-        logger.error("[API /api/video_clip] ffmpeg не найден в PATH")
-        return jsonify({
-            "error": "ffmpeg not found",
-            "message": "Для воспроизведения видео требуется ffmpeg. Установите его и добавьте в PATH.",
-            "install_url": "https://ffmpeg.org/download.html"
-        }), 503
-    
-    # Формируем путь к кэшу в подпапке
-    cache_dir = _get_clip_cache_dir(video_path)
-    video_base = os.path.splitext(os.path.basename(video_path))[0]
-    
-    # duration=0 означает "всё видео от start до конца"
-    if duration == 0:
-        cache_filename = f"{video_base}_full.webm"
-    else:
-        cache_filename = f"{video_base}_clip_{int(round(start))}_{int(duration)}.webm"
-    
-    cache_path = os.path.join(cache_dir, cache_filename)
-    
-    # Если кэш существует - отдаем его
-    if os.path.exists(cache_path):
-        logger.info(f"[API /api/video_clip] Cache hit: {cache_path}")
-        return send_file(cache_path, mimetype='video/webm', as_attachment=False)
-    
-    # Транскодируем через ffmpeg
-    logger.info(f"[API /api/video_clip] Транскодирование: {video_path} -> {cache_path}")
-    
+        return jsonify(error="Видео не найдено"), 404
     try:
-        # Параметры ffmpeg (Task D):
-        # -ss перед -i для быстрого seek по ключевым кадрам (только если start > 0)
-        # -t <duration> - длина клипа (если задана)
-        # -c:v libvpx-vp9 - VP9 видеокодек
-        # -deadline realtime - БЫСТРЫЙ кодинг (для коротких клипов)
-        # -cpu-used 8 - максимальная скорость (минимальное качество, но приемлемое для превью)
-        # -b:v 1M - битрейт видео 1 Мбит/с (компромисс скорость/качество)
-        # -c:a libopus - Opus аудиокодек
-        # -f webm - контейнер WebM
-        cmd = ['ffmpeg']
-        
-        # Добавляем -ss только если start > 0
-        if start > 0:
-            cmd.extend(['-ss', str(start)])
-        
-        cmd.extend(['-i', video_path])
-        
-        # Добавляем -t только если duration > 0
-        if duration > 0:
-            cmd.extend(['-t', str(duration)])
-        
-        cmd.extend([
-            '-c:v', 'libvpx-vp9',
-            '-deadline', 'realtime',  # Task D: быстрый кодинг
-            '-cpu-used', '8',          # Task D: максимальная скорость
-            '-b:v', '1M',
-            '-c:a', 'libopus',
-            '-f', 'webm',
-            '-y',  # overwrite output
-            cache_path
-        ])
-        
-        logger.info(f"[API /api/video_clip] Запуск ffmpeg: {' '.join(cmd)}")
-        
-        # Создаём параметры для subprocess
-        run_kwargs = {
-            'stdout': subprocess.PIPE,
-            'stderr': subprocess.PIPE,
-            'timeout': 60  # таймаут 60 секунд
-        }
-        
-        # На Windows скрываем окно консоли
-        if sys.platform == 'win32':
-            run_kwargs['creationflags'] = subprocess.CREATE_NO_WINDOW
-        
-        result = subprocess.run(cmd, **run_kwargs)
-        
-        if result.returncode != 0:
-            stderr_output = result.stderr.decode('utf-8', errors='ignore')
-            logger.error(f"[API /api/video_clip] ffmpeg failed: {stderr_output}")
-            return jsonify({
-                "error": "ffmpeg transcoding failed",
-                "details": stderr_output[-500:]  # последние 500 символов
-            }), 500
-        
-        logger.info(f"[API /api/video_clip] Транскодирование завершено: {cache_path}")
-        
-        if not os.path.exists(cache_path):
-            logger.error("[API /api/video_clip] Кэш-файл не создан")
-            return jsonify({"error": "transcode completed but cache file not found"}), 500
-        
-        return send_file(cache_path, mimetype='video/webm', as_attachment=False)
-        
-    except subprocess.TimeoutExpired:
-        logger.error("[API /api/video_clip] ffmpeg timeout")
-        return jsonify({"error": "transcode timeout (60s)"}), 504
-    except Exception as e:
-        logger.error(f"[API /api/video_clip] Unexpected error: {e}", exc_info=True)
-        return jsonify({"error": f"transcode error: {str(e)}"}), 500
+        start = float(request.args.get("start", 0))
+        duration = float(request.args.get("duration", 15))
+        path = os.path.abspath(os.path.join(config.PATH_TO_VIDEO, config.VIDEOS[video_idx]))
+        target, job = prepare_video(path, start, duration, _get_clip_cache_dir(path))
+        if request.args.get("prepare") == "1":
+            if job is not None:
+                if not job.done():
+                    return jsonify(status="preparing"), 202
+                job.result()
+            return jsonify(status="ready")
+        if job is not None:
+            job.result()
+        return send_file(target, mimetype="video/webm", conditional=True)
+    except (ValueError, OSError) as error:
+        return jsonify(error=str(error)), 400
+    except Exception as error:
+        logger.exception("Video preparation failed")
+        return jsonify(error=str(error)), 500
 
 
 @app.route("/api/video/<int:video_idx>")
@@ -1187,7 +1024,7 @@ def api_video(video_idx: int):
                 f.seek(start)
                 remaining = end - start + 1
                 while remaining > 0:
-                    chunk = f.read(min(8192, remaining))
+                    chunk = f.read(min(256 * 1024, remaining))
                     if not chunk:
                         break
                     remaining -= len(chunk)

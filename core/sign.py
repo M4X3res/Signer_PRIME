@@ -56,6 +56,7 @@ class TrackedSign:
     # ── Финальные атрибуты ────────────────────────────────────────
     azimuth:        float = 0.0
     is_left:        bool  = False
+    is_overhead_lane_sign: bool = False  # Знак над полосой; сторона задана полосой, не OSM
     is_turn:        bool  = False
     turn_direction: str   = "straight"
     number:         int   = 0        # позиция на повороте (0–8)

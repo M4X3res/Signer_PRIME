@@ -137,6 +137,19 @@ class MainWindow(QMainWindow):
         # SettingsPage создаётся лениво — license_manager устанавливается в setattr из main.py
         # Временно создаём без license_manager, он будет передан через property setter
         self.page_settings    = SettingsPage()
+        from configs.settings import get_app_settings
+        def map_settings_signature():
+            settings = get_app_settings()
+            return tuple(getattr(settings, key) for key in (
+                'map_local_background_enabled', 'map_tile_type', 'map_tile_url', 'map_vector_style_url',
+                'map_tile_use_proxy', 'map_tile_attribution', 'map_tile_max_zoom'))
+        self._map_settings_signature = map_settings_signature()
+        def refresh_map_settings():
+            signature = map_settings_signature()
+            if signature != self._map_settings_signature:
+                self._map_settings_signature = signature
+                self.page_map._reload_map()
+        self.page_settings.settings_changed.connect(refresh_map_settings)
 
         self._pages.addWidget(self.page_dashboard)   # index 0
         self._pages.addWidget(self.page_processing)  # index 1
@@ -182,6 +195,7 @@ class MainWindow(QMainWindow):
         
         # ЗАДАЧА 4 (P2): Редактор ошибок — показать на карте
         self.page_errors.show_on_map.connect(self._on_show_sign_on_map)
+        self.page_errors.geojson_loaded.connect(self._on_editor_geojson_loaded)
         
         # Карта — прыжок к секунде
         self.page_map.jump_to_second.connect(self._on_jump_to_second)
@@ -189,6 +203,7 @@ class MainWindow(QMainWindow):
         # ── Wire dashboard signals ──────────────────────────────
         self.page_dashboard.start_requested.connect(self._on_start)
         self.page_dashboard.multiple_requested.connect(self._on_multiple)
+        self.page_dashboard.existing_geojson_requested.connect(self._open_existing_geojson)
         self.page_processing.finish_requested.connect(self._on_finish_requested)
         self.page_processing.pause_requested.connect(self._on_pause_requested)
         self.page_processing.resume_requested.connect(self._on_resume_requested)
@@ -717,6 +732,52 @@ class MainWindow(QMainWindow):
         # Передаём sign_id в MapPage для фокусировки
         self.page_map.focus_sign(sign_id)
 
+    def _on_editor_geojson_loaded(self, path: str) -> None:
+        """Синхронизирует карту после выбора файла в редакторе."""
+        config.PATH_TO_GEOJSON = os.path.normpath(path)
+        if self.page_map._server_ready:
+            self.page_map._reload_map()
+
+    def _open_existing_geojson(self, path: str) -> None:
+        """Открывает готовый результат одновременно в редакторе и на карте."""
+        if getattr(self, '_saving_results', False) or (self._controller and self._controller.is_running):
+            self.status_bar.set_status("Дождитесь завершения обработки и сохранения")
+            return
+        import json
+        try:
+            with open(path, encoding="utf-8-sig") as stream:
+                data = json.load(stream)
+            if data.get("type") != "FeatureCollection" or not isinstance(data.get("features"), list):
+                raise ValueError("Ожидается GeoJSON FeatureCollection")
+        except (OSError, ValueError, AttributeError) as error:
+            QMessageBox.warning(self, "Не удалось открыть GeoJSON", str(error))
+            return
+        path = os.path.normpath(path)
+        if not os.path.isfile(path):
+            self.status_bar.set_status("GeoJSON не найден", theme_manager.tokens["error"])
+            return
+        config.PATH_TO_GEOJSON = path
+        self.page_dashboard._pick_geojson.set_path(path)
+        self.page_errors.load_geojson(path)
+        self._switch_page("map")
+        self.sidebar.set_page("map")
+        if not self.page_map._server_ready:
+            self.page_map.start_server()
+        else:
+            self.page_map._reload_map()
+        # Сервер уже мог быть открыт до выбора файла. Повторяем запрос после
+        # смены пути, чтобы страница не оставалась с пустым старым снимком.
+        QTimer.singleShot(1200, self._refresh_opened_geojson_map)
+        self.status_bar.set_status("Обработанный GeoJSON открыт", theme_manager.tokens["success"])
+
+    def _refresh_opened_geojson_map(self) -> None:
+        if not self.page_map._webview:
+            return
+        self.page_map._webview.page().runJavaScript(
+            "(async()=>{if(typeof loadSigns==='function') await loadSigns(); "
+            "if(window.refreshMapViewport) window.refreshMapViewport();})();"
+        )
+
     def _load_and_show_frame(self, video_idx: int, frame_num: int) -> bool:
         """
         Загружает конкретный кадр из видео и отображает его на странице обработки.
@@ -810,10 +871,6 @@ class MainWindow(QMainWindow):
             event.ignore()
             return
         manager = getattr(self, 'license_manager', None)
-        if manager and manager._verify_workers:
-            event.ignore()
-            QTimer.singleShot(200, self.close)
-            return
         if getattr(self, '_saving_results', False):
             self.page_processing.log("Дождитесь завершения сохранения результатов", "info")
             event.ignore()
@@ -832,6 +889,12 @@ class MainWindow(QMainWindow):
                 QTimer.singleShot(200, self.close)
                 return
         try:
+            if manager:
+                manager.shutdown()
+            from server.map_media import shutdown_video_jobs
+            shutdown_video_jobs()
+            from server.background_store import store as background_store
+            background_store.shutdown()
             # Очищаем ресурсы редактора
             self.page_errors.cleanup()
             
