@@ -11,7 +11,8 @@ from pathlib import Path
 import io
 
 # Устанавливаем UTF-8 для stdout
-sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8')
+if __name__ == '__main__' and hasattr(sys.stdout, 'reconfigure'):
+    sys.stdout.reconfigure(encoding='utf-8')
 
 # Добавляем корень проекта в sys.path
 project_root = Path(__file__).parent.parent

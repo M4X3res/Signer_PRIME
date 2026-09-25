@@ -41,7 +41,7 @@ class TestGeometricSideDetermination:
         )
         assert result_right is not None
         side_right = result_right[7]  # 8-й элемент tuple
-        assert side_right == False, "Знак восточнее линии должен быть справа (False) при движении на юг"
+        assert side_right is True, "Восток находится слева при движении на юг"
         
         # Знак слева от направления way (запад от линии)
         sign_left = (53.905, 27.555)  # lon < 27.560 = западнее = слева при движении на юг
@@ -50,7 +50,7 @@ class TestGeometricSideDetermination:
         )
         assert result_left is not None
         side_left = result_left[7]
-        assert side_left == True, "Знак западнее линии должен быть слева (True) при движении на юг"
+        assert side_left is False, "Запад находится справа при движении на юг"
     
     def test_side_determination_east_west_road(self):
         """
@@ -115,7 +115,7 @@ class TestGeometricSideDetermination:
         )
         assert result_ne is not None
         side_ne = result_ne[7]
-        assert side_ne == False, "Знак северо-восточнее диагонали должен быть справа"
+        assert side_ne is True, "Северо-восток слева при движении на юго-восток"
         
         # Знак юго-западнее диагонали = слева при движении на юго-восток
         sign_sw = (53.898, 27.545)
@@ -124,7 +124,7 @@ class TestGeometricSideDetermination:
         )
         assert result_sw is not None
         side_sw = result_sw[7]
-        assert side_sw == True, "Знак юго-западнее диагонали должен быть слева"
+        assert side_sw is False, "Юго-запад справа при движении на юго-восток"
 
 
 class TestDuplicateDetection:
@@ -148,12 +148,14 @@ class TestDuplicateDetection:
         sign1.cnn_results = ["1.1", "1.1", "1.1"]  # best_cnn = "1.1"
         sign1.car_x = [100.0, 101.0, 102.0]
         sign1.car_y = [200.0, 201.0, 202.0]
+        sign1.frame_numbers = [10, 11, 12]
         sign1.abs_frame_numbers = [10, 11, 12]
         
         sign2 = TrackedSign()
         sign2.cnn_results = ["1.1", "1.1"]  # тот же best_cnn
         sign2.car_x = [108.0, 109.0]  # на 6-7м дальше
         sign2.car_y = [208.0, 209.0]
+        sign2.frame_numbers = [15, 16]
         sign2.abs_frame_numbers = [15, 16]
         
         # Замокированные snap результаты: оба на одной дороге, похожее distance_m

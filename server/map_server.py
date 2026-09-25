@@ -149,16 +149,28 @@ socketio = SocketIO(
 # Колбэки — устанавливаются снаружи через set_callbacks()
 _on_jump_to_second: callable = None   # (seconds: int) → None
 _on_sign_updated:   callable = None   # (sign_id: str)  → None
+_on_open_editor: callable = None
 
 # Флаги состояния
 _processing_active = False
 _data_ready = False
 
 
-def set_callbacks(on_jump=None, on_sign_updated=None):
-    global _on_jump_to_second, _on_sign_updated
+def set_callbacks(on_jump=None, on_sign_updated=None, on_open_editor=None):
+    global _on_jump_to_second, _on_sign_updated, _on_open_editor
     _on_jump_to_second  = on_jump
     _on_sign_updated    = on_sign_updated
+    _on_open_editor = on_open_editor
+
+
+@app.route('/api/sign/<sign_id>/open_editor', methods=['POST'])
+def api_open_sign_editor(sign_id):
+    if _on_open_editor is None:
+        return jsonify(error='Откройте карту внутри Signer для перехода в редактор.'), 409
+    if not any(str(f.get('properties', {}).get('id')) == sign_id for f in _load_geojson().get('features', [])):
+        return jsonify(error='Знак не найден в текущем GeoJSON.'), 404
+    _on_open_editor(sign_id)
+    return jsonify(ok=True)
 
 
 def set_processing_state(active: bool):

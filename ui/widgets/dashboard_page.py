@@ -221,6 +221,7 @@ class StatCard(QWidget):
 class DashboardPage(QWidget):
     # Сигналы для ButtonsHandler
     start_requested = pyqtSignal()
+    compare_existing_requested = pyqtSignal()
     multiple_requested = pyqtSignal()
     existing_geojson_requested = pyqtSignal(str)
 
@@ -356,6 +357,12 @@ class DashboardPage(QWidget):
         self._open_existing_btn.setMinimumHeight(36)
         self._open_existing_btn.clicked.connect(self._open_existing_geojson)
         files_layout.addWidget(self._open_existing_btn)
+        compare_btn = QPushButton("Сверить выбранные GeoJSON…")
+        compare_btn.setToolTip("Сравнить GeoJSON из поля выше с существующими знаками. Результат сохраняется отдельно.")
+        compare_btn.setObjectName("BtnSecondary")
+        compare_btn.setMinimumHeight(36)
+        compare_btn.clicked.connect(self.compare_existing_requested.emit)
+        files_layout.addWidget(compare_btn)
 
         root.addWidget(files_card)
         root.addSpacing(16)
@@ -379,6 +386,8 @@ class DashboardPage(QWidget):
             self._pick_gpx.set_path(config.PATH_TO_GPX)
         if config.PATH_TO_GEOJSON:
             self._pick_geojson.set_path(config.PATH_TO_GEOJSON)
+        if config.PATH_TO_EXTRA_LAYERS:
+            self._pick_extra.set_path(config.PATH_TO_EXTRA_LAYERS)
         self._update_stats()
         self._check_ready()
 
@@ -456,7 +465,7 @@ class DashboardPage(QWidget):
         self._check_ready()
 
     def _on_geojson_changed(self, path: str):
-        if not path.endswith(".geojson"):
+        if path and not path.lower().endswith((".geojson", ".json")):
             path += ".geojson"
         config.PATH_TO_GEOJSON = path
         self._check_ready()

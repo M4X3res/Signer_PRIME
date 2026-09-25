@@ -1096,6 +1096,7 @@ class ErrorEditorPage(QWidget):
 
             if data.get("type") != "FeatureCollection" or not isinstance(data.get("features"), list):
                 raise ValueError("Ожидается GeoJSON FeatureCollection")
+            self._loaded_geojson_path = os.path.abspath(target)
             config.PATH_TO_GEOJSON = os.path.normpath(target)
 
             features = data.get("features", [])

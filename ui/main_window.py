@@ -7,7 +7,7 @@ from licensing.license_manager import LicenseStatus
 
 from PyQt6.QtWidgets import (
     QMainWindow, QWidget, QHBoxLayout, QVBoxLayout,
-    QLabel, QStackedWidget, QFrame, QSizePolicy, QMessageBox
+    QLabel, QStackedWidget, QFrame, QSizePolicy, QMessageBox, QFileDialog
 )
 from PyQt6.QtCore import Qt, QTimer
 from PyQt6.QtGui import QPixmap, QImage
@@ -194,6 +194,8 @@ class MainWindow(QMainWindow):
         self.page_errors.jump_to_frame.connect(self._on_editor_jump)
         
         # ЗАДАЧА 4 (P2): Редактор ошибок — показать на карте
+        self.page_map.open_sign_editor.connect(self._on_open_sign_editor)
+        self.page_dashboard.compare_existing_requested.connect(self._compare_saved_geojson)
         self.page_errors.show_on_map.connect(self._on_show_sign_on_map)
         self.page_errors.geojson_loaded.connect(self._on_editor_geojson_loaded)
         
@@ -717,6 +719,82 @@ class MainWindow(QMainWindow):
                 f"Не удалось загрузить кадр: видео {video_idx + 1}, кадр {frame_num}", "error"
             )
     
+    def _on_open_sign_editor(self, sign_id: str) -> None:
+        page = self.page_errors
+        same_file = os.path.normcase(getattr(page, '_loaded_geojson_path', '')) == os.path.normcase(os.path.abspath(config.PATH_TO_GEOJSON))
+        found = any(str(r.id) == str(sign_id) and not r.deleted for r in page._model.all_records())
+        if not same_file or not found:
+            if any(r.modified or r.deleted for r in page._model.all_records()):
+                QMessageBox.warning(self, "Редактор знаков", "Сначала сохраните изменения открытого в редакторе файла.")
+                return
+            page.load_geojson(config.PATH_TO_GEOJSON)
+        for row, record in enumerate(page._model.all_records()):
+            if str(record.id) == str(sign_id) and not record.deleted:
+                self._switch_page("errors")
+                self.sidebar.set_page("errors")
+                index = page._model.index(row, 0)
+                page._list_view.setCurrentIndex(index)
+                page._list_view.scrollTo(index)
+                return
+        QMessageBox.warning(self, "Редактор знаков", "Знак не найден в списке редактора. Перезагрузите GeoJSON.")
+
+    @online_action
+    def _compare_saved_geojson(self) -> None:
+        controller = getattr(self, '_controller', None)
+        if getattr(self, '_saving_results', False) or (controller is not None and controller.is_running):
+            QMessageBox.information(self, "Сверка знаков", "Дождитесь завершения текущей обработки.")
+            return
+        if any(r.modified or r.deleted for r in self.page_errors._model.all_records()):
+            QMessageBox.warning(self, "Сверка знаков", "Сначала сохраните изменения в редакторе.")
+            return
+        existing = config.PATH_TO_EXTRA_LAYERS
+        if not existing:
+            QMessageBox.information(self, "Сверка знаков", "Выберите файл в поле «Существующие знаки для сверки».")
+            return
+        from pathlib import Path
+        processed = config.PATH_TO_GEOJSON
+        if not processed or not Path(processed).is_file():
+            processed, _ = QFileDialog.getOpenFileName(self, "Выберите уже обработанный GeoJSON",
+                processed or "", "GeoJSON (*.geojson *.json)")
+            if not processed:
+                return
+        existing_file, processed_file = Path(existing).resolve(), Path(processed).resolve()
+        if existing_file == processed_file or (
+            existing_file.is_file() and processed_file.is_file()
+            and existing_file.samefile(processed_file)
+        ):
+            QMessageBox.warning(self, "Сверка знаков",
+                "Для сверки указан один и тот же файл. Выберите разные файлы в полях GeoJSON "
+                "и «Существующие знаки для сверки».\n\n"
+                f"Существующие знаки: {existing_file}\nОбработанные знаки: {processed_file}")
+            return
+        default_output = str(Path(processed).with_name(Path(processed).stem + '_compared.geojson'))
+        output, _ = QFileDialog.getSaveFileName(self, "Сохранить результат сверки отдельно", default_output, "GeoJSON (*.geojson)")
+        if not output:
+            return
+        from configs.settings import get_app_settings
+        from ui.widgets.inventory_compare_worker import InventoryCompareWorker
+        settings = get_app_settings()
+        self._inventory_worker = InventoryCompareWorker(existing, processed, output,
+            settings.dedup_radius_final_m, settings.dedup_azimuth_deg, self)
+        self._saving_results = True
+        self.page_dashboard.set_processing_active(True)
+        self.status_bar.set_status("Сверка существующих знаков с обработанным GeoJSON…")
+        self._inventory_worker.finished.connect(self._on_inventory_compared)
+        self._inventory_worker.start()
+
+    def _on_inventory_compared(self) -> None:
+        worker = self._inventory_worker
+        self._saving_results = False
+        self.page_dashboard.set_processing_active(False)
+        if worker.error_text:
+            QMessageBox.warning(self, "Не удалось выполнить сверку", worker.error_text)
+        else:
+            self._open_existing_geojson(worker.output)
+            self.status_bar.set_status(f"Сверка завершена: {worker.count} знаков в отдельном файле")
+        worker.deleteLater()
+        self._inventory_worker = None
+
     def _on_show_sign_on_map(self, sign_id: str) -> None:
         """
         ЗАДАЧА 4 (P2): Переключает на вкладку "Карта" и просит веб-страницу карты 

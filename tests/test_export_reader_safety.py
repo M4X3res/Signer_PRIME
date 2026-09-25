@@ -17,7 +17,7 @@ class ExportReaderSafetyTests(unittest.TestCase):
             path = Path(directory) / 'data.json'
             path.write_text('{"old": true}')
             method = load_methods('core/final_handler.py', 'FinalHandler', ['save_result'],
-                config=types.SimpleNamespace(PATH_TO_GEOJSON=str(path)), logger=Mock(),
+                config=types.SimpleNamespace(PATH_TO_GEOJSON=str(path), PATH_TO_EXTRA_LAYERS=''), logger=Mock(),
                 FeatureCollection=lambda features: {'features': features},
                 atomic_write_json=atomic_write_json).save_result
             for stage in ('_process_straight_signs', '_process_turn_signs', '_deduplicate'):

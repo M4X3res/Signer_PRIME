@@ -41,6 +41,7 @@ class CheckpointTests(unittest.TestCase):
         self.config = types.SimpleNamespace(**{key: 0 for key in (
             "INDEX_OF_FRAME", "INDEX_OF_VIDEO", "INDEX_OF_All_FRAME", "INDEX_OF_GPS",
             "FRAME_STEP", "VIDEOS", "PATH_TO_VIDEO", "PATH_TO_GPX", "PATH_TO_GEOJSON")})
+        self.config.PATH_TO_EXTRA_LAYERS = ''
         self.handler = types.SimpleNamespace(result_signs=["pending"], signs=["active"], turns=[])
         self.obj = types.SimpleNamespace(
             _last_checkpoint_time=0, CHECKPOINT_INTERVAL=60, CHECKPOINT_PATH=str(self.path),
@@ -236,7 +237,9 @@ class SaveLifecycleTests(unittest.TestCase):
         server.emit_processing_finished = Mock()
         qt = types.ModuleType("PyQt6.QtCore")
         qt.QTimer = Mock()
-        with patch.dict(sys.modules, {"server.map_server": server, "PyQt6.QtCore": qt}):
+        access = types.ModuleType("licensing.access")
+        access.get_manager = lambda: None
+        with patch.dict(sys.modules, {"server.map_server": server, "PyQt6.QtCore": qt, "licensing.access": access}):
             self.methods._on_save_finished(self.window, 12)
         self.window._controller.delete_checkpoint.assert_called_once_with()
         server.emit_processing_finished.assert_called_once_with(12)

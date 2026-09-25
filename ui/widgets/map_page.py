@@ -33,6 +33,7 @@ class _VideoFullscreenWindow(QDialog):
 
 class MapPage(QWidget):
     jump_to_second = pyqtSignal(int)
+    open_sign_editor = pyqtSignal(str)
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -157,6 +158,7 @@ class MapPage(QWidget):
             from server.map_server import set_callbacks
             set_callbacks(
                 on_jump=lambda s: self.jump_to_second.emit(s),
+                on_open_editor=lambda ident: self.open_sign_editor.emit(ident),
             )
         except Exception:
             pass
